@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  database:
+    build: "./database"
+    environment:
+      NEO4J_AUTH: "neo4j/davadava"
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    networks:
+      - persistence
+    volumes:
+      - "neo4j:/opt/data"
+  backend:
+    build: "./backend"
+    ports:
+      - "8080:8080"
+    networks:
+      - persistence
+      - application
+    depends_on:
+      - database
+  frontend:
+    build: "./frontend"
+    ports:
+      - "4040:5173"
+    networks:
+      - application
+    depends_on:
+      - backend
+
+networks:
+  persistence:
+  application:
+
+volumes:
+  neo4j:

@@ -80,4 +80,22 @@
 		</plugins>
 	</build>
 
+  <profiles>
+    <profile>
+      <id>development</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <spring.profiles.active>development</spring.profiles.active>
+      </properties>
+    </profile>
+    <profile>
+      <id>docker</id>
+      <properties>
+        <spring.profiles.active>docker</spring.profiles.active>
+      </properties>
+    </profile>
+  </profiles>
+
 </project>

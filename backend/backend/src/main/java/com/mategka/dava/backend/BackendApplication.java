@@ -1,4 +1,4 @@
-package com.mategka.backend;
+package com.mategka.dava.backend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

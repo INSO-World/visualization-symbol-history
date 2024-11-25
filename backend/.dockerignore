@@ -1,1 +1,5 @@
-target
+**/target
+**/*.md
+.gitattributes
+.gitignore
+mvnw.cmd

@@ -1,8 +1,9 @@
 FROM eclipse-temurin:21-jdk
 WORKDIR /app
 COPY . .
+RUN ./mvnw install -f analyzer/pom.xml -DskipTests
 EXPOSE 8080
-ENTRYPOINT ./mvnw spring-boot:run
+ENTRYPOINT ./mvnw spring-boot:run -f backend/pom.xml -DskipTests
 
 #FROM eclipse-temurin:21-jdk AS build
 #WORKDIR /app

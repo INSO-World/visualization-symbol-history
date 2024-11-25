@@ -23,6 +23,7 @@ services:
       - database
   frontend:
     build: "./frontend"
+    container_name: "dava-frontend"
     ports:
       - "4040:5173"
     networks:

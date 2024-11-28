@@ -17,6 +17,21 @@
   </properties>
   <dependencies>
     <dependency>
+      <groupId>com.github.tsantalis</groupId>
+      <artifactId>refactoring-miner</artifactId>
+      <version>3.0.9</version>
+    </dependency>
+    <dependency>
+      <groupId>fr.inria.gforge.spoon</groupId>
+      <artifactId>spoon-core</artifactId>
+      <version>11.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jgit</groupId>
+      <artifactId>org.eclipse.jgit</artifactId>
+      <version>6.10.0.202406032230-r</version>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
       <version>5.11.3</version>

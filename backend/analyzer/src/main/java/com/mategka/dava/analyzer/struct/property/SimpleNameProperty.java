@@ -1,7 +1,6 @@
-package com.mategka.dava.analyzer.struct.property.impl;
+package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
-import com.mategka.dava.analyzer.struct.property.SimpleProperty;
 
 @PropertyKey("simpleName")
 public record SimpleNameProperty(String value) implements SimpleProperty<String> { }

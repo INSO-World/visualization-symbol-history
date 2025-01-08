@@ -17,15 +17,35 @@
   </properties>
   <dependencies>
     <!--suppress VulnerableLibrariesLocal -->
-    <dependency>
+    <!--<dependency>
       <groupId>com.github.tsantalis</groupId>
       <artifactId>refactoring-miner</artifactId>
-      <version>3.0.9</version>
+      <version>3.0.10</version>
+    </dependency>-->
+    <dependency>
+      <groupId>com.github.gumtreediff</groupId>
+      <artifactId>core</artifactId>
+      <version>4.0.0-beta3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.16</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>2.0.16</version>
     </dependency>
     <dependency>
       <groupId>fr.inria.gforge.spoon</groupId>
       <artifactId>spoon-core</artifactId>
       <version>11.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>fr.inria.gforge.spoon.labs</groupId>
+      <artifactId>gumtree-spoon-ast-diff</artifactId>
+      <version>1.94</version>
     </dependency>
     <dependency>
       <groupId>org.eclipse.jgit</groupId>

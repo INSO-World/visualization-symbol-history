@@ -1,8 +1,6 @@
 package com.mategka.dava.analyzer.struct;
 
-import com.google.common.graph.Graph;
-import com.google.common.graph.GraphBuilder;
-import com.google.common.graph.MutableGraph;
+import com.google.common.graph.*;
 import com.mategka.dava.analyzer.git.Commits;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import lombok.AccessLevel;
@@ -52,88 +50,8 @@ public class History {
   //               (including output symbol property updates IF output symbol is NEW)
   // During scan: commits have branch ID based on concurrent traversal path counts
   //              keep track of all latest symbol states for all branch IDs
-  // On merge commits: assume changes from incoming branch are "incorporated" (n-way merge necessary?)
-  // In final result: include final state of all then-present and removed symbols on primary branch
-
-  @Deprecated
-  @SuppressWarnings("UnstableApiUsage")
-  public static History emptyOfBranchSinglePass(@NotNull Repository repository, Ref head) throws IOException {
-    Set<Branch> baseBranches = new HashSet<>();
-    MutableGraph<Branch> branchDag = GraphBuilder.directed().allowsSelfLoops(false).build();
-    Map<String, Branch> branchMapping = new HashMap<>();
-    try (RevWalk revWalk = Commits.topological(repository, head)) {
-      Set<String> separatedParents = new HashSet<>();
-      var initialBranch = Branch.builder().id(0).name(head.getName()).build();
-      baseBranches.add(initialBranch);
-      branchDag.addNode(initialBranch);
-      boolean first = true;
-      for (RevCommit commit : revWalk) {
-        var sha = commit.getId().getName();
-        if (first) {
-          branchMapping.put(sha, initialBranch);
-          first = false;
-        }
-        var assignedBranch = branchMapping.get(sha);
-        var parentShasByMappingExistence = Arrays.stream(commit.getParents())
-          .map(RevObject::getId)
-          .map(AnyObjectId::getName)
-          .collect(Collectors.partitioningBy(branchMapping::containsKey));
-        var encounteredParentShas = parentShasByMappingExistence.get(true);
-        var newParentShas = parentShasByMappingExistence.get(false);
-        if (!encounteredParentShas.isEmpty() || newParentShas.size() > 1) {
-          baseBranches.remove(assignedBranch);
-        }
-        for (var parentSha : encounteredParentShas) {
-          var mappedBranch = branchMapping.get(parentSha);
-          if (separatedParents.contains(parentSha)) {
-            branchDag.putEdge(mappedBranch, assignedBranch);
-          } else {
-            baseBranches.remove(mappedBranch);
-            var parentBranch = Branch.builder().id(branchDag.nodes().size()).name(parentSha).build();
-            branchDag.addNode(parentBranch);
-            branchDag.putEdge(parentBranch, assignedBranch);
-            branchDag.putEdge(parentBranch, mappedBranch);
-            baseBranches.add(parentBranch);
-            branchMapping.put(parentSha, parentBranch);
-            separatedParents.add(parentSha);
-          }
-        }
-        if (newParentShas.isEmpty()) {
-          continue;
-        }
-        var parentCount = encounteredParentShas.size() + newParentShas.size();
-        if (parentCount == 1) {
-          var parentSha = newParentShas.getFirst();
-          branchMapping.put(parentSha, assignedBranch);
-        } else {
-          for (String parentSha : newParentShas) {
-            var parentBranch = Branch.builder().id(branchDag.nodes().size()).name(commit.getShortMessage()).build();
-            branchDag.addNode(parentBranch);
-            branchDag.putEdge(parentBranch, assignedBranch);
-            baseBranches.add(parentBranch);
-            branchMapping.put(parentSha, parentBranch);
-            separatedParents.add(parentSha);
-          }
-        }
-        commit.disposeBody();
-      }
-      System.out.println(
-        branchDag.edges().stream()
-          .map(e -> "%d %d".formatted(e.nodeU().getId(), e.nodeV().getId()))
-          .collect(Collectors.joining("\n"))
-      );
-      System.out.println(
-        branchDag.nodes().stream()
-          .map(b -> "%d %s".formatted(b.getId(), b.getName()))
-          .collect(Collectors.joining("\n"))
-      );
-    }
-    return History.builder()
-      .baseBranches(baseBranches)
-      .branchDag(branchDag)
-      .branchMapping(branchMapping)
-      .build();
-  }
+  // On merge commits: assume changes from incoming branch are "incorporated" (n-way merge necessary)
+  // In final result: include final state of all then-present and removed symbols on branch of HEAD
 
   @SuppressWarnings("UnstableApiUsage")
   public static History emptyOfBranch(@NotNull Repository repository, Ref head) throws IOException {
@@ -181,17 +99,26 @@ public class History {
           branchMapping.put(sha, parentBranches.getFirst());
         }
       }
-      System.out.println(
-        branchDag.edges().stream()
-          .map(e -> "%d %d".formatted(e.nodeU().getId(), e.nodeV().getId()))
-          .collect(Collectors.joining("\n"))
-      );
-      System.out.println(
-        branchDag.nodes().stream()
-          .map(b -> "%d %s".formatted(b.getId(), b.getName()))
-          .collect(Collectors.joining("\n"))
-      );
     }
+    System.out.println(
+      branchDag.edges().stream()
+        .map(e -> "%d %d".formatted(e.nodeU().getId(), e.nodeV().getId()))
+        .collect(Collectors.joining("\n"))
+    );
+    System.out.println(
+      branchDag.nodes().stream()
+        .map(b -> "%s -> %d -> %s".formatted(
+          branchDag.predecessors(b).stream().map(Branch::getId).toList(),
+          b.getId(),
+          branchDag.successors(b).stream().map(Branch::getId).toList()
+        ))
+        .collect(Collectors.joining("\n"))
+    );
+    System.out.println(
+      branchDag.nodes().stream()
+        .map(b -> "%d %s".formatted(b.getId(), b.getName()))
+        .collect(Collectors.joining("\n"))
+    );
     return History.builder()
       .baseBranches(baseBranches)
       .branchDag(branchDag)

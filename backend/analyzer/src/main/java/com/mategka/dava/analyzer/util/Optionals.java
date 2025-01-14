@@ -2,17 +2,13 @@ package com.mategka.dava.analyzer.util;
 
 import lombok.experimental.UtilityClass;
 
-import java.util.Collection;
 import java.util.Optional;
 import java.util.SequencedCollection;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @UtilityClass
 public class Optionals {
-
-
 
   public <T> Optional<T> cast(Optional<? super T> optional, Class<T> targetType) {
     return optional.filter(targetType::isInstance).map(targetType::cast);

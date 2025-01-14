@@ -30,6 +30,13 @@ public class AbstractPath implements Comparable<AbstractPath>, Iterable<Abstract
     return path.startsWith(separator) ? absolute(path, separator) : relative(path, separator);
   }
 
+  public static AbstractPath of(List<String> components) {
+    if (components.isEmpty()) {
+      return EMPTY;
+    }
+    return new AbstractPath(components);
+  }
+
   public static AbstractPath relative(String path, String separator) {
     requireValidPath(path, separator);
     if (path.isEmpty()) {

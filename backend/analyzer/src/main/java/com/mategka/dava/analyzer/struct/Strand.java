@@ -9,7 +9,7 @@ import java.util.List;
 
 @Value
 @Builder
-public class Branch {
+public class Strand {
 
   long id;
 

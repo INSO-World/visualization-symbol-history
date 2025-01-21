@@ -1,6 +1,8 @@
 package com.mategka.dava.analyzer.struct;
 
-import com.google.common.graph.*;
+import com.google.common.graph.Graph;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.MutableGraph;
 import com.mategka.dava.analyzer.git.CommitOrder;
 import com.mategka.dava.analyzer.git.RepositoryWrapper;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;

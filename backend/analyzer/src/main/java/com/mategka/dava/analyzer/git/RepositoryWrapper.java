@@ -31,6 +31,30 @@ public class RepositoryWrapper implements AutoCloseable {
 
   Repository repository;
 
+  public static RepositoryWrapper open(@NotNull String repositoryPath) throws IOException {
+    var repository = new RepositoryBuilder()
+      .setMustExist(true)
+      .setGitDir(getGitFolder(repositoryPath))
+      .build();
+    return new RepositoryWrapper(repository);
+  }
+
+  private static File getGitFolder(@NotNull String repositoryPath) throws FileNotFoundException {
+    File folder = new File(repositoryPath);
+    if (!folder.exists() || !folder.isDirectory()) {
+      throw new FileNotFoundException(repositoryPath);
+    }
+    Path currentPath = folder.toPath();
+    while (currentPath != null) {
+      File gitFolder = currentPath.resolve(".git").toFile();
+      if (gitFolder.exists() && gitFolder.isDirectory()) {
+        return gitFolder;
+      }
+      currentPath = currentPath.getParent();
+    }
+    throw new FileNotFoundException(folder.getPath());
+  }
+
   public Optional<Ref> resolveRef(@NotNull String name) {
     try {
       return Optional.ofNullable(repository.findRef(name));
@@ -76,7 +100,10 @@ public class RepositoryWrapper implements AutoCloseable {
   }
 
   public Result<String, IOException> readFile(ObjectId objectId) {
-    try (ObjectReader reader = repository.newObjectReader(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+    try (
+      ObjectReader reader = repository.newObjectReader();
+      ByteArrayOutputStream output = new ByteArrayOutputStream()
+    ) {
       reader.open(objectId).copyTo(output);
       return Results.success(output.toString(StandardCharsets.UTF_8));
     } catch (IOException e) {
@@ -86,30 +113,6 @@ public class RepositoryWrapper implements AutoCloseable {
 
   public Result<String, IOException> readFile(DiffEntry diff, DiffEntry.Side side) {
     return readFile(diff.getId(side).toObjectId());
-  }
-
-  public static RepositoryWrapper open(@NotNull String repositoryPath) throws IOException {
-    var repository = new RepositoryBuilder()
-      .setMustExist(true)
-      .setGitDir(getGitFolder(repositoryPath))
-      .build();
-    return new RepositoryWrapper(repository);
-  }
-
-  private static File getGitFolder(@NotNull String repositoryPath) throws FileNotFoundException {
-    File folder = new File(repositoryPath);
-    if (!folder.exists() || !folder.isDirectory()) {
-      throw new FileNotFoundException(repositoryPath);
-    }
-    Path currentPath = folder.toPath();
-    while (currentPath != null) {
-      File gitFolder = currentPath.resolve(".git").toFile();
-      if (gitFolder.exists() && gitFolder.isDirectory()) {
-        return gitFolder;
-      }
-      currentPath = currentPath.getParent();
-    }
-    throw new FileNotFoundException(folder.getPath());
   }
 
   @Override

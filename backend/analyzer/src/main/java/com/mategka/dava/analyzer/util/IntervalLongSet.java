@@ -10,22 +10,6 @@ import java.util.stream.StreamSupport;
 
 public class IntervalLongSet implements Set<Long> {
 
-  private record Entry(long start, long end) {
-
-    public boolean contains(long value) {
-      return start <= value && value <= end;
-    }
-
-    public long length() {
-      return end - start + 1;
-    }
-
-    private boolean containsBeforeEnding(long value) {
-      return value <= end;
-    }
-
-  }
-
   private final NavigableSet<Entry> internalSet = new TreeSet<>(Comparator.comparingLong(Entry::start));
 
   @Override
@@ -186,6 +170,22 @@ public class IntervalLongSet implements Set<Long> {
 
   private Optional<Entry> internalFloor(Long value) {
     return Optional.ofNullable(internalSet.floor(new Entry(value, 1)));
+  }
+
+  private record Entry(long start, long end) {
+
+    public boolean contains(long value) {
+      return start <= value && value <= end;
+    }
+
+    public long length() {
+      return end - start + 1;
+    }
+
+    private boolean containsBeforeEnding(long value) {
+      return value <= end;
+    }
+
   }
 
   private class IntervalLongSetSpliterator implements Spliterator.OfLong {

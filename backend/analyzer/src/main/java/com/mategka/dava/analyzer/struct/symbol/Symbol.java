@@ -5,7 +5,9 @@ import com.mategka.dava.analyzer.struct.SymbolUpdate;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
-import lombok.*;
+import lombok.Builder;
+import lombok.NonNull;
+import lombok.Value;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;

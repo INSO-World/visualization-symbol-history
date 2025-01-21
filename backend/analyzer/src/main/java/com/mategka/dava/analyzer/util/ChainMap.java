@@ -10,44 +10,6 @@ import java.util.stream.Collectors;
 
 public class ChainMap<K, V> implements Map<K, V> {
 
-  public static class Entry<K, V> implements Map.Entry<K, V> {
-
-    private final K key;
-    private final V value;
-
-    protected Entry(final K key, final V value) {
-      this.key = key;
-      this.value = value;
-    }
-
-    @Override
-    public K getKey() {
-      return key;
-    }
-
-    @Override
-    public V getValue() {
-      return value;
-    }
-
-    @Override
-    public V setValue(V value) {
-      throw new UnsupportedOperationException("ChainMap.Entry is immutable");
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof Entry<?, ?> entry)) return false;
-      return Objects.equals(key, entry.key) && Objects.equals(value, entry.value);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(key, value);
-    }
-
-  }
-
   private final List<Map<? extends K, ? extends V>> maps;
 
   @SafeVarargs
@@ -185,6 +147,44 @@ public class ChainMap<K, V> implements Map<K, V> {
   @Override
   public V merge(K key, @NotNull V value, @NotNull BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
     throw new UnsupportedOperationException("ChainMap is immutable");
+  }
+
+  public static class Entry<K, V> implements Map.Entry<K, V> {
+
+    private final K key;
+    private final V value;
+
+    protected Entry(final K key, final V value) {
+      this.key = key;
+      this.value = value;
+    }
+
+    @Override
+    public K getKey() {
+      return key;
+    }
+
+    @Override
+    public V getValue() {
+      return value;
+    }
+
+    @Override
+    public V setValue(V value) {
+      throw new UnsupportedOperationException("ChainMap.Entry is immutable");
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Entry<?, ?> entry)) return false;
+      return Objects.equals(key, entry.key) && Objects.equals(value, entry.value);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(key, value);
+    }
+
   }
 
 }

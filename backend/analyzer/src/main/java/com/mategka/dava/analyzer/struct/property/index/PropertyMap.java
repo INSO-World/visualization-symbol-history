@@ -5,7 +5,10 @@ import com.mategka.dava.analyzer.struct.property.SimpleProperty;
 import com.mategka.dava.analyzer.util.Optionals;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;

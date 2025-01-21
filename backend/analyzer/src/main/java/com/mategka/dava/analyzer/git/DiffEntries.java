@@ -11,6 +11,10 @@ public class DiffEntries extends DiffEntry {
   private static final AbbreviatedObjectId A_ZERO = AbbreviatedObjectId
     .fromObjectId(ObjectId.zeroId());
 
+  public static DiffEntry newAddition(String path, AnyObjectId id) {
+    return new AddEntry(path, id);
+  }
+
   private static class AddEntry extends DiffEntry {
 
     private AddEntry(String path, AnyObjectId id) {
@@ -24,10 +28,6 @@ public class DiffEntries extends DiffEntry {
       changeType = ChangeType.ADD;
     }
 
-  }
-
-  public static DiffEntry newAddition(String path, AnyObjectId id) {
-    return new AddEntry(path, id);
   }
 
 }

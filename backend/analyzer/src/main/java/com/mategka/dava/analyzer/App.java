@@ -4,7 +4,10 @@ import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Table;
-import com.mategka.dava.analyzer.git.*;
+import com.mategka.dava.analyzer.git.CommitOrder;
+import com.mategka.dava.analyzer.git.FileChangeType;
+import com.mategka.dava.analyzer.git.RepositoryWrapper;
+import com.mategka.dava.analyzer.git.Side;
 import com.mategka.dava.analyzer.struct.History;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.util.*;
@@ -90,7 +93,8 @@ public class App {
               continue;
             }
             var launcher = Spoon.newLauncher();
-            Map<String, VirtualFile> effectiveFiles = new ChainMap<>(overrideFiles, pathsToLastContents.row(parentStrandId));
+            Map<String, VirtualFile> effectiveFiles = new ChainMap<>(
+              overrideFiles, pathsToLastContents.row(parentStrandId));
             effectiveFiles.values().stream()
               .filter(Objects::nonNull)
               .forEach(launcher::addInputResource);

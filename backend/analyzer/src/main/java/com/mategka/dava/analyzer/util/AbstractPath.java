@@ -4,7 +4,10 @@ import lombok.NonNull;
 
 import java.io.File;
 import java.net.URI;
-import java.nio.file.*;
+import java.nio.file.FileSystem;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
@@ -12,15 +15,17 @@ import java.util.stream.Stream;
 
 public class AbstractPath implements Comparable<AbstractPath>, Iterable<AbstractPath> {
 
+  public static final AbstractPath EMPTY = new AbstractPath(Collections.emptyList());
   private static final String ROOT_SYMBOL = "";
+  public static final AbstractPath ROOT = new AbstractPath(List.of(ROOT_SYMBOL));
   private static final String DEFAULT_SEPARATOR = "/";
   private static final String DEFAULT_CURRENT = ".";
   private static final String DEFAULT_PARENT = "..";
-
-  public static final AbstractPath EMPTY = new AbstractPath(Collections.emptyList());
-  public static final AbstractPath ROOT = new AbstractPath(List.of(ROOT_SYMBOL));
-
   private final List<String> parts;
+
+  private AbstractPath(List<String> parts) {
+    this.parts = parts;
+  }
 
   public static AbstractPath of(String path, String separator) {
     requireValidPath(path, separator);
@@ -73,8 +78,10 @@ public class AbstractPath implements Comparable<AbstractPath>, Iterable<Abstract
     return absolute(path, DEFAULT_SEPARATOR);
   }
 
-  private AbstractPath(List<String> parts) {
-    this.parts = parts;
+  private static void requireValidPath(String path, String separator) {
+    if (path.contains(separator + separator)) {
+      throw new IllegalArgumentException("Path contains empty segment based on separator \"%s\"".formatted(separator));
+    }
   }
 
   public boolean isEmpty() {
@@ -356,7 +363,9 @@ public class AbstractPath implements Comparable<AbstractPath>, Iterable<Abstract
       newParts.add(part);
     }
     if (skipCount > 0) {
-      throw new IllegalStateException("Path normalization through parent pattern \"%s\" resulted in attempted sub-root navigation".formatted(parentPattern));
+      throw new IllegalStateException(
+        "Path normalization through parent pattern \"%s\" resulted in attempted sub-root navigation".formatted(
+          parentPattern));
     }
     Collections.reverse(newParts);
     return new AbstractPath(newParts);
@@ -503,7 +512,8 @@ public class AbstractPath implements Comparable<AbstractPath>, Iterable<Abstract
    */
   public AbstractPath relativize(AbstractPath other) {
     if (!other.startsWith(this)) {
-      throw new IllegalArgumentException("Given path is not a subpath of this path and can therefore not be relativized");
+      throw new IllegalArgumentException(
+        "Given path is not a subpath of this path and can therefore not be relativized");
     }
     return new AbstractPath(other.parts.subList(parts.size(), other.parts.size()));
   }
@@ -651,12 +661,6 @@ public class AbstractPath implements Comparable<AbstractPath>, Iterable<Abstract
   @Override
   public int hashCode() {
     return Objects.hashCode(parts);
-  }
-
-  private static void requireValidPath(String path, String separator) {
-    if (path.contains(separator + separator)) {
-      throw new IllegalArgumentException("Path contains empty segment based on separator \"%s\"".formatted(separator));
-    }
   }
 
 }

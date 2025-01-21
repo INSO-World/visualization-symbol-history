@@ -3,6 +3,7 @@ package com.mategka.dava.analyzer.util;
 import lombok.experimental.UtilityClass;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.Map;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
@@ -18,6 +19,10 @@ public class Collectors2 {
 
   public Collector<String, ?, AbstractPath> toPath() {
     return Collectors.collectingAndThen(Collectors.toList(), AbstractPath::of);
+  }
+
+  public <K, V> Collector<Map.Entry<K, V>, ?, Map<K, V>> toMap() {
+    return Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue);
   }
 
 }

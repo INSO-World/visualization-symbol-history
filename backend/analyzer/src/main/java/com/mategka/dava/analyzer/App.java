@@ -1,9 +1,12 @@
 package com.mategka.dava.analyzer;
 
 import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Table;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.struct.History;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.util.*;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jgit.diff.DiffEntry;
@@ -102,28 +105,37 @@ public class App {
             var derivativeDiffPairs = Stream.of(FileChangeType.RENAMED, FileChangeType.MOVED, FileChangeType.COPIED)
               .flatMap(t -> relevantDiffs.get(t).stream().map(d -> Pair.of(t, d)))
               .toList();
+            var testOverrideSubmodels = overrideFiles.entrySet().stream()
+              .filter(e -> e.getValue() != null)
+              .map(Streams.mappingValue(Spoon::parse))
+              .collect(Collectors2.toMap());
             for (var diffPair : derivativeDiffPairs) {
               var type = diffPair.getLeft();
               var diff = diffPair.getRight();
               // Treat declared type as renamed symbol
               var oldUnit = filesToUnits.get(pathsToLastContents.get(parentStrandId, diff.getOldPath()));
               var newUnit = newUnits.get(overrideFiles.get(diff.getNewPath()));
-              var astDiff = comparator.compare(oldUnit, newUnit);
+              var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
               var editScript = astDiff.getRootOperations();
               var mappings = astDiff.getMappingsComp();
             }
             for (var diff : relevantDiffs.get(FileChangeType.MODIFIED)) {
               var oldUnit = filesToUnits.get(pathsToLastContents.get(parentStrandId, diff.getOldPath()));
               var newUnit = newUnits.get(overrideFiles.get(diff.getNewPath()));
-              var astDiff = comparator.compare(oldUnit, newUnit);
+              var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
               var editScript = astDiff.getRootOperations();
               var mappings = astDiff.getMappingsComp();
             }
             for (var diff : relevantDiffs.get(FileChangeType.ADDED)) {
               var newUnit = newUnits.get(overrideFiles.get(diff.getNewPath()));
               var packageDeclaration = newUnit.getPackageDeclaration().getReference().getQualifiedName();
-              var packagePath = getPackagePath(packageDeclaration);
+              var packageParts = packageDeclaration.split("\\.");
               var typeDeclaration = newUnit.getMainType();
+              var typeName = typeDeclaration.getSimpleName();
+              var modifiers = typeDeclaration.getModifiers();
+              var lineNumber = typeDeclaration.getPosition().getSourceStart();
+              var members = typeDeclaration.getTypeMembers();
+              int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
               var oldUnit = filesToUnits.get(pathsToLastContents.get(parentStrandId, diff.getOldPath()));
@@ -146,6 +158,21 @@ public class App {
     // Goal 4: Get all symbol changes for history
     // Goal 5: Get all structured symbol changes for history (symbol parentage, ...)
     // Side Goal: Make sure each commit-file combo is only read and parsed ONCE
+
+    /*
+    Procedure:
+    1) Get all file changes
+    2) For added files, parse the contents and add all symbols (package symbols may already exist)
+    3) For deleted files, mark all symbols associated with the file as deleted (recurs. delete packages if empty now)
+    4) For modified files, parse the contents, retrieve the previous parsed contents, diff, then add/remove accordingly
+    5) For moved and renamed files, proceed as with modifications, then:
+    5a) If no semantic changes (only package and import changes): "true" move or rename (only move or rename)
+    5b) If semantic changes: move/rename + add/remove symbols accordingly
+    5z) Add new package symbols if applicable, recursively delete package symbols if empty now
+    6) For copied files, proceed as with modifications, then:
+    6a) If no semantic changes: "true" copy (simply copy currently known symbols, add package if applicable)
+    6b) If semantic changes: treat new file like an addition (add symbols, add package if applicable)
+     */
   }
 
   private static EnumMap<FileChangeType, List<DiffEntry>> selectRelevantChanges(Collection<DiffEntry> diffs) {

@@ -1,6 +1,9 @@
 package com.mategka.dava.analyzer.struct.property;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 
 import java.util.Optional;

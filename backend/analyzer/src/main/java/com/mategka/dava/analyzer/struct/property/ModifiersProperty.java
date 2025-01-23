@@ -14,6 +14,13 @@ import java.util.stream.Collectors;
 @PropertyKey("modifiers")
 public record ModifiersProperty(EnumSet<Modifier> value) implements EnumSetProperty<ModifiersProperty.Modifier> {
 
+  @Override
+  public String toString() {
+    return value.stream()
+      .map(Modifier::toKeyword)
+      .collect(Collectors.joining(" "));
+  }
+
   @Getter
   @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
   @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -43,13 +50,6 @@ public record ModifiersProperty(EnumSet<Modifier> value) implements EnumSetPrope
       return name().toLowerCase(Locale.ROOT);
     }
 
-  }
-
-  @Override
-  public String toString() {
-    return value.stream()
-      .map(Modifier::toKeyword)
-      .collect(Collectors.joining(" "));
   }
 
 }

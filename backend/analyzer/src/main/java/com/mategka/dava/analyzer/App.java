@@ -267,7 +267,8 @@ public class App {
     return Collections.emptyList();
   }
 
-  private static List<Symbol> addTypeDeclaration(CtType<?> typeDeclaration, Symbol parent, SymbolCreationContext context) {
+  private static List<Symbol> addTypeDeclaration(CtType<?> typeDeclaration, Symbol parent,
+                                                 SymbolCreationContext context) {
     var visibility = getVisibility(typeDeclaration);
     var members = typeDeclaration.getTypeMembers();
     var symbol = commonSymbolBuilder(context, typeDeclaration)
@@ -281,7 +282,8 @@ public class App {
     );
   }
 
-  private static List<Symbol> addConstructor(CtConstructor<?> constructor, Symbol parent, SymbolCreationContext context) {
+  private static List<Symbol> addConstructor(CtConstructor<?> constructor, Symbol parent,
+                                             SymbolCreationContext context) {
     var name = parent.getProperty(SimpleNameProperty.class).value();
     var visibility = getVisibility(constructor);
     var variables = constructor.getBody().getElements(new TypeFilter<CtVariable<?>>(CtVariable.class));
@@ -323,7 +325,8 @@ public class App {
     return List.of(symbol);
   }
 
-  private static List<Symbol> addEnumConstant(CtEnumValue<?> enumConstant, Symbol parent, SymbolCreationContext context) {
+  private static List<Symbol> addEnumConstant(CtEnumValue<?> enumConstant, Symbol parent,
+                                              SymbolCreationContext context) {
     var arguments = Optional.ofNullable(enumConstant.getDefaultExpression())
       .map(i -> (CtConstructorCall<?>) i)
       .map(CtAbstractInvocation::getArguments)

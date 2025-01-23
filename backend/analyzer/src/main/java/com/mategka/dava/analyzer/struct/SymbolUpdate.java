@@ -12,6 +12,19 @@ import java.util.stream.Collectors;
 @Value
 public class SymbolUpdate implements PropertyIndexable {
 
+  long id;
+  @NonNull
+  CommitSha commit;
+  @NonNull
+  PropertyMap properties;
+  int flags;
+
+  public EnumSet<Flag> getFlagSet() {
+    return Arrays.stream(Flag.values())
+      .filter(f -> f.isSet(flags))
+      .collect(Collectors.toCollection(() -> EnumSet.noneOf(Flag.class)));
+  }
+
   public enum Flag {
     RENAMED,
     MOVED,
@@ -26,22 +39,6 @@ public class SymbolUpdate implements PropertyIndexable {
     public boolean isSet(int flags) {
       return (flags & value()) != 0;
     }
-  }
-
-  long id;
-
-  @NonNull
-  CommitSha commit;
-
-  @NonNull
-  PropertyMap properties;
-
-  int flags;
-
-  public EnumSet<Flag> getFlagSet() {
-    return Arrays.stream(Flag.values())
-      .filter(f -> f.isSet(flags))
-      .collect(Collectors.toCollection(() -> EnumSet.noneOf(Flag.class)));
   }
 
 }

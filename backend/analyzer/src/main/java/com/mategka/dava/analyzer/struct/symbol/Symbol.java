@@ -8,7 +8,6 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import org.jetbrains.annotations.NotNull;
-import spoon.reflect.declaration.CtElement;
 
 import java.util.*;
 

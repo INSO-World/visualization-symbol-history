@@ -14,6 +14,11 @@ import java.util.Optional;
 @PropertyKey("visibility")
 public record VisibilityProperty(Visibility value) implements SimpleProperty<VisibilityProperty.Visibility> {
 
+  @Override
+  public String toString() {
+    return value.getPseudoKeyword();
+  }
+
   @Getter
   @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
   @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -39,11 +44,6 @@ public record VisibilityProperty(Visibility value) implements SimpleProperty<Vis
       return new VisibilityProperty(this);
     }
 
-  }
-
-  @Override
-  public String toString() {
-    return value.getPseudoKeyword();
   }
 
 }

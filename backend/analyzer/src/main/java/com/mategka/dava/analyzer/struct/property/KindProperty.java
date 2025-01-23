@@ -12,6 +12,11 @@ public record KindProperty(Value value) implements EnumProperty<KindProperty.Val
     return Value.fromType(type).toProperty();
   }
 
+  @Override
+  public String toString() {
+    return value.toKeyword();
+  }
+
   public enum Value {
     PACKAGE,
     CLASS,
@@ -55,11 +60,6 @@ public record KindProperty(Value value) implements EnumProperty<KindProperty.Val
       return name().toLowerCase(Locale.ROOT);
     }
 
-  }
-
-  @Override
-  public String toString() {
-    return value.toKeyword();
   }
 
 }

@@ -1,56 +1,18 @@
 package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
-import lombok.*;
-import lombok.experimental.FieldDefaults;
-
-import java.util.Optional;
+import spoon.reflect.declaration.CtTypedElement;
 
 @PropertyKey("type")
-public record TypeProperty(Value value) implements SimpleProperty<TypeProperty.Value> {
+public record TypeProperty(TypeValue value) implements SimpleProperty<TypeValue> {
 
-  public sealed interface Value permits KnownType, UnknownType {
-
-    default Optional<Long> getKnownTypeId() {
-      return Optional.empty();
-    }
-
-    default Optional<String> getUnknownTypeName() {
-      return Optional.empty();
-    }
-
+  public static TypeProperty unknownFromTypedElement(CtTypedElement<?> typedElement) {
+    return new TypeProperty(TypeValue.UnknownType.of(typedElement.getType().getQualifiedName()));
   }
 
-  @Getter
-  @AllArgsConstructor(staticName = "of")
-  @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-  @ToString
-  @EqualsAndHashCode
-  public static final class KnownType implements Value {
-
-    long id;
-
-    @Override
-    public Optional<Long> getKnownTypeId() {
-      return Optional.of(id);
-    }
-
-  }
-
-  @Getter
-  @AllArgsConstructor(staticName = "of")
-  @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-  @ToString
-  @EqualsAndHashCode
-  public static final class UnknownType implements Value {
-
-    String qualifiedName;
-
-    @Override
-    public Optional<String> getUnknownTypeName() {
-      return Optional.of(qualifiedName);
-    }
-
+  @Override
+  public String toString() {
+    return value.toString();
   }
 
 }

@@ -26,4 +26,6 @@ public sealed interface Property permits ListProperty, MapProperty, OptionalProp
 
   Object value();
 
+  String toString();
+
 }

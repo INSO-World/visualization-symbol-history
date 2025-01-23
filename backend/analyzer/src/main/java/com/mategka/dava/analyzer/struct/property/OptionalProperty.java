@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Optional;
 
-public non-sealed interface OptionalProperty<T> extends Property {
+public sealed interface OptionalProperty<T> extends Property permits ParentProperty {
 
   @NotNull Optional<T> value();
 

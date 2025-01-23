@@ -5,9 +5,12 @@ import org.apache.commons.io.FileSystem;
 import spoon.Launcher;
 import spoon.reflect.CtModel;
 import spoon.reflect.declaration.CtCompilationUnit;
+import spoon.reflect.declaration.CtElement;
+import spoon.reflect.path.CtPath;
 import spoon.support.compiler.VirtualFile;
 
 import java.util.List;
+import java.util.Optional;
 
 @UtilityClass
 public class Spoon {
@@ -50,6 +53,13 @@ public class Spoon {
 
   public String pathOf(CtCompilationUnit unit) {
     return FileSystem.LINUX.normalizeSeparators(unit.getFile().getPath());
+  }
+
+  public <T extends CtElement> Optional<T> locate(CtModel model, Class<T> clazz, CtPath path) {
+    return path.evaluateOn(model.getRootPackage()).stream()
+      .filter(clazz::isInstance)
+      .map(clazz::cast)
+      .findFirst();
   }
 
 }

@@ -1,6 +1,5 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
-import com.mategka.dava.analyzer.struct.CommitSha;
 import com.mategka.dava.analyzer.struct.SymbolUpdate;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
@@ -9,6 +8,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import org.jetbrains.annotations.NotNull;
+import spoon.reflect.declaration.CtElement;
 
 import java.util.*;
 
@@ -19,7 +19,7 @@ public class Symbol implements PropertyIndexable {
   long id;
 
   @NonNull
-  CommitSha commit;
+  String commitSha;
 
   @NonNull
   @Builder.Default
@@ -71,15 +71,30 @@ public class Symbol implements PropertyIndexable {
   public static class SymbolBuilder {
 
     public SymbolBuilder predecessor(long id) {
-      return predecessors(Collections.singletonList(id));
+      if (!this.predecessors$set) {
+        this.predecessors$set = true;
+        this.predecessors$value = new ArrayList<>();
+      }
+      predecessors$value.add(id);
+      return this;
     }
 
     public SymbolBuilder property(@NonNull Property property) {
-      return properties(PropertyMap.of(property));
+      if (!this.properties$set) {
+        this.properties$set = true;
+        this.properties$value = new PropertyMap();
+      }
+      properties$value.put(property.getKey(), property);
+      return this;
     }
 
     public SymbolBuilder update(@NonNull SymbolUpdate update) {
-      return properties(update.getProperties());
+      if (!this.properties$set) {
+        this.properties$set = true;
+        this.properties$value = new PropertyMap();
+      }
+      properties$value.putAll(update.getProperties());
+      return this;
     }
 
   }

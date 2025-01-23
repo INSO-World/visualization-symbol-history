@@ -4,6 +4,7 @@ import lombok.experimental.UtilityClass;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
@@ -21,8 +22,12 @@ public class Collectors2 {
     return Collectors.collectingAndThen(Collectors.toList(), AbstractPath::of);
   }
 
-  public <K, V> Collector<Map.Entry<K, V>, ?, Map<K, V>> toMap() {
+  public <K, V> Collector<Map.Entry<K, V>, ?, Map<K, V>> entriesToMap() {
     return Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue);
+  }
+
+  public <K, V> Collector<K, ?, Map<K, V>> toMap(Function<K, V> mapper) {
+    return Collectors.toMap(Function.identity(), mapper);
   }
 
 }

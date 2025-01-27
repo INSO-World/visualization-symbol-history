@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
+
 import spoon.reflect.declaration.CtTypedElement;
 
 @PropertyKey("type")

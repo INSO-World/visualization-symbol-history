@@ -1,8 +1,9 @@
 package com.mategka.dava.analyzer.struct;
 
-import com.google.common.collect.ListMultimap;
 import com.mategka.dava.analyzer.struct.refactoring.SymbolRefactoring;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
+
+import com.google.common.collect.ListMultimap;
 import lombok.NonNull;
 import lombok.Value;
 
@@ -13,10 +14,10 @@ import java.util.List;
 public class CommitDiff {
 
   @NonNull
-  List<CommitSha> parentCommits;
+  List<String> parentCommitShas;
 
   @NonNull
-  CommitSha commit;
+  String commitSha;
 
   @NonNull
   ZonedDateTime commitDate;

@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 
-public non-sealed interface MapProperty<K, V> extends Property {
+public non-sealed interface MapProperty<K, V> extends TypedProperty<Map<K, V>> {
 
   @NotNull Map<K, V> value();
 

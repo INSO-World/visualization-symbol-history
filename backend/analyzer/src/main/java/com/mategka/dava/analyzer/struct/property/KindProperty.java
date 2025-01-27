@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
+
 import spoon.reflect.declaration.*;
 
 import java.util.Locale;
@@ -14,7 +15,7 @@ public record KindProperty(Value value) implements EnumProperty<KindProperty.Val
 
   @Override
   public String toString() {
-    return value.toKeyword();
+    return value.toPseudoKeyword();
   }
 
   public enum Value {
@@ -56,8 +57,8 @@ public record KindProperty(Value value) implements EnumProperty<KindProperty.Val
       return new KindProperty(this);
     }
 
-    public String toKeyword() {
-      return name().toLowerCase(Locale.ROOT);
+    public String toPseudoKeyword() {
+      return name().replace("_", " ").toLowerCase(Locale.ROOT);
     }
 
   }

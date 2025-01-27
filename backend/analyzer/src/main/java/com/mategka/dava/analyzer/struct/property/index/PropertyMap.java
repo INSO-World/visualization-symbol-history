@@ -1,8 +1,9 @@
 package com.mategka.dava.analyzer.struct.property.index;
 
+import com.mategka.dava.analyzer.extension.Optionals;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.SimpleProperty;
-import com.mategka.dava.analyzer.util.Optionals;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;

@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer.struct;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
+
 import lombok.NonNull;
 import lombok.Value;
 
@@ -13,10 +14,13 @@ import java.util.stream.Collectors;
 public class SymbolUpdate implements PropertyIndexable {
 
   long id;
+
   @NonNull
-  CommitSha commit;
+  String commitSha;
+
   @NonNull
   PropertyMap properties;
+
   int flags;
 
   public EnumSet<Flag> getFlagSet() {

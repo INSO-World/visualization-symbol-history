@@ -1,33 +1,25 @@
 package com.mategka.dava.analyzer;
 
-import com.mategka.dava.analyzer.git.CommitOrder;
-import com.mategka.dava.analyzer.git.FileChangeType;
-import com.mategka.dava.analyzer.git.RepositoryWrapper;
-import com.mategka.dava.analyzer.git.Side;
+import com.mategka.dava.analyzer.extension.*;
+import com.mategka.dava.analyzer.git.*;
+import com.mategka.dava.analyzer.spoon.AstComparator;
+import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.History;
+import com.mategka.dava.analyzer.struct.Strand;
 import com.mategka.dava.analyzer.struct.StrandWorkspace;
 import com.mategka.dava.analyzer.struct.SymbolCreationContext;
-import com.mategka.dava.analyzer.struct.property.*;
-import com.mategka.dava.analyzer.struct.symbol.Symbol;
-import com.mategka.dava.analyzer.util.*;
+import com.mategka.dava.analyzer.wip.ReflectionContext;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
-import org.jetbrains.annotations.NotNull;
-import spoon.reflect.code.CtAbstractInvocation;
-import spoon.reflect.code.CtBodyHolder;
-import spoon.reflect.code.CtConstructorCall;
-import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.declaration.*;
-import spoon.reflect.visitor.filter.TypeFilter;
 import spoon.support.compiler.VirtualFile;
-import spoon.support.reflect.CtExtendedModifier;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -41,18 +33,20 @@ public class App {
     // ?REPO
     try (RepositoryWrapper repository = RepositoryWrapper.open("?REPO")) {
       Ref mainBranch = repository.resolveRef("main").orElseThrow();
+      var reflectionContext = new ReflectionContext();
       var history = History.emptyOfBranch(repository, mainBranch);
       var timeBefore = System.currentTimeMillis();
       var symbolIdCounter = new AtomicLong();
       int offset = 0;
       var comparator = new AstComparator();
-      Map<Long, StrandWorkspace> workspaces = new DefaultMap<>(HashMap::new, StrandWorkspace::new);
+      Map<Strand, StrandWorkspace> workspaces = new DefaultMap<>(HashMap::new, StrandWorkspace::new);
       Map<VirtualFile, CtCompilationUnit> filesToUnits = new HashMap<>();
       // TODO: Traverse commits in normal topological order for ~5% performance boost
       try (RevWalk walk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (RevCommit commit : walk) {
           var commitSha = commit.getId().getName();
-          var strandId = history.getStrandMapping().get(commitSha).getId();
+          var strand = history.getStrandMapping().get(commitSha);
+          var workspace = workspaces.get(strand);
           System.out.print(commitSha.substring(0, 6) + " ");
           if (++offset >= 12) {
             offset = 0;
@@ -61,13 +55,13 @@ public class App {
           var parent = Optionals.getFirst(commit.getParents());
           if (parent.isEmpty()) {
             var diffs = repository.initialCommitFilesOf(commit);
-            var relevantDiffs = selectRelevantChanges(diffs);
+            var relevantDiffs = RelevantDiffs.extract(diffs);
             var additions = relevantDiffs.get(FileChangeType.ADDED);
             if (additions.isEmpty()) {
               // No relevant changes
               continue;
             }
-            var currentContents = workspaces.get(strandId).getFiles();
+            var currentContents = workspace.getFiles();
             for (var diff : additions) {
               var content = repository.readFile(diff, Side.NEW).getSuccess().orElseThrow();
               var file = new VirtualFile(content, diff.getNewPath());
@@ -80,18 +74,19 @@ public class App {
             continue;
           }
           var actualParent = parent.get();
-          var parentStrandId = history.getStrandMapping().get(actualParent.getId().getName()).getId();
-          var parentContents = workspaces.get(parentStrandId).getFiles();
+          var parentStrand = history.getStrandMapping().get(actualParent.getId().getName());
+          var parentWorkspace = workspaces.get(parentStrand);
+          var parentFiles = parentWorkspace.getFiles();
           try (DiffFormatter formatter = repository.newFormatter()) {
             var diffs = formatter.scan(actualParent.getTree(), commit.getTree());
-            var relevantDiffs = selectRelevantChanges(diffs);
+            var relevantDiffs = RelevantDiffs.extract(diffs);
             Map<String, VirtualFile> overrideFiles = getOverrides(relevantDiffs, repository);
             if (overrideFiles.isEmpty()) {
               // No relevant changes
               continue;
             }
-            Map<String, VirtualFile> effectiveFiles = new ChainMap<>(overrideFiles, parentContents);
-            Map<VirtualFile, CtCompilationUnit> newUnits = effectiveFiles.values().stream()
+            Map<String, VirtualFile> effectiveFiles = new ChainMap<>(overrideFiles, parentFiles);
+            Map<VirtualFile, CtCompilationUnit> effectiveUnits = effectiveFiles.values().stream()
               .filter(Objects::nonNull)
               .collect(Collectors2.toMap(Spoon::parse));
             // TODO: Do not trust rename, move and copy hints from Git
@@ -99,40 +94,48 @@ public class App {
               .flatMap(t -> relevantDiffs.get(t).stream().map(d -> Pair.of(t, d)))
               .toList();
             var creationContext = new SymbolCreationContext(symbolIdCounter, commitSha);
+            var symbolAdder = new SymbolAdder(creationContext);
             for (var diffPair : derivativeDiffPairs) {
               var type = diffPair.getLeft();
               var diff = diffPair.getRight();
               // Treat declared type as renamed symbol
-              var oldUnit = filesToUnits.get(parentContents.get(diff.getOldPath()));
-              var newUnit = newUnits.get(overrideFiles.get(diff.getNewPath()));
+              var oldUnit = filesToUnits.get(parentFiles.get(diff.getOldPath()));
+              var newUnit = effectiveUnits.get(overrideFiles.get(diff.getNewPath()));
               var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
               var editScript = astDiff.getRootOperations();
               var mappings = astDiff.getMappingsComp();
               int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.MODIFIED)) {
-              var oldUnit = filesToUnits.get(parentContents.get(diff.getOldPath()));
-              var newUnit = newUnits.get(overrideFiles.get(diff.getNewPath()));
+              var oldUnit = filesToUnits.get(parentFiles.get(diff.getOldPath()));
+              var newUnit = effectiveUnits.get(overrideFiles.get(diff.getNewPath()));
               var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
               var editScript = astDiff.getRootOperations();
               var mappings = astDiff.getMappingsComp();
               int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.ADDED)) {
-              var newUnit = newUnits.get(overrideFiles.get(diff.getNewPath()));
-              var packageDeclaration = newUnit.getPackageDeclaration().getReference().getQualifiedName();
-              var pakkage = workspaces.get(strandId).getPackage(packageDeclaration, creationContext);
+              var newUnit = effectiveUnits.get(overrideFiles.get(diff.getNewPath()));
+              var packageDeclaration = newUnit.getPackageDeclaration().getReference().getDeclaration();
+              var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
               var typeDeclaration = newUnit.getMainType();
-              var addedSymbols = addTypeDeclaration(typeDeclaration, pakkage, creationContext);
+              var addedSymbols = symbolAdder.parseTypeDeclaration(typeDeclaration, pakkage);
               int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
-              var oldUnit = filesToUnits.get(parentContents.get(diff.getOldPath()));
+              var oldUnit = filesToUnits.get(parentFiles.get(diff.getOldPath()));
               var typeDeclaration = oldUnit.getMainType();
               int dummy = 1;
             }
-            // TODO: Diff compilation units before and after
-            // TODO: Process symbol changes
+            for (var overrideFile : overrideFiles.entrySet()) {
+              var path = overrideFile.getKey();
+              var newFile = overrideFile.getValue();
+              if (newFile == null) {
+                filesToUnits.remove(parentFiles.get(path));
+              } else {
+                filesToUnits.put(newFile, effectiveUnits.get(newFile));
+              }
+            }
           }
         }
       }
@@ -165,44 +168,6 @@ public class App {
      */
   }
 
-  private static EnumMap<FileChangeType, List<DiffEntry>> selectRelevantChanges(Collection<DiffEntry> diffs) {
-    var result = new EnumMap<FileChangeType, List<DiffEntry>>(FileChangeType.class);
-    for (FileChangeType type : FileChangeType.values()) {
-      result.put(type, new ArrayList<>());
-    }
-    for (var diff : diffs) {
-      var changeType = diff.getChangeType();
-      switch (changeType) {
-        case ADD, MODIFY, COPY -> {
-          if (App.isFileRelevant(diff.getNewPath())) {
-            result.get(FileChangeType.fromJGitChangeType(changeType)).add(diff);
-          }
-        }
-        case DELETE -> {
-          if (App.isFileRelevant(diff.getOldPath())) {
-            result.get(FileChangeType.DELETED).add(diff);
-          }
-        }
-        case RENAME -> {
-          var oldPathIsRelevant = App.isFileRelevant(diff.getOldPath());
-          var newPathIsRelevant = App.isFileRelevant(diff.getNewPath());
-          if (oldPathIsRelevant && newPathIsRelevant) {
-            if (areSiblingPaths(diff.getOldPath(), diff.getNewPath())) {
-              result.get(FileChangeType.RENAMED).add(diff);
-            } else {
-              result.get(FileChangeType.MOVED).add(diff);
-            }
-          } else if (oldPathIsRelevant) {
-            result.get(FileChangeType.DELETED).add(diff);
-          } else if (newPathIsRelevant) {
-            result.get(FileChangeType.ADDED).add(diff);
-          }
-        }
-      }
-    }
-    return result;
-  }
-
   private static Map<String, VirtualFile> getOverrides(
     Map<FileChangeType, List<DiffEntry>> diffs,
     RepositoryWrapper repository
@@ -224,202 +189,6 @@ public class App {
         return entries.stream();
       })
       .collect(Collectors.toMap(Pair::getLeft, Pair::getRight));
-  }
-
-  private static boolean isFileRelevant(@NotNull String filename) {
-    return filename.endsWith(".java");
-  }
-
-  private static boolean areSiblingPaths(@NotNull String path1, @NotNull String path2) {
-    return Path.of(path1).getParent().equals(Path.of(path2).getParent());
-  }
-
-  private static VisibilityProperty.Visibility getVisibility(CtModifiable modifiable) {
-    return modifiable.getExtendedModifiers().stream()
-      .sorted(Streams.falseFirst(CtExtendedModifier::isImplicit))
-      .map(CtExtendedModifier::getKind)
-      .filter(Objects::nonNull)
-      .map(VisibilityProperty.Visibility::fromModifierKind)
-      .filter(Optional::isPresent)
-      .map(Optional::get)
-      .findFirst()
-      .orElse(VisibilityProperty.Visibility.PACKAGE_PRIVATE);
-  }
-
-  private static List<Symbol> addSymbol(CtElement element, Symbol parent, SymbolCreationContext context) {
-    if (element instanceof CtType<?> type) {
-      return addTypeDeclaration(type, parent, context);
-    } else if (element instanceof CtConstructor<?> constructor) {
-      if (!isDefaultConstructor(constructor) && !constructor.isCompactConstructor()) {
-        return addConstructor(constructor, parent, context);
-      }
-    } else if (element instanceof CtParameter<?> parameter) {
-      return addParameter(parameter, parent, context);
-    } else if (element instanceof CtEnumValue<?> enumConstant) {
-      return addEnumConstant(enumConstant, parent, context);
-    } else if (element instanceof CtField<?> field) {
-      return addField(field, parent, context);
-    } else if (element instanceof CtMethod<?> method) {
-      return addMethod(method, parent, context);
-    } else if (element instanceof CtLocalVariable<?> variable) {
-      return addVariable(variable, parent, context);
-    }
-    return Collections.emptyList();
-  }
-
-  private static List<Symbol> addTypeDeclaration(CtType<?> typeDeclaration, Symbol parent,
-                                                 SymbolCreationContext context) {
-    var visibility = getVisibility(typeDeclaration);
-    var members = typeDeclaration.getTypeMembers();
-    var symbol = commonSymbolBuilder(context, typeDeclaration)
-      .property(KindProperty.fromType(typeDeclaration))
-      .property(new ParentProperty(parent))
-      .property(visibility.toProperty())
-      .build();
-    return Lists.cons(
-      symbol,
-      Lists.flatMap(members, m -> addSymbol(m, symbol, context))
-    );
-  }
-
-  private static List<Symbol> addConstructor(CtConstructor<?> constructor, Symbol parent,
-                                             SymbolCreationContext context) {
-    var name = parent.getProperty(SimpleNameProperty.class).value();
-    var visibility = getVisibility(constructor);
-    var variables = constructor.getBody().getElements(new TypeFilter<CtVariable<?>>(CtVariable.class));
-    var symbol = commonSymbolBuilder(context, constructor)
-      .property(KindProperty.Value.CONSTRUCTOR.toProperty())
-      .property(new ParentProperty(parent))
-      .property(new SimpleNameProperty(name))
-      .property(visibility.toProperty())
-      .build();
-    return Lists.cons(
-      symbol,
-      Lists.flatMap(constructor.getParameters(), p -> addSymbol(p, symbol, context)),
-      Lists.flatMap(variables, v -> addSymbol(v, symbol, context))
-    );
-  }
-
-  private static List<Symbol> addMethod(CtMethod<?> method, Symbol parent, SymbolCreationContext context) {
-    var visibility = getVisibility(method);
-    var variables = Optional.ofNullable(method.getBody())
-      .map(b -> b.getElements(new TypeFilter<CtVariable<?>>(CtVariable.class)))
-      .orElseGet(Collections::emptyList);
-    var symbol = commonSymbolBuilder(context, method)
-      .property(KindProperty.Value.METHOD.toProperty())
-      .property(new ParentProperty(parent))
-      .property(visibility.toProperty())
-      .build();
-    return Lists.cons(
-      symbol,
-      Lists.flatMap(method.getParameters(), p -> addSymbol(p, symbol, context)),
-      Lists.flatMap(variables, v -> addSymbol(v, symbol, context))
-    );
-  }
-
-  private static List<Symbol> addParameter(CtParameter<?> parameter, Symbol parent, SymbolCreationContext context) {
-    var symbol = commonSymbolBuilder(context, parameter)
-      .property(KindProperty.Value.PARAMETER.toProperty())
-      .property(new ParentProperty(parent))
-      .build();
-    return List.of(symbol);
-  }
-
-  private static List<Symbol> addEnumConstant(CtEnumValue<?> enumConstant, Symbol parent,
-                                              SymbolCreationContext context) {
-    var arguments = Optional.ofNullable(enumConstant.getDefaultExpression())
-      .map(i -> (CtConstructorCall<?>) i)
-      .map(CtAbstractInvocation::getArguments)
-      .orElseGet(Collections::emptyList);
-    assert parent.getProperty(KindProperty.class).value() == KindProperty.Value.ENUM;
-    var symbol = commonSymbolBuilder(context, enumConstant)
-      .property(KindProperty.Value.ENUM_CONSTANT.toProperty())
-      .property(new ParentProperty(parent))
-      .build();
-    return List.of(symbol);
-  }
-
-  private static List<Symbol> addField(CtField<?> field, Symbol parent, SymbolCreationContext context) {
-    var modifiers = getModifiers(field);
-    var kind = modifiers.containsAll(ModifiersProperty.Modifier.CONSTANT_FIELD_MODIFIERS)
-      ? KindProperty.Value.CONSTANT
-      : KindProperty.Value.FIELD;
-    var initialValue = Optional.ofNullable(field.getDefaultExpression());
-    var symbol = commonSymbolBuilder(context, field)
-      .property(kind.toProperty())
-      .property(new ParentProperty(parent))
-      .build();
-    return List.of(symbol);
-  }
-
-  private static List<Symbol> addVariable(CtLocalVariable<?> variable, Symbol parent, SymbolCreationContext context) {
-    var modifiers = getModifiers(variable);
-    var kind = modifiers.containsAll(ModifiersProperty.Modifier.CONSTANT_VARIABLE_MODIFIERS)
-      ? KindProperty.Value.CONSTANT
-      : KindProperty.Value.VARIABLE;
-    var initialValue = Optional.ofNullable(variable.getDefaultExpression());
-    var symbol = commonSymbolBuilder(context, variable)
-      .property(kind.toProperty())
-      .property(new ParentProperty(parent))
-      .build();
-    return List.of(symbol);
-  }
-
-  private static Symbol.SymbolBuilder commonSymbolBuilder(SymbolCreationContext context, CtElement element) {
-    var builder = context.symbolBuilder()
-      .property(new LineRangeProperty(getLineNumbers(element)))
-      .property(new PathProperty(element.getPath()));
-    if (element instanceof CtNamedElement namedElement) {
-      builder.property(new SimpleNameProperty(namedElement.getSimpleName()));
-    }
-    if (element instanceof CtModifiable modifiable) {
-      builder.property(new ModifiersProperty(getModifiers(modifiable)));
-    }
-    if (element instanceof CtTypedElement<?> typedElement) {
-      // TODO: Replace with known type where applicable (may be generic type parameter!)
-      builder.property(TypeProperty.unknownFromTypedElement(typedElement));
-    }
-    // TODO: Add type parameters (declarations) if applicable
-    return builder;
-  }
-
-  private static List<CtElement> getVariables(CtBodyHolder element) {
-    return element.getBody().getDirectChildren().stream().flatMap(childElement -> {
-      if (childElement instanceof CtType<?>) {
-        return Stream.empty();
-      }
-      if (childElement instanceof CtBodyHolder bodyHolder) {
-        return getVariables(bodyHolder).stream();
-      }
-      if (childElement instanceof CtLocalVariable<?> localVariable) {
-        return Stream.of(localVariable);
-      }
-      return Stream.empty();
-    }).toList();
-  }
-
-  private static EnumSet<ModifiersProperty.Modifier> getModifiers(CtModifiable modifiable) {
-    var visibility = modifiable.getVisibility();
-    return modifiable.getExtendedModifiers().stream()
-      .map(CtExtendedModifier::getKind)
-      .filter(kind -> kind != visibility)
-      .filter(Objects::nonNull)
-      .map(ModifiersProperty.Modifier::fromModifierKind)
-      .filter(Optional::isPresent)
-      .map(Optional::get)
-      .collect(Collectors.toCollection(() -> EnumSet.noneOf(ModifiersProperty.Modifier.class)));
-  }
-
-  private static Pair<Integer, Integer> getLineNumbers(CtElement element) {
-    var position = element.getPosition();
-    if (!position.isValidPosition()) {
-      throw new IllegalStateException("Symbol element should have had valid position");
-    }
-    return Pair.of(position.getSourceStart(), position.getSourceEnd());
-  }
-
-  private static boolean isDefaultConstructor(CtConstructor<?> constructor) {
-    return !constructor.isCompactConstructor() && constructor.isImplicit() && constructor.getParameters().isEmpty();
   }
 
 }

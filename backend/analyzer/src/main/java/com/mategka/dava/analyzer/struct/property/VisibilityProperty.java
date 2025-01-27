@@ -1,14 +1,19 @@
 package com.mategka.dava.analyzer.struct.property;
 
+import com.mategka.dava.analyzer.extension.Streams;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
+import spoon.reflect.declaration.CtModifiable;
 import spoon.reflect.declaration.ModifierKind;
+import spoon.support.reflect.CtExtendedModifier;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 
 @PropertyKey("visibility")
@@ -38,6 +43,18 @@ public record VisibilityProperty(Visibility value) implements SimpleProperty<Vis
       return Arrays.stream(values())
         .filter(v -> v.spoonKind == modifier)
         .findFirst();
+    }
+
+    public static Visibility fromModifiable(CtModifiable modifiable) {
+      return modifiable.getExtendedModifiers().stream()
+        .sorted(Streams.falseFirst(CtExtendedModifier::isImplicit))
+        .map(CtExtendedModifier::getKind)
+        .filter(Objects::nonNull)
+        .map(Visibility::fromModifierKind)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .findFirst()
+        .orElse(PACKAGE_PRIVATE);
     }
 
     public VisibilityProperty toProperty() {

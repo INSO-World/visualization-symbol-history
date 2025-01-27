@@ -1,18 +1,37 @@
 package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
+import spoon.reflect.declaration.CtModifiable;
 import spoon.reflect.declaration.ModifierKind;
+import spoon.support.reflect.CtExtendedModifier;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 @PropertyKey("modifiers")
 public record ModifiersProperty(EnumSet<Modifier> value) implements EnumSetProperty<ModifiersProperty.Modifier> {
+
+  public static ModifiersProperty fromModifiable(CtModifiable modifiable) {
+    return new ModifiersProperty(getModifiers(modifiable));
+  }
+
+  public static EnumSet<Modifier> getModifiers(CtModifiable modifiable) {
+    var visibility = modifiable.getVisibility();
+    return modifiable.getExtendedModifiers().stream()
+      .map(CtExtendedModifier::getKind)
+      .filter(kind -> kind != visibility)
+      .filter(Objects::nonNull)
+      .map(Modifier::fromModifierKind)
+      .filter(Optional::isPresent)
+      .map(Optional::get)
+      .collect(Collectors.toCollection(() -> EnumSet.noneOf(Modifier.class)));
+  }
 
   @Override
   public String toString() {

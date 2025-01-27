@@ -1,12 +1,17 @@
-package com.mategka.dava.analyzer.util;
+package com.mategka.dava.analyzer.spoon;
+
+import com.mategka.dava.analyzer.util.JavaSyntax;
 
 import lombok.experimental.UtilityClass;
 import org.apache.commons.io.FileSystem;
 import spoon.Launcher;
 import spoon.reflect.CtModel;
+import spoon.reflect.CtModelImpl;
 import spoon.reflect.declaration.CtCompilationUnit;
+import spoon.reflect.declaration.CtConstructor;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.path.CtPath;
+import spoon.reflect.path.impl.CtPathImpl;
 import spoon.support.compiler.VirtualFile;
 
 import java.util.List;
@@ -16,6 +21,7 @@ import java.util.Optional;
 public class Spoon {
 
   public CtModel EMPTY_MODEL = newLauncher().getModel();
+  public CtPath EMPTY_PATH = new CtPathImpl();
 
   public Launcher newLauncher() {
     return newLauncher(JavaSyntax.LTS17);
@@ -51,8 +57,15 @@ public class Spoon {
     return units.getFirst();
   }
 
-  public String pathOf(CtCompilationUnit unit) {
+  public String filePathOf(CtCompilationUnit unit) {
     return FileSystem.LINUX.normalizeSeparators(unit.getFile().getPath());
+  }
+
+  public CtPath pathOf(CtElement element) {
+    if (element instanceof CtModelImpl.CtRootPackage) {
+      return EMPTY_PATH;
+    }
+    return element.getPath();
   }
 
   public <T extends CtElement> Optional<T> locate(CtModel model, Class<T> clazz, CtPath path) {
@@ -60,6 +73,10 @@ public class Spoon {
       .filter(clazz::isInstance)
       .map(clazz::cast)
       .findFirst();
+  }
+
+  public static boolean isDefaultConstructor(CtConstructor<?> constructor) {
+    return !constructor.isCompactConstructor() && constructor.isImplicit() && constructor.getParameters().isEmpty();
   }
 
 }

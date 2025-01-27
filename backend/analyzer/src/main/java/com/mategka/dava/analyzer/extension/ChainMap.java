@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.util;
+package com.mategka.dava.analyzer.extension;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

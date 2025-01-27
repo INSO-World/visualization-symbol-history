@@ -1,9 +1,12 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
 import com.mategka.dava.analyzer.struct.SymbolUpdate;
+import com.mategka.dava.analyzer.struct.property.KindProperty;
 import com.mategka.dava.analyzer.struct.property.Property;
+import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
+
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
@@ -30,6 +33,15 @@ public class Symbol implements PropertyIndexable {
 
   public static Symbol squash(Symbol base, Symbol current) {
     return current.toBuilder().id(base.id).build();
+  }
+
+  public @NotNull String getDisplayName() {
+    return getPropertyValue(SimpleNameProperty.class)
+      .orElseGet(() -> "(unnamed %s)".formatted(
+        getPropertyValue(KindProperty.class)
+          .map(KindProperty.Value::toPseudoKeyword)
+          .orElse("symbol")
+      ));
   }
 
   public PropertyMap diff(@NotNull Collection<Property> newProperties) {
@@ -65,6 +77,11 @@ public class Symbol implements PropertyIndexable {
       .flatMap(Collection::stream)
       .collect(PropertyMap.collectEntries());
     return toBuilder().properties(updatedProperties).build();
+  }
+
+  @Override
+  public String toString() {
+    return "[%d] %s".formatted(id, getDisplayName());
   }
 
   public static class SymbolBuilder {

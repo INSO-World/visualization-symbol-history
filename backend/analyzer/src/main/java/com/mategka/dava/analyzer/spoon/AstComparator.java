@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.util;
+package com.mategka.dava.analyzer.spoon;
 
 import com.github.gumtreediff.matchers.CompositeMatchers;
 import com.github.gumtreediff.matchers.ConfigurationOptions;

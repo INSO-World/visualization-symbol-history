@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.util;
+package com.mategka.dava.analyzer.extension;
 
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;

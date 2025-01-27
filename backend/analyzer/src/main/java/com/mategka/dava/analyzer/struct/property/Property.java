@@ -2,10 +2,11 @@ package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKeys;
+
 import org.jetbrains.annotations.NotNull;
 
 @PropertyKey(PropertyKey.UNDEFINED)
-public sealed interface Property permits ListProperty, MapProperty, OptionalProperty, SetProperty, SimpleProperty {
+public sealed interface Property permits TypedProperty {
 
   static Object getDefault(Class<? extends Property> propertyClass) {
     return Properties.getDefault(propertyClass);

@@ -4,8 +4,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public non-sealed interface ListProperty<T> extends Property {
+public sealed interface ListProperty<T> extends TypedProperty<List<? extends T>> permits AnnotationsProperty {
 
-  @NotNull List<T> value();
+  @NotNull List<? extends T> value();
 
 }

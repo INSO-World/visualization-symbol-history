@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.util;
+package com.mategka.dava.analyzer.extension;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;

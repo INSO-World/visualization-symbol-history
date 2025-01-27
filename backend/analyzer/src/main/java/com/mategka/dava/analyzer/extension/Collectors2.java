@@ -1,4 +1,6 @@
-package com.mategka.dava.analyzer.util;
+package com.mategka.dava.analyzer.extension;
+
+import com.mategka.dava.analyzer.util.AbstractPath;
 
 import lombok.experimental.UtilityClass;
 import org.apache.commons.lang3.tuple.Pair;

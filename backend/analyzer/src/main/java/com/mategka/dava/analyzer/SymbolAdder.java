@@ -89,7 +89,7 @@ public class SymbolAdder {
     var members = typeDeclaration.getTypeMembers();
     var symbol = commonSymbolBuilder(context, typeDeclaration)
       .property(KindProperty.fromType(typeDeclaration))
-      .property(new ParentProperty(parent))
+      .property(ParentProperty.fromSymbol(parent))
       .property(visibility.toProperty())
       .build();
     return Lists.cons(
@@ -104,7 +104,7 @@ public class SymbolAdder {
     var variables = getVariables(constructor);
     var symbol = commonSymbolBuilder(context, constructor)
       .property(KindProperty.Value.CONSTRUCTOR.toProperty())
-      .property(new ParentProperty(parent))
+      .property(ParentProperty.fromSymbol(parent))
       .property(new SimpleNameProperty(name))
       .property(visibility.toProperty())
       .build();
@@ -120,7 +120,7 @@ public class SymbolAdder {
     var variables = getVariables(method);
     var symbol = commonSymbolBuilder(context, method)
       .property(KindProperty.Value.METHOD.toProperty())
-      .property(new ParentProperty(parent))
+      .property(ParentProperty.fromSymbol(parent))
       .property(visibility.toProperty())
       .build();
     return Lists.cons(
@@ -133,7 +133,7 @@ public class SymbolAdder {
   private List<Symbol> parseParameter(CtParameter<?> parameter, Symbol parent) {
     var symbol = commonSymbolBuilder(context, parameter)
       .property(KindProperty.Value.PARAMETER.toProperty())
-      .property(new ParentProperty(parent))
+      .property(ParentProperty.fromSymbol(parent))
       .build();
     return List.of(symbol);
   }
@@ -146,7 +146,7 @@ public class SymbolAdder {
     assert parent.getProperty(KindProperty.class).value() == KindProperty.Value.ENUM;
     var symbol = commonSymbolBuilder(context, enumConstant)
       .property(KindProperty.Value.ENUM_CONSTANT.toProperty())
-      .property(new ParentProperty(parent))
+      .property(ParentProperty.fromSymbol(parent))
       .build();
     return List.of(symbol);
   }
@@ -159,7 +159,7 @@ public class SymbolAdder {
     var initialValue = Optional.ofNullable(field.getDefaultExpression());
     var symbol = commonSymbolBuilder(context, field)
       .property(kind.toProperty())
-      .property(new ParentProperty(parent))
+      .property(ParentProperty.fromSymbol(parent))
       .build();
     return List.of(symbol);
   }
@@ -172,7 +172,7 @@ public class SymbolAdder {
     var initialValue = Optional.ofNullable(variable.getDefaultExpression());
     var symbol = commonSymbolBuilder(context, variable)
       .property(kind.toProperty())
-      .property(new ParentProperty(parent))
+      .property(ParentProperty.fromSymbol(parent))
       .build();
     return List.of(symbol);
   }

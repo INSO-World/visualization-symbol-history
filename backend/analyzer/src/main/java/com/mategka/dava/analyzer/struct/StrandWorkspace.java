@@ -1,21 +1,20 @@
 package com.mategka.dava.analyzer.struct;
 
+import com.mategka.dava.analyzer.extension.IndexMap;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import spoon.reflect.CtModel;
 import spoon.reflect.CtModelImpl;
+import spoon.reflect.declaration.CtCompilationUnit;
 import spoon.reflect.declaration.CtPackage;
 import spoon.support.compiler.VirtualFile;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @ToString
@@ -30,9 +29,14 @@ public class StrandWorkspace {
   final Strand strand;
 
   @Getter
-  final Map<String, VirtualFile> files = new HashMap<>();
+  final BiMap<String, VirtualFile> spoonFiles = HashBiMap.create();
 
-  final Map<String, Symbol> packages = new TreeMap<>();
+  @Getter
+  final Map<VirtualFile, CtCompilationUnit> spoonUnits = new HashMap<>();
+
+  final Map<String, Symbol> pathsToSymbols = new TreeMap<>();
+
+  final IndexMap<Long, Symbol> idsToSymbols = new IndexMap<>(Symbol::getId);
 
   @Getter
   final Multimap<Symbol, Symbol> parentsToChildren = HashMultimap.create();
@@ -40,7 +44,10 @@ public class StrandWorkspace {
   CtModel model = Spoon.EMPTY_MODEL;
 
   public Symbol getPackage(CtPackage pakkage, SymbolCreationContext context) {
-    var existingSymbol = packages.get(pakkage.getQualifiedName());
+    var childPackagePath = Spoon.pathOf(pakkage);
+    var childPackagePathString = childPackagePath.toString();
+    var childPackagePathProperty = new PathProperty(childPackagePath);
+    var existingSymbol = pathsToSymbols.get(childPackagePathString);
     if (existingSymbol != null) {
       return existingSymbol;
     }
@@ -48,23 +55,31 @@ public class StrandWorkspace {
       var rootPackage = context.symbolBuilder()
         .property(new SimpleNameProperty(ROOT_PACKAGE_NAME))
         .property(KindProperty.Value.PACKAGE.toProperty())
-        .property(new PathProperty(Spoon.EMPTY_PATH))
+        .property(childPackagePathProperty)
         .build();
-      packages.put(pakkage.getQualifiedName(), rootPackage);
+      idsToSymbols.put(rootPackage);
+      pathsToSymbols.put(childPackagePathString, rootPackage);
       return rootPackage;
     }
-    var parentPackage = pakkage.getDeclaringPackage();
-    var parentSymbol = getPackage(parentPackage, context);
-    var childName = pakkage.getSimpleName();
+    var parentSymbol = getPackage(pakkage.getDeclaringPackage(), context);
     var childSymbol = context.symbolBuilder()
       .property(KindProperty.Value.PACKAGE.toProperty())
-      .property(new SimpleNameProperty(childName))
-      .property(new ParentProperty(parentSymbol.getId()))
-      .property(new PathProperty(pakkage.getPath()))
+      .property(SimpleNameProperty.fromElement(pakkage))
+      .property(ParentProperty.fromSymbol(parentSymbol))
+      .property(childPackagePathProperty)
       .build();
-    packages.put(pakkage.getQualifiedName(), childSymbol);
-    parentsToChildren.put(parentSymbol, childSymbol);
+    putSymbol(childSymbol);
     return childSymbol;
+  }
+
+  public void putSymbol(Symbol symbol) {
+    idsToSymbols.put(symbol);
+    pathsToSymbols.put(symbol.getPath().toString(), symbol);
+    parentsToChildren.put(idsToSymbols.get(symbol.getParentId()), symbol);
+  }
+
+  public CtCompilationUnit getUnit(String filePath) {
+    return spoonUnits.get(spoonFiles.get(filePath));
   }
 
   private void updateModel(CtModel model) {

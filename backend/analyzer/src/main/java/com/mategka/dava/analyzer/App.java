@@ -37,7 +37,6 @@ public class App {
       int offset = 0;
       var comparator = new AstComparator();
       Map<Strand, StrandWorkspace> workspaces = new DefaultMap<>(HashMap::new, StrandWorkspace::new);
-      Map<VirtualFile, CtCompilationUnit> filesToUnits = new HashMap<>();
       // TODO: Traverse commits in normal topological order for ~5% performance boost
       try (RevWalk walk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (RevCommit commit : walk) {
@@ -52,20 +51,19 @@ public class App {
           var parent = Optionals.getFirst(commit.getParents());
           if (parent.isEmpty()) {
             var diffs = repository.initialCommitFilesOf(commit);
-            var relevantDiffs = RelevantDiffs.extract(diffs);
-            var additions = relevantDiffs.get(FileChangeType.ADDED);
+            var additions = RelevantDiffs.extract(diffs).get(FileChangeType.ADDED);
             if (additions.isEmpty()) {
               // No relevant changes
               continue;
             }
-            var currentContents = workspace.getFiles();
+            var currentContents = workspace.getSpoonFiles();
             for (var diff : additions) {
               var content = repository.readFile(diff, Side.NEW).getSuccess().orElseThrow();
               var file = new VirtualFile(content, diff.getNewPath());
               currentContents.put(file.getPath(), file);
             }
             for (var file : currentContents.values()) {
-              filesToUnits.put(file, Spoon.parse(file));
+              workspace.getSpoonUnits().put(file, Spoon.parse(file));
             }
             // TODO: Process symbol additions
             continue;
@@ -73,7 +71,7 @@ public class App {
           var actualParent = parent.get();
           var parentStrand = history.getStrandMapping().get(actualParent.getId().getName());
           var parentWorkspace = workspaces.get(parentStrand);
-          var parentFiles = parentWorkspace.getFiles();
+          var parentFiles = parentWorkspace.getSpoonFiles();
           try (DiffFormatter formatter = repository.newFormatter()) {
             var diffs = formatter.scan(actualParent.getTree(), commit.getTree());
             var relevantDiffs = RelevantDiffs.extract(diffs);
@@ -96,7 +94,7 @@ public class App {
               var type = diffPair.getLeft();
               var diff = diffPair.getRight();
               // Treat declared type as renamed symbol
-              var oldUnit = filesToUnits.get(parentFiles.get(diff.getOldPath()));
+              var oldUnit = parentWorkspace.getUnit(diff.getOldPath());
               var newUnit = effectiveUnits.get(overrideFiles.get(diff.getNewPath()));
               var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
               var editScript = astDiff.getRootOperations();
@@ -104,7 +102,7 @@ public class App {
               int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.MODIFIED)) {
-              var oldUnit = filesToUnits.get(parentFiles.get(diff.getOldPath()));
+              var oldUnit = parentWorkspace.getUnit(diff.getOldPath());
               var newUnit = effectiveUnits.get(overrideFiles.get(diff.getNewPath()));
               var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
               var editScript = astDiff.getRootOperations();
@@ -120,7 +118,7 @@ public class App {
               int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
-              var oldUnit = filesToUnits.get(parentFiles.get(diff.getOldPath()));
+              var oldUnit = parentWorkspace.getUnit(diff.getOldPath());
               var typeDeclaration = oldUnit.getMainType();
               int dummy = 1;
             }
@@ -128,9 +126,11 @@ public class App {
               var path = overrideFile.getKey();
               var newFile = overrideFile.getValue();
               if (newFile == null) {
-                filesToUnits.remove(parentFiles.get(path));
+                var parentFile = workspace.getSpoonFiles().remove(path);
+                workspace.getSpoonUnits().remove(parentFile);
               } else {
-                filesToUnits.put(newFile, effectiveUnits.get(newFile));
+                workspace.getSpoonFiles().put(path, newFile);
+                workspace.getSpoonUnits().put(newFile, effectiveUnits.get(newFile));
               }
             }
           }

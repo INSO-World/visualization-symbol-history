@@ -1,9 +1,7 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
 import com.mategka.dava.analyzer.struct.SymbolUpdate;
-import com.mategka.dava.analyzer.struct.property.KindProperty;
-import com.mategka.dava.analyzer.struct.property.Property;
-import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
+import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 
@@ -11,6 +9,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import org.jetbrains.annotations.NotNull;
+import spoon.reflect.path.CtPath;
 
 import java.util.*;
 
@@ -42,6 +41,17 @@ public class Symbol implements PropertyIndexable {
           .map(KindProperty.Value::toPseudoKeyword)
           .orElse("symbol")
       ));
+  }
+
+  public @NotNull CtPath getPath() throws NoSuchElementException {
+    return getPropertyValue(PathProperty.class)
+      .orElseThrow(() -> new NoSuchElementException("Symbol has no known path"));
+  }
+
+  public long getParentId() throws NoSuchElementException {
+    return getPropertyValue(ParentProperty.class)
+      .map(TypeValue.KnownType::getId)
+      .orElseThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
   }
 
   public PropertyMap diff(@NotNull Collection<Property> newProperties) {

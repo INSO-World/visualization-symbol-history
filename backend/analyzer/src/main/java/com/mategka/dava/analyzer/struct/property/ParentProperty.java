@@ -8,12 +8,12 @@ import org.jetbrains.annotations.NotNull;
 @PropertyKey("parent")
 public record ParentProperty(TypeValue.KnownType value) implements NullableProperty<TypeValue.KnownType> {
 
-  public ParentProperty(long id) {
-    this(TypeValue.KnownType.of(id));
+  public static ParentProperty fromId(long id) {
+    return new ParentProperty(TypeValue.KnownType.of(id));
   }
 
-  public ParentProperty(@NotNull Symbol symbol) {
-    this(symbol.getId());
+  public static ParentProperty fromSymbol(@NotNull Symbol symbol) {
+    return fromId(symbol.getId());
   }
 
   @Override

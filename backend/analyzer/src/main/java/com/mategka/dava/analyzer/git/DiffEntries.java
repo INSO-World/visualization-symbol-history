@@ -1,10 +1,7 @@
 package com.mategka.dava.analyzer.git;
 
 import org.eclipse.jgit.diff.DiffEntry;
-import org.eclipse.jgit.lib.AbbreviatedObjectId;
-import org.eclipse.jgit.lib.AnyObjectId;
-import org.eclipse.jgit.lib.FileMode;
-import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.*;
 
 public class DiffEntries extends DiffEntry {
 

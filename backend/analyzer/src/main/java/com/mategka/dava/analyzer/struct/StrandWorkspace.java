@@ -1,10 +1,7 @@
 package com.mategka.dava.analyzer.struct;
 
 import com.mategka.dava.analyzer.spoon.Spoon;
-import com.mategka.dava.analyzer.struct.property.KindProperty;
-import com.mategka.dava.analyzer.struct.property.ParentProperty;
-import com.mategka.dava.analyzer.struct.property.PathProperty;
-import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
+import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import com.google.common.collect.HashMultimap;

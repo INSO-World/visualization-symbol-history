@@ -1,9 +1,6 @@
 package com.mategka.dava.analyzer.git;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.util.Arrays;

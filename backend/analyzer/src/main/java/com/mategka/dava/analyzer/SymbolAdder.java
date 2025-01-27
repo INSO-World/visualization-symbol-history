@@ -7,19 +7,61 @@ import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import lombok.Value;
-import spoon.reflect.code.CtAbstractInvocation;
-import spoon.reflect.code.CtBodyHolder;
-import spoon.reflect.code.CtConstructorCall;
-import spoon.reflect.code.CtLocalVariable;
+import spoon.reflect.code.*;
 import spoon.reflect.declaration.*;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 @Value
 public class SymbolAdder {
 
   SymbolCreationContext context;
+
+  private static Symbol.SymbolBuilder commonSymbolBuilder(SymbolCreationContext context, CtElement element) {
+    var annotations = Lists.map(
+      element.getAnnotations(),
+      a -> TypeValue.UnknownType.of(a.getAnnotationType().getQualifiedName())
+    );
+    var builder = context.symbolBuilder()
+      .property(new AnnotationsProperty(annotations))
+      .property(LineRangeProperty.fromElement(element))
+      .property(PathProperty.fromElement(element));
+    if (element instanceof CtNamedElement namedElement) {
+      builder.property(SimpleNameProperty.fromElement(namedElement));
+    }
+    if (element instanceof CtModifiable modifiable) {
+      builder.property(ModifiersProperty.fromModifiable(modifiable));
+    }
+    if (element instanceof CtTypedElement<?> typedElement) {
+      // TODO: Replace with known type where applicable (may be generic type parameter!)
+      builder.property(TypeProperty.unknownFromTypedElement(typedElement));
+    }
+    // TODO: Add type parameters (declarations) if applicable
+    return builder;
+  }
+
+  private static List<CtElement> getVariables(CtBodyHolder element) {
+    if (element.getBody() == null) {
+      return Collections.emptyList();
+    }
+    return element.getBody().getDirectChildren().stream()
+      .flatMap(childElement -> {
+        if (childElement instanceof CtType<?>) {
+          return Stream.empty();
+        }
+        if (childElement instanceof CtBodyHolder bodyHolder) {
+          return getVariables(bodyHolder).stream();
+        }
+        if (childElement instanceof CtLocalVariable<?> localVariable) {
+          return Stream.of(localVariable);
+        }
+        return Stream.empty();
+      })
+      .toList();
+  }
 
   private List<Symbol> parseSymbols(CtElement element, Symbol parent) {
     if (element instanceof CtType<?> type) {
@@ -133,49 +175,6 @@ public class SymbolAdder {
       .property(new ParentProperty(parent))
       .build();
     return List.of(symbol);
-  }
-
-  private static Symbol.SymbolBuilder commonSymbolBuilder(SymbolCreationContext context, CtElement element) {
-    var annotations = Lists.map(
-      element.getAnnotations(),
-      a -> TypeValue.UnknownType.of(a.getAnnotationType().getQualifiedName())
-    );
-    var builder = context.symbolBuilder()
-      .property(new AnnotationsProperty(annotations))
-      .property(LineRangeProperty.fromElement(element))
-      .property(PathProperty.fromElement(element));
-    if (element instanceof CtNamedElement namedElement) {
-      builder.property(SimpleNameProperty.fromElement(namedElement));
-    }
-    if (element instanceof CtModifiable modifiable) {
-      builder.property(ModifiersProperty.fromModifiable(modifiable));
-    }
-    if (element instanceof CtTypedElement<?> typedElement) {
-      // TODO: Replace with known type where applicable (may be generic type parameter!)
-      builder.property(TypeProperty.unknownFromTypedElement(typedElement));
-    }
-    // TODO: Add type parameters (declarations) if applicable
-    return builder;
-  }
-
-  private static List<CtElement> getVariables(CtBodyHolder element) {
-    if (element.getBody() == null) {
-      return Collections.emptyList();
-    }
-    return element.getBody().getDirectChildren().stream()
-      .flatMap(childElement -> {
-        if (childElement instanceof CtType<?>) {
-          return Stream.empty();
-        }
-        if (childElement instanceof CtBodyHolder bodyHolder) {
-          return getVariables(bodyHolder).stream();
-        }
-        if (childElement instanceof CtLocalVariable<?> localVariable) {
-          return Stream.of(localVariable);
-        }
-        return Stream.empty();
-      })
-      .toList();
   }
 
 }

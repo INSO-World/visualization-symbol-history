@@ -6,10 +6,7 @@ import lombok.experimental.UtilityClass;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumMap;
-import java.util.List;
+import java.util.*;
 
 @UtilityClass
 public class RelevantDiffs {

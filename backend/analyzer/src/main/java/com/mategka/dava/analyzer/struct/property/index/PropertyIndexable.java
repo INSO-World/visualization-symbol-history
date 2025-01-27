@@ -1,9 +1,6 @@
 package com.mategka.dava.analyzer.struct.property.index;
 
-import com.mategka.dava.analyzer.struct.property.NullableProperty;
-import com.mategka.dava.analyzer.struct.property.OptionalProperty;
-import com.mategka.dava.analyzer.struct.property.Property;
-import com.mategka.dava.analyzer.struct.property.TypedProperty;
+import com.mategka.dava.analyzer.struct.property.*;
 
 import org.jetbrains.annotations.NotNull;
 

@@ -4,10 +4,7 @@ import com.mategka.dava.analyzer.extension.*;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.Spoon;
-import com.mategka.dava.analyzer.struct.History;
-import com.mategka.dava.analyzer.struct.Strand;
-import com.mategka.dava.analyzer.struct.StrandWorkspace;
-import com.mategka.dava.analyzer.struct.SymbolCreationContext;
+import com.mategka.dava.analyzer.struct.*;
 import com.mategka.dava.analyzer.wip.ReflectionContext;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -16,7 +13,7 @@ import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
-import spoon.reflect.declaration.*;
+import spoon.reflect.declaration.CtCompilationUnit;
 import spoon.support.compiler.VirtualFile;
 
 import java.io.IOException;

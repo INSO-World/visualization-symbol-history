@@ -11,7 +11,7 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 @UtilityClass
-public class Collectors2 {
+public class CollectorsX {
 
   private static final String GROUP_SEPARATOR = "\u001d";
 

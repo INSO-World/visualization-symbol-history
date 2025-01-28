@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.property;
 
-import com.mategka.dava.analyzer.extension.Streams;
+import com.mategka.dava.analyzer.extension.StreamsX;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 
 import lombok.*;
@@ -44,7 +44,7 @@ public record VisibilityProperty(Visibility value) implements SimpleProperty<Vis
 
     public static Visibility fromModifiable(CtModifiable modifiable) {
       return modifiable.getExtendedModifiers().stream()
-        .sorted(Streams.falseFirst(CtExtendedModifier::isImplicit))
+        .sorted(StreamsX.falseFirst(CtExtendedModifier::isImplicit))
         .map(CtExtendedModifier::getKind)
         .filter(Objects::nonNull)
         .map(Visibility::fromModifierKind)

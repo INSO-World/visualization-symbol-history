@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer;
 
+import com.mategka.dava.analyzer.collections.ChainMap;
+import com.mategka.dava.analyzer.collections.DefaultMap;
 import com.mategka.dava.analyzer.extension.*;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
@@ -48,7 +50,7 @@ public class App {
             offset = 0;
             System.out.println();
           }
-          var parent = Optionals.getFirst(commit.getParents());
+          var parent = OptionalsX.getFirst(commit.getParents());
           if (parent.isEmpty()) {
             var diffs = repository.initialCommitFilesOf(commit);
             var additions = RelevantDiffs.extract(diffs).get(FileChangeType.ADDED);
@@ -83,7 +85,7 @@ public class App {
             Map<String, VirtualFile> effectiveFiles = new ChainMap<>(overrideFiles, parentFiles);
             Map<VirtualFile, CtCompilationUnit> effectiveUnits = effectiveFiles.values().stream()
               .filter(Objects::nonNull)
-              .collect(Collectors2.toMap(Spoon::parse));
+              .collect(CollectorsX.toMap(Spoon::parse));
             // TODO: Do not trust rename, move and copy hints from Git
             var derivativeDiffPairs = Stream.of(FileChangeType.RENAMED, FileChangeType.MOVED, FileChangeType.COPIED)
               .flatMap(t -> relevantDiffs.get(t).stream().map(d -> Pair.of(t, d)))
@@ -110,16 +112,18 @@ public class App {
               int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.ADDED)) {
-              var newUnit = effectiveUnits.get(overrideFiles.get(diff.getNewPath()));
+              var newFile = overrideFiles.get(diff.getNewPath());
+              var newUnit = effectiveUnits.get(newFile);
               var packageDeclaration = newUnit.getPackageDeclaration().getReference().getDeclaration();
               var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
               var typeDeclaration = newUnit.getMainType();
               var addedSymbols = symbolAdder.parseTypeDeclaration(typeDeclaration, pakkage);
+              addedSymbols.forEach(s -> workspace.putLocalSymbol(newFile, s));
               int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
-              var oldUnit = parentWorkspace.getUnit(diff.getOldPath());
-              var typeDeclaration = oldUnit.getMainType();
+              var oldFile = parentWorkspace.getSpoonFiles().get(diff.getOldPath());
+              var deletedSymbols = parentWorkspace.getFilesToSymbols().get(oldFile);
               int dummy = 1;
             }
             for (var overrideFile : overrideFiles.entrySet()) {

@@ -8,7 +8,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 @UtilityClass
-public class Lists {
+public class ListsX {
 
   @SafeVarargs
   public <T> @NotNull List<T> mutableOf(T @NotNull ... elements) {

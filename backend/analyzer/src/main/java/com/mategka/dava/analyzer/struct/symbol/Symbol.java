@@ -17,6 +17,8 @@ import java.util.*;
 @Builder(toBuilder = true)
 public class Symbol implements PropertyIndexable {
 
+  public static final String ROOT_PACKAGE_NAME = "ROOT";
+
   long id;
 
   @NonNull
@@ -29,6 +31,16 @@ public class Symbol implements PropertyIndexable {
   @NonNull
   @Builder.Default
   PropertyMap properties = new PropertyMap();
+
+  public static boolean isRootPackage(Symbol symbol) {
+    var name = symbol.getPropertyValue(SimpleNameProperty.class);
+    var kind = symbol.getPropertyValue(KindProperty.class);
+    var parent = symbol.getPropertyValue(ParentProperty.class);
+    if (name.isEmpty() || kind.isEmpty() || parent.isPresent()) {
+      return false;
+    }
+    return ROOT_PACKAGE_NAME.equals(name.get()) && KindProperty.Value.PACKAGE.equals(kind.get());
+  }
 
   public static Symbol squash(Symbol base, Symbol current) {
     return current.toBuilder().id(base.id).build();

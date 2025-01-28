@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer;
 
-import com.mategka.dava.analyzer.extension.Lists;
+import com.mategka.dava.analyzer.extension.ListsX;
+import com.mategka.dava.analyzer.extension.StreamsX;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.SymbolCreationContext;
 import com.mategka.dava.analyzer.struct.property.*;
@@ -11,7 +12,6 @@ import spoon.reflect.code.*;
 import spoon.reflect.declaration.*;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -21,7 +21,7 @@ public class SymbolAdder {
   SymbolCreationContext context;
 
   private static Symbol.SymbolBuilder commonSymbolBuilder(SymbolCreationContext context, CtElement element) {
-    var annotations = Lists.map(
+    var annotations = ListsX.map(
       element.getAnnotations(),
       a -> TypeValue.UnknownType.of(a.getAnnotationType().getQualifiedName())
     );
@@ -43,9 +43,9 @@ public class SymbolAdder {
     return builder;
   }
 
-  private static List<CtElement> getVariables(CtBodyHolder element) {
+  private static Stream<CtElement> getVariables(CtBodyHolder element) {
     if (element.getBody() == null) {
-      return Collections.emptyList();
+      return Stream.empty();
     }
     return element.getBody().getDirectChildren().stream()
       .flatMap(childElement -> {
@@ -53,17 +53,16 @@ public class SymbolAdder {
           return Stream.empty();
         }
         if (childElement instanceof CtBodyHolder bodyHolder) {
-          return getVariables(bodyHolder).stream();
+          return getVariables(bodyHolder);
         }
         if (childElement instanceof CtLocalVariable<?> localVariable) {
           return Stream.of(localVariable);
         }
         return Stream.empty();
-      })
-      .toList();
+      });
   }
 
-  private List<Symbol> parseSymbols(CtElement element, Symbol parent) {
+  private Stream<Symbol> parseElement(CtElement element, Symbol parent) {
     if (element instanceof CtType<?> type) {
       return parseTypeDeclaration(type, parent);
     } else if (element instanceof CtConstructor<?> constructor) {
@@ -81,10 +80,10 @@ public class SymbolAdder {
     } else if (element instanceof CtLocalVariable<?> variable) {
       return parseVariable(variable, parent);
     }
-    return Collections.emptyList();
+    return Stream.empty();
   }
 
-  List<Symbol> parseTypeDeclaration(CtType<?> typeDeclaration, Symbol parent) {
+  public Stream<Symbol> parseTypeDeclaration(CtType<?> typeDeclaration, Symbol parent) {
     var visibility = VisibilityProperty.Visibility.fromModifiable(typeDeclaration);
     var members = typeDeclaration.getTypeMembers();
     var symbol = commonSymbolBuilder(context, typeDeclaration)
@@ -92,13 +91,13 @@ public class SymbolAdder {
       .property(ParentProperty.fromSymbol(parent))
       .property(visibility.toProperty())
       .build();
-    return Lists.cons(
+    return StreamsX.cons(
       symbol,
-      Lists.flatMap(members, m -> parseSymbols(m, symbol))
+      members.stream().flatMap(m -> parseElement(m, symbol))
     );
   }
 
-  private List<Symbol> parseConstructor(CtConstructor<?> constructor, Symbol parent) {
+  private Stream<Symbol> parseConstructor(CtConstructor<?> constructor, Symbol parent) {
     var name = parent.getProperty(SimpleNameProperty.class).value();
     var visibility = VisibilityProperty.Visibility.fromModifiable(constructor);
     var variables = getVariables(constructor);
@@ -108,14 +107,14 @@ public class SymbolAdder {
       .property(new SimpleNameProperty(name))
       .property(visibility.toProperty())
       .build();
-    return Lists.cons(
+    return StreamsX.cons(
       symbol,
-      Lists.flatMap(constructor.getParameters(), p -> parseSymbols(p, symbol)),
-      Lists.flatMap(variables, v -> parseSymbols(v, symbol))
+      constructor.getParameters().stream().flatMap(p -> parseElement(p, symbol)),
+      variables.flatMap(v -> parseElement(v, symbol))
     );
   }
 
-  private List<Symbol> parseMethod(CtMethod<?> method, Symbol parent) {
+  private Stream<Symbol> parseMethod(CtMethod<?> method, Symbol parent) {
     var visibility = VisibilityProperty.Visibility.fromModifiable(method);
     var variables = getVariables(method);
     var symbol = commonSymbolBuilder(context, method)
@@ -123,22 +122,22 @@ public class SymbolAdder {
       .property(ParentProperty.fromSymbol(parent))
       .property(visibility.toProperty())
       .build();
-    return Lists.cons(
+    return StreamsX.cons(
       symbol,
-      Lists.flatMap(method.getParameters(), p -> parseSymbols(p, symbol)),
-      Lists.flatMap(variables, v -> parseSymbols(v, symbol))
+      method.getParameters().stream().flatMap(p -> parseElement(p, symbol)),
+      variables.flatMap(v -> parseElement(v, symbol))
     );
   }
 
-  private List<Symbol> parseParameter(CtParameter<?> parameter, Symbol parent) {
+  private Stream<Symbol> parseParameter(CtParameter<?> parameter, Symbol parent) {
     var symbol = commonSymbolBuilder(context, parameter)
       .property(KindProperty.Value.PARAMETER.toProperty())
       .property(ParentProperty.fromSymbol(parent))
       .build();
-    return List.of(symbol);
+    return Stream.of(symbol);
   }
 
-  private List<Symbol> parseEnumConstant(CtEnumValue<?> enumConstant, Symbol parent) {
+  private Stream<Symbol> parseEnumConstant(CtEnumValue<?> enumConstant, Symbol parent) {
     var arguments = Optional.ofNullable(enumConstant.getDefaultExpression())
       .map(i -> (CtConstructorCall<?>) i)
       .map(CtAbstractInvocation::getArguments)
@@ -148,10 +147,10 @@ public class SymbolAdder {
       .property(KindProperty.Value.ENUM_CONSTANT.toProperty())
       .property(ParentProperty.fromSymbol(parent))
       .build();
-    return List.of(symbol);
+    return Stream.of(symbol);
   }
 
-  private List<Symbol> parseField(CtField<?> field, Symbol parent) {
+  private Stream<Symbol> parseField(CtField<?> field, Symbol parent) {
     var modifiers = ModifiersProperty.getModifiers(field);
     var kind = modifiers.containsAll(ModifiersProperty.Modifier.CONSTANT_FIELD_MODIFIERS)
       ? KindProperty.Value.CONSTANT
@@ -161,10 +160,10 @@ public class SymbolAdder {
       .property(kind.toProperty())
       .property(ParentProperty.fromSymbol(parent))
       .build();
-    return List.of(symbol);
+    return Stream.of(symbol);
   }
 
-  private List<Symbol> parseVariable(CtLocalVariable<?> variable, Symbol parent) {
+  private Stream<Symbol> parseVariable(CtLocalVariable<?> variable, Symbol parent) {
     var modifiers = ModifiersProperty.getModifiers(variable);
     var kind = modifiers.containsAll(ModifiersProperty.Modifier.CONSTANT_VARIABLE_MODIFIERS)
       ? KindProperty.Value.CONSTANT
@@ -174,7 +173,7 @@ public class SymbolAdder {
       .property(kind.toProperty())
       .property(ParentProperty.fromSymbol(parent))
       .build();
-    return List.of(symbol);
+    return Stream.of(symbol);
   }
 
 }

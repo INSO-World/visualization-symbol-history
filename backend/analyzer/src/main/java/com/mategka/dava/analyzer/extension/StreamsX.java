@@ -3,14 +3,13 @@ package com.mategka.dava.analyzer.extension;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Comparator;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 @UtilityClass
-public class Streams {
+public class StreamsX {
 
   public Stream<String> splitting(String string, @NotNull String delimiter) {
     if (string == null) {
@@ -37,6 +36,17 @@ public class Streams {
 
   public <T> Comparator<T> trueFirst(Predicate<T> keyMapper) {
     return Comparator.comparingInt(t -> keyMapper.test(t) ? -1 : 0);
+  }
+
+  @SafeVarargs
+  public <T> Stream<T> cons(T head, Stream<? extends T>... tails) {
+    if (tails.length == 0) {
+      return Stream.of(head);
+    }
+    return Stream.concat(
+      Stream.of(head),
+      Arrays.stream(tails).flatMap(Function.identity())
+    );
   }
 
 }

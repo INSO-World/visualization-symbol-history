@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.struct;
 
-import com.mategka.dava.analyzer.extension.IndexMap;
+import com.mategka.dava.analyzer.collections.ChainMap;
+import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
@@ -22,8 +23,6 @@ import java.util.*;
 @RequiredArgsConstructor
 public class StrandWorkspace {
 
-  private static final String ROOT_PACKAGE_NAME = "ROOT";
-
   @NonNull
   @Getter
   final Strand strand;
@@ -33,6 +32,9 @@ public class StrandWorkspace {
 
   @Getter
   final Map<VirtualFile, CtCompilationUnit> spoonUnits = new HashMap<>();
+
+  @Getter
+  final Multimap<VirtualFile, Symbol> filesToSymbols = HashMultimap.create();
 
   final Map<String, Symbol> pathsToSymbols = new TreeMap<>();
 
@@ -53,7 +55,7 @@ public class StrandWorkspace {
     }
     if (pakkage instanceof CtModelImpl.CtRootPackage) {
       var rootPackage = context.symbolBuilder()
-        .property(new SimpleNameProperty(ROOT_PACKAGE_NAME))
+        .property(new SimpleNameProperty(Symbol.ROOT_PACKAGE_NAME))
         .property(KindProperty.Value.PACKAGE.toProperty())
         .property(childPackagePathProperty)
         .build();
@@ -68,18 +70,42 @@ public class StrandWorkspace {
       .property(ParentProperty.fromSymbol(parentSymbol))
       .property(childPackagePathProperty)
       .build();
-    putSymbol(childSymbol);
+    putGlobalSymbol(childSymbol);
     return childSymbol;
   }
 
-  public void putSymbol(Symbol symbol) {
+  public List<Symbol> purgeEmptyPackages() {
+    List<Symbol> result = new ArrayList<>();
+    while (true) {
+      var emptyPackages = idsToSymbols.values().stream()
+        .filter(s -> !parentsToChildren.containsKey(s))
+        .filter(s -> !Symbol.isRootPackage(s))
+        .toList();
+      if (emptyPackages.isEmpty()) {
+        break;
+      }
+      for (var emptyPackage : emptyPackages) {
+        idsToSymbols.removeByValue(emptyPackage);
+        pathsToSymbols.remove(emptyPackage.getPath().toString());
+      }
+      result.addAll(emptyPackages);
+    }
+    return result;
+  }
+
+  private void putGlobalSymbol(Symbol symbol) {
     idsToSymbols.put(symbol);
     pathsToSymbols.put(symbol.getPath().toString(), symbol);
     parentsToChildren.put(idsToSymbols.get(symbol.getParentId()), symbol);
   }
 
+  public void putLocalSymbol(VirtualFile file, Symbol symbol) {
+    putGlobalSymbol(symbol);
+    filesToSymbols.put(file, symbol);
+  }
+
   public CtCompilationUnit getUnit(String filePath) {
-    return spoonUnits.get(spoonFiles.get(filePath));
+    return ChainMap.getOnce(spoonFiles, spoonUnits, filePath);
   }
 
   private void updateModel(CtModel model) {

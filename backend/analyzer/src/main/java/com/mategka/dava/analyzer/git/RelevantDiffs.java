@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.git;
 
-import com.mategka.dava.analyzer.extension.Paths2;
+import com.mategka.dava.analyzer.extension.PathsX;
 
 import lombok.experimental.UtilityClass;
 import org.eclipse.jgit.diff.DiffEntry;
@@ -33,7 +33,7 @@ public class RelevantDiffs {
           var oldPathIsRelevant = isFileRelevant(diff.getOldPath());
           var newPathIsRelevant = isFileRelevant(diff.getNewPath());
           if (oldPathIsRelevant && newPathIsRelevant) {
-            if (Paths2.areSiblingPaths(diff.getOldPath(), diff.getNewPath())) {
+            if (PathsX.areSiblingPaths(diff.getOldPath(), diff.getNewPath())) {
               result.get(FileChangeType.RENAMED).add(diff);
             } else {
               result.get(FileChangeType.MOVED).add(diff);

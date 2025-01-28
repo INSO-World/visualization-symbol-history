@@ -8,7 +8,7 @@ import java.util.function.Supplier;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @UtilityClass
-public class Optionals {
+public class OptionalsX {
 
   public <T> Optional<T> cast(Optional<? super T> optional, Class<T> targetType) {
     return optional.filter(targetType::isInstance).map(targetType::cast);

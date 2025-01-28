@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.property.index;
 
-import com.mategka.dava.analyzer.extension.Optionals;
+import com.mategka.dava.analyzer.extension.OptionalsX;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.SimpleProperty;
 
@@ -37,7 +37,7 @@ public class PropertyMap extends HashMap<String, Property> {
   }
 
   public <T extends Property> Optional<T> get(Class<T> propertyClass) {
-    return Optionals.cast(Optional.ofNullable(super.get(PropertyKeys.get(propertyClass))), propertyClass);
+    return OptionalsX.cast(Optional.ofNullable(super.get(PropertyKeys.get(propertyClass))), propertyClass);
   }
 
   public <T> T getOrDefault(Class<? extends SimpleProperty<T>> propertyClass, T defaultValue) {

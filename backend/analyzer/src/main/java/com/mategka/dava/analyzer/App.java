@@ -2,7 +2,8 @@ package com.mategka.dava.analyzer;
 
 import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.DefaultMap;
-import com.mategka.dava.analyzer.extension.*;
+import com.mategka.dava.analyzer.extension.CollectorsX;
+import com.mategka.dava.analyzer.extension.OptionalsX;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.Spoon;

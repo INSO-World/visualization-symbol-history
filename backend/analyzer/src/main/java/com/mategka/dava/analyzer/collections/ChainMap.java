@@ -24,7 +24,8 @@ public class ChainMap<K, V> implements Map<K, V> {
     return map2.get(map1.get(key));
   }
 
-  public static <K1, K2, K3, V> V getOnce(Map<? super K1, K2> map1, Map<? super K2, K3> map2, Map<? super K3, V> map3, K1 key) {
+  public static <K1, K2, K3, V> V getOnce(Map<? super K1, K2> map1, Map<? super K2, K3> map2, Map<? super K3, V> map3,
+                                          K1 key) {
     if (!map1.containsKey(key)) {
       return null;
     }

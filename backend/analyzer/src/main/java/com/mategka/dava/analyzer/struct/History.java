@@ -23,14 +23,24 @@ import java.util.stream.Collectors;
 @Builder(access = AccessLevel.PRIVATE)
 public class History {
 
+  /**
+   * Contains all symbols present at the HEAD commit with their final properties.
+   */
   @NonNull
   @Builder.Default
   List<Symbol> presentSymbols = new ArrayList<>();
 
+  /**
+   * Contains all symbols that were deleted at some point with their final properties.
+   * Note that these may contain trace symbols with identical original symbols.
+   */
   @NonNull
   @Builder.Default
   List<Symbol> deletedSymbols = new ArrayList<>();
 
+  /**
+   * Contains all strands with initial commits (source nodes in the {@linkplain #getStrandDag() strand DAG}).
+   */
   @NonNull
   Set<Strand> baseStrands;
 

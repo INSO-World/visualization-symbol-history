@@ -49,7 +49,7 @@ public class SymbolAdder {
     }
     return element.getBody().getDirectChildren().stream()
       .flatMap(childElement -> {
-        if (childElement instanceof CtType<?>) {
+        if (childElement instanceof CtType<?> || childElement instanceof CtLambda<?>) {
           return Stream.empty();
         }
         if (childElement instanceof CtBodyHolder bodyHolder) {

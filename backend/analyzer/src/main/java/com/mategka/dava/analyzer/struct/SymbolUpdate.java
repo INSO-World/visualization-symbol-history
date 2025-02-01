@@ -2,9 +2,11 @@ package com.mategka.dava.analyzer.struct;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import lombok.NonNull;
 import lombok.Value;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -14,6 +16,8 @@ import java.util.stream.Collectors;
 public class SymbolUpdate implements PropertyIndexable {
 
   long id;
+
+  long strandId;
 
   @NonNull
   String commitSha;
@@ -27,6 +31,10 @@ public class SymbolUpdate implements PropertyIndexable {
     return Arrays.stream(Flag.values())
       .filter(f -> f.isSet(flags))
       .collect(Collectors.toCollection(() -> EnumSet.noneOf(Flag.class)));
+  }
+
+  public boolean appliesTo(@NotNull Symbol symbol) {
+    return id == symbol.getId() && strandId == symbol.getStrandId();
   }
 
   public enum Flag {

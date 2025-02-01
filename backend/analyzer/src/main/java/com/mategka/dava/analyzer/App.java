@@ -2,12 +2,14 @@ package com.mategka.dava.analyzer;
 
 import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.DefaultMap;
+import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.extension.CollectorsX;
 import com.mategka.dava.analyzer.extension.OptionalsX;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.*;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.wip.ReflectionContext;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -53,6 +55,7 @@ public class App {
           }
           var parent = OptionalsX.getFirst(commit.getParents());
           if (parent.isEmpty()) {
+            // TODO: Fix initial commit variant algorithm
             var diffs = repository.initialCommitFilesOf(commit);
             var additions = RelevantDiffs.extract(diffs).get(FileChangeType.ADDED);
             if (additions.isEmpty()) {
@@ -66,7 +69,7 @@ public class App {
               currentContents.put(file.getPath(), file);
             }
             for (var file : currentContents.values()) {
-              workspace.getSpoonUnits().put(file, Spoon.parse(file));
+              //workspace.getSpoonUnits().put(file, Spoon.parse(file));
             }
             // TODO: Process symbol additions
             continue;
@@ -91,8 +94,11 @@ public class App {
             var derivativeDiffPairs = Stream.of(FileChangeType.RENAMED, FileChangeType.MOVED, FileChangeType.COPIED)
               .flatMap(t -> relevantDiffs.get(t).stream().map(d -> Pair.of(t, d)))
               .toList();
-            var creationContext = new SymbolCreationContext(symbolIdCounter, commitSha);
+            var creationContext = new SymbolCreationContext(symbolIdCounter, strand.getId(), commitSha);
             var symbolAdder = new SymbolAdder(creationContext);
+            List<Symbol> additions = new ArrayList<>();
+            List<Symbol> deletions = new ArrayList<>();
+            var updates = new IndexMap<>(HashMap::new, SymbolUpdate::getId);
             for (var diffPair : derivativeDiffPairs) {
               var type = diffPair.getLeft();
               var diff = diffPair.getRight();
@@ -118,26 +124,36 @@ public class App {
               var packageDeclaration = newUnit.getPackageDeclaration().getReference().getDeclaration();
               var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
               var typeDeclaration = newUnit.getMainType();
-              var addedSymbols = symbolAdder.parseTypeDeclaration(typeDeclaration, pakkage);
-              addedSymbols.forEach(s -> workspace.putLocalSymbol(newFile, s));
+              var addedSymbols = symbolAdder.parseTypeDeclaration(typeDeclaration, pakkage).spliterator();
+              addedSymbols.tryAdvance(s -> {
+                workspace.putClassSymbol(new FileEntry(diff.getNewPath(), newFile, newUnit, s));
+                additions.add(s);
+              });
+              addedSymbols.forEachRemaining(s -> {
+                workspace.putSymbol(s);
+                additions.add(s);
+              });
               int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
-              var oldFile = parentWorkspace.getSpoonFiles().get(diff.getOldPath());
-              var deletedSymbols = parentWorkspace.getFilesToSymbols().get(oldFile);
+              var deletedSymbols = parentWorkspace.getSymbolsFromFilePath(diff.getOldPath()).spliterator();
+              deletedSymbols.tryAdvance(s -> {
+                workspace.removeClassSymbolHierarchy(s);
+                deletions.add(s);
+              });
+              deletedSymbols.forEachRemaining(deletions::add);
               int dummy = 1;
             }
-            for (var overrideFile : overrideFiles.entrySet()) {
-              var path = overrideFile.getKey();
-              var newFile = overrideFile.getValue();
-              if (newFile == null) {
-                var parentFile = workspace.getSpoonFiles().remove(path);
-                workspace.getSpoonUnits().remove(parentFile);
-              } else {
-                workspace.getSpoonFiles().put(path, newFile);
-                workspace.getSpoonUnits().put(newFile, effectiveUnits.get(newFile));
-              }
-            }
+            var commitDiff = CommitDiff.builder()
+              .parentCommitShas(List.of(actualParent.getId().getName()))
+              .commitSha(commitSha)
+              .commitDate(Git.getCommitTime(commit))
+              .refactorings(Collections.emptyList())
+              .additions(additions)
+              .deletions(deletions)
+              .updates(updates)
+              .build();
+            strand.getCommitDiffs().add(commitDiff);
           }
         }
       }

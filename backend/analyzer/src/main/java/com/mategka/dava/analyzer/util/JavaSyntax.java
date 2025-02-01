@@ -36,7 +36,7 @@ public enum JavaSyntax {
    */
   V20(16, 20),
   /**
-   * String templates
+   * String templates, unnamed variables and patterns
    */
   V22(21, 22),
   /**

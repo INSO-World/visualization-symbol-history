@@ -45,7 +45,9 @@ public class StreamsX {
     if (tails.length == 0) {
       return Stream.of(head);
     }
-    return Stream.concat(
+    // NOTE: Type argument has to be present, otherwise Java seems to run into parsing errors?
+    //noinspection RedundantTypeArguments
+    return Stream.<T>concat(
       Stream.of(head),
       Arrays.stream(tails).flatMap(Function.identity())
     );

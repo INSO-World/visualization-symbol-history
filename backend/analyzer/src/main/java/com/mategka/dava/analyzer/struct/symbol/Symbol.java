@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
+import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.struct.SymbolUpdate;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
@@ -9,7 +10,6 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import org.jetbrains.annotations.NotNull;
-import spoon.reflect.path.CtPath;
 
 import java.util.*;
 
@@ -18,16 +18,13 @@ import java.util.*;
 public class Symbol implements PropertyIndexable {
 
   public static final String ROOT_PACKAGE_NAME = "ROOT";
-
   long id;
-
+  long strandId;
   @NonNull
   String commitSha;
-
   @NonNull
   @Builder.Default
   List<Long> predecessors = new ArrayList<>();
-
   @NonNull
   @Builder.Default
   PropertyMap properties = new PropertyMap();
@@ -42,10 +39,6 @@ public class Symbol implements PropertyIndexable {
     return ROOT_PACKAGE_NAME.equals(name.get()) && KindProperty.Value.PACKAGE.equals(kind.get());
   }
 
-  public static Symbol squash(Symbol base, Symbol current) {
-    return current.toBuilder().id(base.id).build();
-  }
-
   public @NotNull String getDisplayName() {
     return getPropertyValue(SimpleNameProperty.class)
       .orElseGet(() -> "(unnamed %s)".formatted(
@@ -55,15 +48,23 @@ public class Symbol implements PropertyIndexable {
       ));
   }
 
-  public @NotNull CtPath getPath() throws NoSuchElementException {
+  public @NotNull CtEqPath getPath() throws NoSuchElementException {
     return getPropertyValue(PathProperty.class)
       .orElseThrow(() -> new NoSuchElementException("Symbol has no known path"));
   }
 
-  public long getParentId() throws NoSuchElementException {
+  public @NotNull Key getKey() {
+    return new Key(id, strandId);
+  }
+
+  private long getParentId() throws NoSuchElementException {
     return getPropertyValue(ParentProperty.class)
       .map(TypeValue.KnownType::getId)
       .orElseThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
+  }
+
+  public Key getParentKey() throws NoSuchElementException {
+    return new Key(getParentId(), strandId);
   }
 
   public PropertyMap diff(@NotNull Collection<Property> newProperties) {
@@ -78,19 +79,21 @@ public class Symbol implements PropertyIndexable {
   }
 
   public Symbol withUpdate(@NotNull SymbolUpdate update) {
-    if (!Objects.equals(id, update.getId())) {
+    if (!update.appliesTo(this)) {
       throw new IllegalArgumentException(
-        "Cannot apply update for symbol %d to symbol %d".formatted(update.getId(), id)
+        "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(
+          update.getId(), update.getStrandId(), id, strandId)
       );
     }
     return toBuilder().update(update).build();
   }
 
   public Symbol withUpdates(@NotNull Collection<? extends SymbolUpdate> updates) {
-    var violation = updates.stream().map(SymbolUpdate::getId).filter(i -> i != id).findFirst();
+    var violation = updates.stream().filter(u -> !u.appliesTo(this)).findFirst();
     if (violation.isPresent()) {
       throw new IllegalArgumentException(
-        "Cannot apply update for symbol %d to symbol %d".formatted(violation.get(), id)
+        "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(
+          violation.get(), violation.get().getStrandId(), id, strandId)
       );
     }
     var updatedProperties = updates.stream()
@@ -104,6 +107,10 @@ public class Symbol implements PropertyIndexable {
   @Override
   public String toString() {
     return "[%d] %s".formatted(id, getDisplayName());
+  }
+
+  public record Key(long symbolId, long strandId) {
+
   }
 
   public static class SymbolBuilder {

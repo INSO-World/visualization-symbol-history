@@ -3,9 +3,9 @@ package com.mategka.dava.analyzer;
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.StreamsX;
 import com.mategka.dava.analyzer.spoon.Spoon;
-import com.mategka.dava.analyzer.struct.SymbolCreationContext;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
+import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
 
 import lombok.Value;
 import spoon.reflect.code.*;
@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+@Deprecated
 @Value
 public class SymbolAdder {
 
@@ -62,11 +63,11 @@ public class SymbolAdder {
       });
   }
 
-  private Stream<Symbol> parseElement(CtElement element, Symbol parent) {
+  public Stream<Symbol> parseElement(CtElement element, Symbol parent) {
     if (element instanceof CtType<?> type) {
       return parseTypeDeclaration(type, parent);
     } else if (element instanceof CtConstructor<?> constructor) {
-      if (!Spoon.isDefaultConstructor(constructor) && !constructor.isCompactConstructor()) {
+      if (Spoon.isRegularConstructor(constructor)) {
         return parseConstructor(constructor, parent);
       }
     } else if (element instanceof CtParameter<?> parameter) {

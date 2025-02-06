@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer.struct;
 
 import com.mategka.dava.analyzer.struct.refactoring.SymbolRefactoring;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
+import com.mategka.dava.analyzer.struct.symbol.SymbolUpdate;
 
 import lombok.Builder;
 import lombok.NonNull;

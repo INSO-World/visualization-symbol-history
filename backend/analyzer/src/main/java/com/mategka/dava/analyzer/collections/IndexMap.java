@@ -67,4 +67,15 @@ public class IndexMap<K, V> implements Map<K, V> {
     map.putAll(m);
   }
 
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof IndexMap<?, ?> indexMap)) return false;
+    return Objects.equals(map, indexMap.map) && Objects.equals(keyExtractor, indexMap.keyExtractor);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(map, keyExtractor);
+  }
+
 }

@@ -1,8 +1,7 @@
-package com.mategka.dava.analyzer.struct;
+package com.mategka.dava.analyzer.struct.symbol;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
-import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import lombok.NonNull;
 import lombok.Value;

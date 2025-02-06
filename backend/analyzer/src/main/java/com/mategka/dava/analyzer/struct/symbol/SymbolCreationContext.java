@@ -1,6 +1,4 @@
-package com.mategka.dava.analyzer.struct;
-
-import com.mategka.dava.analyzer.struct.symbol.Symbol;
+package com.mategka.dava.analyzer.struct.symbol;
 
 import java.util.concurrent.atomic.AtomicLong;
 

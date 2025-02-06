@@ -59,4 +59,8 @@ public class Spoon {
     return !constructor.isCompactConstructor() && constructor.isImplicit() && constructor.getParameters().isEmpty();
   }
 
+  public static boolean isRegularConstructor(CtConstructor<?> constructor) {
+    return !isDefaultConstructor(constructor) && !constructor.isCompactConstructor();
+  }
+
 }

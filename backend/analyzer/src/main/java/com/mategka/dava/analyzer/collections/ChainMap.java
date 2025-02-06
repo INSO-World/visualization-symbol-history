@@ -2,12 +2,15 @@ package com.mategka.dava.analyzer.collections;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.UnmodifiableView;
 
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+@UnmodifiableView
 public class ChainMap<K, V> implements Map<K, V> {
 
   private final List<Map<? extends K, ? extends V>> maps;
@@ -166,6 +169,19 @@ public class ChainMap<K, V> implements Map<K, V> {
   @Override
   public V merge(K key, @NotNull V value, @NotNull BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
     throw new UnsupportedOperationException("ChainMap is immutable");
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof ChainMap<?, ?> chainMap)) return false;
+    if (maps.size() != chainMap.maps.size()) return false;
+    return IntStream.range(0, maps.size())
+      .allMatch(i -> maps.get(i) == chainMap.maps.get(i));
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(maps);
   }
 
   public static class Entry<K, V> implements Map.Entry<K, V> {

@@ -8,8 +8,9 @@ import com.mategka.dava.analyzer.extension.OptionalsX;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.Spoon;
+import com.mategka.dava.analyzer.spoon.action.EditActions;
 import com.mategka.dava.analyzer.struct.*;
-import com.mategka.dava.analyzer.struct.symbol.Symbol;
+import com.mategka.dava.analyzer.struct.symbol.*;
 import com.mategka.dava.analyzer.wip.ReflectionContext;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -90,16 +91,29 @@ public class App {
             Map<VirtualFile, CtCompilationUnit> effectiveUnits = effectiveFiles.values().stream()
               .filter(Objects::nonNull)
               .collect(CollectorsX.toMap(Spoon::parse));
+            // START xdiffs
+            var xdiffs = relevantDiffs.put(FileChangeType.RENAMED, new ArrayList<>());
+            assert xdiffs != null;
+            var xxdiffs = relevantDiffs.put(FileChangeType.MOVED, new ArrayList<>());
+            assert xxdiffs != null;
+            xdiffs.addAll(xxdiffs);
+            relevantDiffs.get(FileChangeType.DELETED).addAll(xdiffs);
+            relevantDiffs.get(FileChangeType.ADDED).addAll(xdiffs);
+            var xxxdiffs = relevantDiffs.put(FileChangeType.COPIED, new ArrayList<>());
+            assert xxxdiffs != null;
+            relevantDiffs.get(FileChangeType.ADDED).addAll(xxxdiffs);
+            // END xdiffs
             // TODO: Do not trust rename, move and copy hints from Git
             var derivativeDiffPairs = Stream.of(FileChangeType.RENAMED, FileChangeType.MOVED, FileChangeType.COPIED)
               .flatMap(t -> relevantDiffs.get(t).stream().map(d -> Pair.of(t, d)))
               .toList();
             var creationContext = new SymbolCreationContext(symbolIdCounter, strand.getId(), commitSha);
-            var symbolAdder = new SymbolAdder(creationContext);
+            var symbolizer = new Symbolizer(creationContext);
             List<Symbol> additions = new ArrayList<>();
             List<Symbol> deletions = new ArrayList<>();
             var updates = new IndexMap<>(HashMap::new, SymbolUpdate::getId);
             for (var diffPair : derivativeDiffPairs) {
+              assert false; // TODO: Remove 10 xdiffs lines above and implement this
               var type = diffPair.getLeft();
               var diff = diffPair.getRight();
               // Treat declared type as renamed symbol
@@ -112,10 +126,16 @@ public class App {
             }
             for (var diff : relevantDiffs.get(FileChangeType.MODIFIED)) {
               var oldUnit = parentWorkspace.getUnit(diff.getOldPath());
-              var newUnit = effectiveUnits.get(overrideFiles.get(diff.getNewPath()));
+              var newFile = overrideFiles.get(diff.getNewPath());
+              var newUnit = effectiveUnits.get(newFile);
               var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
               var editScript = astDiff.getRootOperations();
+              var actions = editScript.stream()
+                .map(EditActions::fromOperation)
+                .flatMap(Collection::stream)
+                .toList();
               var mappings = astDiff.getMappingsComp();
+              workspace.replaceFileEntry(diff.getOldPath(), newFile, newUnit);
               int dummy = 1;
             }
             for (var diff : relevantDiffs.get(FileChangeType.ADDED)) {
@@ -124,7 +144,7 @@ public class App {
               var packageDeclaration = newUnit.getPackageDeclaration().getReference().getDeclaration();
               var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
               var typeDeclaration = newUnit.getMainType();
-              var addedSymbols = symbolAdder.parseTypeDeclaration(typeDeclaration, pakkage).spliterator();
+              var addedSymbols = symbolizer.symbolizeType(typeDeclaration, pakkage).spliterator();
               addedSymbols.tryAdvance(s -> {
                 workspace.putClassSymbol(new FileEntry(diff.getNewPath(), newFile, newUnit, s));
                 additions.add(s);
@@ -148,6 +168,7 @@ public class App {
               .parentCommitShas(List.of(actualParent.getId().getName()))
               .commitSha(commitSha)
               .commitDate(Git.getCommitTime(commit))
+              .successions(Collections.emptyMap())
               .refactorings(Collections.emptyList())
               .additions(additions)
               .deletions(deletions)

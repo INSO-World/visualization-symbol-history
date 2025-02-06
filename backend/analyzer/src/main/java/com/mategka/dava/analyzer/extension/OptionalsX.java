@@ -1,9 +1,13 @@
 package com.mategka.dava.analyzer.extension;
 
+import com.leakyabstractions.result.core.Results;
 import lombok.experimental.UtilityClass;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Optional;
 import java.util.SequencedCollection;
+import java.util.concurrent.Callable;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -12,6 +16,14 @@ public class OptionalsX {
 
   public <T> Optional<T> cast(Optional<? super T> optional, Class<T> targetType) {
     return optional.filter(targetType::isInstance).map(targetType::cast);
+  }
+
+  public <T, U extends T> Optional<U> cast(T value, Class<U> targetType) {
+    return cast(Optional.ofNullable(value), targetType);
+  }
+
+  public <T, U> Optional<U> map(T value, Function<T, U> mapperFn) {
+    return Optional.ofNullable(mapperFn.apply(value));
   }
 
   public <T> Optional<T> when(boolean condition, Supplier<T> supplier) {
@@ -29,6 +41,17 @@ public class OptionalsX {
 
   public <T> Optional<T> getFirst(T[] array) {
     return when(array.length > 0, () -> array[0]);
+  }
+
+  public <T> Optional<T> ofCallable(Callable<? extends T> callable) {
+    return Results.<T>ofCallable(callable).getSuccess();
+  }
+
+  public <L, R> Optional<Pair<L, R>> pair(Optional<L> left, Optional<R> right) {
+    if (left.isPresent() && right.isPresent()) {
+      return Optional.of(Pair.of(left.get(), right.get()));
+    }
+    return Optional.empty();
   }
 
 }

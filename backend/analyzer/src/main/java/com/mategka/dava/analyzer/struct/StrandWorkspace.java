@@ -1,12 +1,13 @@
 package com.mategka.dava.analyzer.struct;
 
+import com.mategka.dava.analyzer.collections.FastRecordCollection;
 import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.extension.StreamsX;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
-import com.mategka.dava.analyzer.util.FastRecordCollection;
+import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -58,10 +59,12 @@ public class StrandWorkspace {
    */
   final IndexMap<Symbol.Key, Symbol> keysToSymbols = new IndexMap<>(Symbol::getKey);
 
+  final Set<Symbol> innerPackageSymbols = new HashSet<>();
+
   /**
    * Maps parent to child symbols.
    */
-  final Multimap<Symbol, Symbol> parentsToChildren = HashMultimap.create();
+  final Multimap<Symbol.Key, Symbol> parentsToChildren = HashMultimap.create();
 
   CtModel model = Spoon.EMPTY_MODEL;
 
@@ -91,15 +94,15 @@ public class StrandWorkspace {
       .property(childPackagePathProperty)
       .build();
     putSymbol(childSymbol);
+    innerPackageSymbols.add(childSymbol);
     return childSymbol;
   }
 
   public List<Symbol> purgeEmptyPackages() {
     List<Symbol> result = new ArrayList<>();
     while (true) {
-      var emptyPackages = keysToSymbols.values().stream()
-        .filter(s -> !parentsToChildren.containsKey(s))
-        .filter(s -> !Symbol.isRootPackage(s))
+      var emptyPackages = innerPackageSymbols.stream()
+        .filter(s -> !parentsToChildren.containsKey(s.getKey()))
         .toList();
       if (emptyPackages.isEmpty()) {
         break;
@@ -107,16 +110,25 @@ public class StrandWorkspace {
       for (var emptyPackage : emptyPackages) {
         keysToSymbols.removeByValue(emptyPackage);
         pathsToSymbols.remove(emptyPackage.getPath());
+        innerPackageSymbols.remove(emptyPackage);
       }
       result.addAll(emptyPackages);
     }
     return result;
   }
 
+  public void replaceFileEntry(String gitPath, VirtualFile spoonFile, CtCompilationUnit spoonUnit) {
+    fileEntries.computeWhere(
+      FileEntry::gitPath,
+      gitPath,
+      r -> new FileEntry(r.gitPath(), spoonFile, spoonUnit, r.rootSymbol())
+    );
+  }
+
   public void putSymbol(Symbol symbol) {
     keysToSymbols.put(symbol);
     pathsToSymbols.put(CtEqPath.of(symbol.getPath()), symbol);
-    parentsToChildren.put(keysToSymbols.get(symbol.getParentKey()), symbol);
+    parentsToChildren.put(symbol.getParentKey(), symbol);
   }
 
   public void putClassSymbol(FileEntry entry) {
@@ -127,7 +139,7 @@ public class StrandWorkspace {
   private void removeSymbol(Symbol symbol) {
     keysToSymbols.removeByValue(symbol);
     pathsToSymbols.remove(symbol.getPath());
-    parentsToChildren.removeAll(symbol);
+    parentsToChildren.removeAll(symbol.getKey());
   }
 
   public void removeClassSymbolHierarchy(Symbol symbol) {
@@ -150,7 +162,7 @@ public class StrandWorkspace {
   }
 
   private Stream<Symbol> getDescendantSymbols(Symbol symbol) {
-    var children = parentsToChildren.get(symbol);
+    var children = parentsToChildren.get(symbol.getKey());
     return Stream.concat(children.stream(), children.stream().flatMap(this::getDescendantSymbols));
   }
 

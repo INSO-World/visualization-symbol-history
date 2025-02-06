@@ -1,21 +1,21 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
 import com.mategka.dava.analyzer.spoon.CtEqPath;
-import com.mategka.dava.analyzer.struct.SymbolUpdate;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 
-import lombok.Builder;
-import lombok.NonNull;
-import lombok.Value;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-@Value
+@Getter
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@AllArgsConstructor
 @Builder(toBuilder = true)
-public class Symbol implements PropertyIndexable {
+public final class Symbol implements PropertyIndexable {
 
   public static final String ROOT_PACKAGE_NAME = "ROOT";
   long id;
@@ -78,6 +78,10 @@ public class Symbol implements PropertyIndexable {
       .collect(PropertyMap.collectProperties());
   }
 
+  public Symbol withProperty(Property property) {
+    return toBuilder().property(property).build();
+  }
+
   public Symbol withUpdate(@NotNull SymbolUpdate update) {
     if (!update.appliesTo(this)) {
       throw new IllegalArgumentException(
@@ -102,6 +106,17 @@ public class Symbol implements PropertyIndexable {
       .flatMap(Collection::stream)
       .collect(PropertyMap.collectEntries());
     return toBuilder().properties(updatedProperties).build();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof Symbol symbol)) return false;
+    return id == symbol.id && strandId == symbol.strandId;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, strandId);
   }
 
   @Override

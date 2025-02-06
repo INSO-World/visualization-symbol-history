@@ -1,15 +1,18 @@
 package com.mategka.dava.analyzer.struct;
 
-import lombok.Builder;
-import lombok.NonNull;
-import lombok.Value;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
-@Value
+@Getter
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@AllArgsConstructor
+@ToString
 @Builder
-public class Strand {
+public final class Strand {
 
   long id;
 
@@ -19,5 +22,16 @@ public class Strand {
   @NonNull
   @Builder.Default
   List<CommitDiff> commitDiffs = new ArrayList<>();
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof Strand strand)) return false;
+    return id == strand.id;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id);
+  }
 
 }

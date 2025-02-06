@@ -7,8 +7,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import java.util.Optional;
 import java.util.SequencedCollection;
 import java.util.concurrent.Callable;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.*;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @UtilityClass
@@ -52,6 +51,14 @@ public class OptionalsX {
       return Optional.of(Pair.of(left.get(), right.get()));
     }
     return Optional.empty();
+  }
+
+  public <L, R> Optional<Pair<L, R>> pair(Pair<Optional<L>, Optional<R>> optionalPair) {
+    return pair(optionalPair.getLeft(), optionalPair.getRight());
+  }
+
+  public <T> BiConsumer<Optional<T>, Consumer<T>> yieldIfPresent() {
+    return Optional::ifPresent;
   }
 
 }

@@ -15,14 +15,14 @@ public class ListsX {
     return new ArrayList<>(Arrays.asList(elements));
   }
 
-  public <T, U> List<U> map(List<T> list, Function<T, U> mapper) {
+  public <T, U> List<U> map(List<T> list, Function<? super T, U> mapper) {
     if (list == null) {
       return null;
     }
     return list.stream().map(mapper).toList();
   }
 
-  public <T, U> List<U> flatMap(List<T> list, Function<T, List<U>> mapper) {
+  public <T, U> List<U> flatMap(List<T> list, Function<? super T, List<U>> mapper) {
     if (list == null) {
       return null;
     }

@@ -53,6 +53,7 @@ public class IndexMap<K, V> implements Map<K, V> {
     return map.put(keyExtractor.apply(value), value);
   }
 
+  @SuppressWarnings("UnusedReturnValue")
   public V removeByValue(V value) {
     return map.remove(keyExtractor.apply(value));
   }

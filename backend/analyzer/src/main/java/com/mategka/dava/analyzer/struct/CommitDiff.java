@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.struct;
 
+import com.mategka.dava.analyzer.extension.ListsX;
+import com.mategka.dava.analyzer.git.Commit;
 import com.mategka.dava.analyzer.struct.refactoring.SymbolRefactoring;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolUpdate;
@@ -9,6 +11,7 @@ import lombok.NonNull;
 import lombok.Value;
 
 import java.time.ZonedDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -85,5 +88,18 @@ public class CommitDiff {
    */
   @NonNull
   Map<Long, SymbolUpdate> updates;
+
+  public static CommitDiff empty(Commit commit) {
+    return CommitDiff.builder()
+      .parentCommitShas(ListsX.map(commit.parents(), Commit::sha))
+      .commitSha(commit.sha())
+      .commitDate(commit.dateTime())
+      .successions(Collections.emptyMap())
+      .refactorings(Collections.emptyList())
+      .additions(Collections.emptyList())
+      .deletions(Collections.emptyList())
+      .updates(Collections.emptyMap())
+      .build();
+  }
 
 }

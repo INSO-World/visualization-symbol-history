@@ -159,10 +159,10 @@ public class FastRecordCollection<T extends Record> implements Collection<T> {
       return false;
     }
     var components = componentsOf(t);
+    internalRemove(recordEntry.getValue());
     if (components.stream().anyMatch(componentMap::containsKey)) {
       throw new IllegalArgumentException("Input object contained duplicate field value");
     }
-    internalRemove(recordEntry.getValue());
     internalAdd(t, components);
     return true;
   }

@@ -10,6 +10,7 @@ import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.declaration.*;
 
+import java.util.Map;
 import java.util.stream.Stream;
 
 @UtilityClass
@@ -64,6 +65,7 @@ public class ElementCapture {
     if (element instanceof CtConstructor<?> constructor && !Spoon.isRegularConstructor(constructor)) {
       return Stream.empty();
     }
+    element.setAllMetadata(Map.of("%captured%", true));
     return StreamsX.cons(
       Subject.of(element, parent),
       relevantChildrenOf(element).flatMap(m -> parseElement(m, element))
@@ -71,23 +73,18 @@ public class ElementCapture {
   }
 
   public Stream<Subject> parseFreeElement(CtElement element, CtElement parent) {
-    return switch (parent) {
-      case CtPackage _pakkage -> parseElement(element, parent);
-      case CtType<?> type -> parseElement(element, parent);
-      case CtConstructor<?> constructor -> {
-        if (element instanceof CtParameter<?> || element instanceof CtLocalVariable<?>) {
-          yield parseElement(element, parent);
-        }
-        yield getVariables((CtBodyHolder) element).flatMap(e -> parseElement(e, parent));
+    if (parent instanceof CtPackage || parent instanceof CtType<?>) {
+      return parseElement(element, parent);
+    } else if (parent instanceof CtConstructor<?> || parent instanceof CtMethod<?>) {
+      if (element instanceof CtParameter<?> || element instanceof CtLocalVariable<?>) {
+        return parseElement(element, parent);
       }
-      case CtMethod<?> method -> {
-        if (element instanceof CtParameter<?> || element instanceof CtLocalVariable<?>) {
-          yield parseElement(element, parent);
-        }
-        yield getVariables((CtBodyHolder) element).flatMap(e -> parseElement(e, parent));
+      if (element instanceof CtBodyHolder bodyHolder) {
+        return getVariables(bodyHolder).flatMap(e -> parseElement(e, parent));
       }
-      default -> throw new IllegalArgumentException("Given parent constitutes an illegal symbol parent");
-    };
+      return Stream.empty();
+    }
+    throw new IllegalArgumentException("Given parent constitutes an illegal symbol parent");
   }
 
 }

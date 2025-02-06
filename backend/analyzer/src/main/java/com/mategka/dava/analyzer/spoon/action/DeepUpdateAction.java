@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.spoon.action;
 
+import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.symbol.Subject;
 
 import lombok.NonNull;
@@ -12,5 +13,10 @@ public class DeepUpdateAction implements EditAction {
   Subject oldSubject;
 
   Subject newSubject = null;
+
+  @Override
+  public String toString() {
+    return "% " + Spoon.descriptorOf(oldSubject.getElement());
+  }
 
 }

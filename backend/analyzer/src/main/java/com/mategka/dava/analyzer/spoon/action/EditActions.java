@@ -43,24 +43,32 @@ public class EditActions {
     if (operation instanceof InsertOperation || operation instanceof InsertTreeOperation) {
       var node = operation.getSrcNode();
       var nearestParent = getNearestValidParent(node);
-      if (nearestParent.isPresent()) {
-        return ElementCapture.parseFreeElement(node, nearestParent.get())
-          .map(AdditionAction::of)
-          .toList();
-      } else {
-        var nearestSubject = getNearestSubjectElement(node);
-        if (nearestSubject.isPresent()) {
-          var actualNearestSubject = nearestSubject.get();
-          return List.of(DeepUpdateAction.of(Subject.of(
-            actualNearestSubject,
-            getNearestValidParent(actualNearestSubject).orElseThrow()
-          )));
-        }
-      }
+      return nearestParent
+        .map(parent -> {
+          // If there is a valid (captured) parent, then we try to get valid children
+          // (Basically, if node is a valid child of the nearest parent, we get it and its children, ...)
+          // (...otherwise we explore deeper, which can only really be the case if node is a CtBodyHolder)
+          var result = ElementCapture.parseFreeElement(node, parent)
+            .map(AdditionAction::of)
+            .toList();
+          return result.isEmpty() ? deepUpdateListOf(parent) : result;
+        })
+        .or(() -> getNearestSubjectElement(node).map(EditActions::deepUpdateListOf))
+        .orElseGet(Collections::emptyList);
     }
     if (operation instanceof DeleteOperation || operation instanceof DeleteTreeOperation) {
-      // TODO
-      return Collections.emptyList();
+      var node = operation.getSrcNode();
+      var nearestParent = getNearestValidParent(node);
+      return nearestParent
+        .map(parent -> {
+          var result = ElementCapture.parseFreeElement(node, parent)
+            .map(DeletionAction::of)
+            .toList()
+            .reversed();
+          return result.isEmpty() ? deepUpdateListOf(parent) : result;
+        })
+        .or(() -> getNearestSubjectElement(node).map(EditActions::deepUpdateListOf))
+        .orElseGet(Collections::emptyList);
     }
     if (operation instanceof MoveOperation) {
       // TODO
@@ -154,6 +162,17 @@ public class EditActions {
     return parents.stream()
       .filter(VALID_PARENT_NODE_CLASSES::containsClassOf)
       .findFirst();
+  }
+
+  private List<DeepUpdateAction> deepUpdateListOf(CtElement parent) {
+    return List.of(deepUpdateOf(parent));
+  }
+
+  private DeepUpdateAction deepUpdateOf(CtElement parent) {
+    return DeepUpdateAction.of(Subject.of(
+      parent,
+      getNearestValidParent(parent).orElseThrow()
+    ));
   }
 
 }

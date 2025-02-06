@@ -5,6 +5,7 @@ import com.mategka.dava.analyzer.collections.DefaultMap;
 import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.extension.CollectorsX;
 import com.mategka.dava.analyzer.extension.OptionalsX;
+import com.mategka.dava.analyzer.extension.StreamsX;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.Spoon;
@@ -13,6 +14,7 @@ import com.mategka.dava.analyzer.struct.*;
 import com.mategka.dava.analyzer.struct.symbol.*;
 import com.mategka.dava.analyzer.wip.ReflectionContext;
 
+import gumtree.spoon.builder.CtWrapper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
@@ -20,6 +22,7 @@ import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import spoon.reflect.declaration.CtCompilationUnit;
+import spoon.reflect.declaration.CtElement;
 import spoon.support.compiler.VirtualFile;
 
 import java.io.IOException;
@@ -42,11 +45,13 @@ public class App {
       var symbolIdCounter = new AtomicLong();
       int offset = 0;
       var comparator = new AstComparator();
+      //noinspection MismatchedQueryAndUpdateOfCollection
       Map<Strand, StrandWorkspace> workspaces = new DefaultMap<>(HashMap::new, StrandWorkspace::new);
       // TODO: Traverse commits in normal topological order for ~5% performance boost
       try (RevWalk walk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
-        for (RevCommit commit : walk) {
-          var commitSha = commit.getId().getName();
+        for (RevCommit revCommit : walk) {
+          var commit = new Commit(revCommit);
+          var commitSha = commit.sha();
           var strand = history.getStrandMapping().get(commitSha);
           var workspace = workspaces.get(strand);
           System.out.print(commitSha.substring(0, 6) + " ");
@@ -54,7 +59,7 @@ public class App {
             offset = 0;
             System.out.println();
           }
-          var parent = OptionalsX.getFirst(commit.getParents());
+          var parent = OptionalsX.getFirst(commit.parents());
           if (parent.isEmpty()) {
             // TODO: Fix initial commit variant algorithm
             var diffs = repository.initialCommitFilesOf(commit);
@@ -76,11 +81,11 @@ public class App {
             continue;
           }
           var actualParent = parent.get();
-          var parentStrand = history.getStrandMapping().get(actualParent.getId().getName());
+          var parentStrand = history.getStrandMapping().get(actualParent.sha());
           var parentWorkspace = workspaces.get(parentStrand);
           var parentFiles = parentWorkspace.getSpoonFiles();
           try (DiffFormatter formatter = repository.newFormatter()) {
-            var diffs = formatter.scan(actualParent.getTree(), commit.getTree());
+            var diffs = formatter.scan(actualParent.tree(), commit.tree());
             var relevantDiffs = RelevantDiffs.extract(diffs);
             Map<String, VirtualFile> overrideFiles = getOverrides(relevantDiffs, repository);
             if (overrideFiles.isEmpty()) {
@@ -134,7 +139,19 @@ public class App {
                 .map(EditActions::fromOperation)
                 .flatMap(Collection::stream)
                 .toList();
-              var mappings = astDiff.getMappingsComp();
+              var mappings = astDiff.getMappingsComp().asSet().stream()
+                .filter(m -> !m.first.isRoot())
+                .filter(m -> !m.first.getType().isEmpty())
+                .map(m -> Stream.of(m.first, m.second)
+                  .map(e -> e.getMetadata(Spoon.METADATA_KEY))
+                  .map(Optional::ofNullable)
+                  .map(o -> OptionalsX.cast(o, CtElement.class))
+                  .map(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e))
+                  .collect(CollectorsX.toPair())
+                )
+                .map(OptionalsX::pair)
+                .mapMulti(OptionalsX.yieldIfPresent())
+                .toList();
               workspace.replaceFileEntry(diff.getOldPath(), newFile, newUnit);
               int dummy = 1;
             }
@@ -144,30 +161,28 @@ public class App {
               var packageDeclaration = newUnit.getPackageDeclaration().getReference().getDeclaration();
               var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
               var typeDeclaration = newUnit.getMainType();
-              var addedSymbols = symbolizer.symbolizeType(typeDeclaration, pakkage).spliterator();
-              addedSymbols.tryAdvance(s -> {
-                workspace.putClassSymbol(new FileEntry(diff.getNewPath(), newFile, newUnit, s));
-                additions.add(s);
-              });
-              addedSymbols.forEachRemaining(s -> {
-                workspace.putSymbol(s);
-                additions.add(s);
-              });
-              int dummy = 1;
+              StreamsX.stepper(symbolizer.symbolizeType(typeDeclaration, pakkage))
+                .takeOne(s -> {
+                  workspace.putClassSymbol(new FileEntry(diff.getNewPath(), newFile, newUnit, s));
+                  additions.add(s);
+                })
+                .forEachRemaining(s -> {
+                  workspace.putSymbol(s);
+                  additions.add(s);
+                });
             }
             for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
-              var deletedSymbols = parentWorkspace.getSymbolsFromFilePath(diff.getOldPath()).spliterator();
-              deletedSymbols.tryAdvance(s -> {
-                workspace.removeClassSymbolHierarchy(s);
-                deletions.add(s);
-              });
-              deletedSymbols.forEachRemaining(deletions::add);
-              int dummy = 1;
+              StreamsX.stepper(parentWorkspace.getSymbolsFromFilePath(diff.getOldPath()))
+                .takeOne(s -> {
+                  workspace.removeClassSymbolHierarchy(s);
+                  deletions.add(s);
+                })
+                .forEachRemaining(deletions::add);
             }
             var commitDiff = CommitDiff.builder()
-              .parentCommitShas(List.of(actualParent.getId().getName()))
+              .parentCommitShas(List.of(actualParent.sha()))
               .commitSha(commitSha)
-              .commitDate(Git.getCommitTime(commit))
+              .commitDate(commit.dateTime())
               .successions(Collections.emptyMap())
               .refactorings(Collections.emptyList())
               .additions(additions)
@@ -184,27 +199,6 @@ public class App {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    // Goal 1: Get all changes for one commit
-    // Goal 2: Get all changes for history (starting from specified commit)
-    // Goal 3: Get all changes and refactorings for history
-    // Goal 4: Get all symbol changes for history
-    // Goal 5: Get all structured symbol changes for history (symbol parentage, ...)
-    // Side Goal: Make sure each commit-file combo is only read and parsed ONCE
-
-    /*
-    Procedure:
-    1) Get all file changes
-    2) For added files, parse the contents and add all symbols (package symbols may already exist)
-    3) For deleted files, mark all symbols associated with the file as deleted (recurs. delete packages if empty now)
-    4) For modified files, parse the contents, retrieve the previous parsed contents, diff, then add/remove accordingly
-    5) For moved and renamed files, proceed as with modifications, then:
-    5a) If no semantic changes (only package and import changes): "true" move or rename (only move or rename)
-    5b) If semantic changes: move/rename + add/remove symbols accordingly
-    5z) Add new package symbols if applicable, recursively delete package symbols if empty now
-    6) For copied files, proceed as with modifications, then:
-    6a) If no semantic changes: "true" copy (simply copy currently known symbols, add package if applicable)
-    6b) If semantic changes: treat new file like an addition (add symbols, add package if applicable)
-     */
   }
 
   private static Map<String, VirtualFile> getOverrides(

@@ -1,13 +1,12 @@
 package com.mategka.dava.analyzer.extension;
 
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.*;
+import java.util.function.*;
 import java.util.stream.Stream;
 
 @UtilityClass
@@ -51,6 +50,42 @@ public class StreamsX {
       Stream.of(head),
       Arrays.stream(tails).flatMap(Function.identity())
     );
+  }
+
+  public <T, U> BiConsumer<T, Consumer<U>> mapToZeroOrOne(Function<T, Optional<U>> mapper) {
+    return (v, c) -> mapper.apply(v).ifPresent(c);
+  }
+
+  public <T, U extends T> BiConsumer<T, Consumer<U>> onlyOfType(Class<? extends U> clazz) {
+    return (v, c) -> {
+      if (clazz.isInstance(v)) {
+        c.accept(clazz.cast(v));
+      }
+    };
+  }
+
+  public <T> Stream<T> reverse(Stream<T> stream) {
+    return stream.toList().reversed().stream();
+  }
+
+  public <T> Stepper<T> stepper(Stream<T> stream) {
+    return new Stepper<>(stream.spliterator());
+  }
+
+  @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+  public static class Stepper<T> {
+
+    private final Spliterator<T> spliterator;
+
+    public Stepper<T> takeOne(Consumer<? super T> consumer) {
+      spliterator.tryAdvance(consumer);
+      return this;
+    }
+
+    public void forEachRemaining(Consumer<? super T> consumer) {
+      spliterator.forEachRemaining(consumer);
+    }
+
   }
 
 }

@@ -68,14 +68,14 @@ public class RepositoryWrapper implements AutoCloseable {
     return revWalk;
   }
 
-  public TreeWalk newTreeWalk(@NotNull RevCommit commit) throws IOException {
+  public TreeWalk newTreeWalk(@NotNull Commit commit) throws IOException {
     var walk = new TreeWalk(repository);
-    walk.addTree(commit.getTree());
+    walk.addTree(commit.tree());
     walk.setRecursive(true);
     return walk;
   }
 
-  public List<DiffEntry> initialCommitFilesOf(@NotNull RevCommit commit) throws IOException {
+  public List<DiffEntry> initialCommitFilesOf(@NotNull Commit commit) throws IOException {
     var result = new ArrayList<DiffEntry>();
     try (var walk = newTreeWalk(commit)) {
       while (walk.next()) {

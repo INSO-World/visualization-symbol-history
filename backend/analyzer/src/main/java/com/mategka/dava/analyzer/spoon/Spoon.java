@@ -3,8 +3,10 @@ package com.mategka.dava.analyzer.spoon;
 import com.mategka.dava.analyzer.extension.OptionalsX;
 import com.mategka.dava.analyzer.util.JavaSyntax;
 
+import com.github.gumtreediff.tree.Tree;
 import lombok.experimental.UtilityClass;
 import org.apache.commons.io.FileSystem;
+import org.jetbrains.annotations.NotNull;
 import spoon.Launcher;
 import spoon.reflect.CtModel;
 import spoon.reflect.declaration.*;
@@ -83,6 +85,10 @@ public class Spoon {
         .map(CtNamedElement::getSimpleName)
         .orElse("(unnamed)")
     );
+  }
+
+  public CtElement getMetaElement(@NotNull Tree tree) {
+    return (CtElement) tree.getMetadata(METADATA_KEY);
   }
 
 }

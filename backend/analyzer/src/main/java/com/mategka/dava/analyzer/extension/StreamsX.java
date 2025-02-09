@@ -1,8 +1,10 @@
 package com.mategka.dava.analyzer.extension;
 
+import com.google.common.collect.Streams;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.UtilityClass;
+import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -66,6 +68,16 @@ public class StreamsX {
 
   public <T> Stream<T> reverse(Stream<T> stream) {
     return stream.toList().reversed().stream();
+  }
+
+  public <L, R> Stream<Pair<L, R>> zip(Stream<L> streamA, Stream<R> streamB) {
+    //noinspection UnstableApiUsage
+    return Streams.zip(streamA, streamB, Pair::of);
+  }
+
+  @SafeVarargs
+  public <T> Stream<T> concat(Stream<? extends T>... streams) {
+    return Arrays.stream(streams).flatMap(Function.identity());
   }
 
   public <T> Stepper<T> stepper(Stream<T> stream) {

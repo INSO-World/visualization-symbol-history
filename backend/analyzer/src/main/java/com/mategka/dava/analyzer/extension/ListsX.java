@@ -1,19 +1,15 @@
 package com.mategka.dava.analyzer.extension;
 
 import lombok.experimental.UtilityClass;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 @UtilityClass
 public class ListsX {
-
-  @SafeVarargs
-  public <T> @NotNull List<T> mutableOf(T @NotNull ... elements) {
-    return new ArrayList<>(Arrays.asList(elements));
-  }
 
   public <T, U> List<U> map(List<T> list, Function<? super T, U> mapper) {
     if (list == null) {

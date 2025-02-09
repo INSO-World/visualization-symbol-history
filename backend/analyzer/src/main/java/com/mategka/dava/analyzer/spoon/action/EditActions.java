@@ -2,10 +2,14 @@ package com.mategka.dava.analyzer.spoon.action;
 
 import com.mategka.dava.analyzer.collections.ClassSet;
 import com.mategka.dava.analyzer.collections.Stack;
+import com.mategka.dava.analyzer.extension.BiStream;
+import com.mategka.dava.analyzer.extension.CollectorsX;
+import com.mategka.dava.analyzer.extension.StreamsX;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.symbol.ElementCapture;
 import com.mategka.dava.analyzer.struct.symbol.Subject;
 
+import com.google.common.collect.Streams;
 import gumtree.spoon.diff.operations.*;
 import lombok.experimental.UtilityClass;
 import spoon.reflect.code.CtBodyHolder;
@@ -14,6 +18,7 @@ import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.declaration.*;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @UtilityClass
@@ -42,43 +47,65 @@ public class EditActions {
   public List<? extends EditAction> fromOperation(Operation<?> operation) {
     if (operation instanceof InsertOperation || operation instanceof InsertTreeOperation) {
       var node = operation.getSrcNode();
-      var nearestParent = getNearestValidParent(node);
-      return nearestParent
-        .map(parent -> {
-          // If there is a valid (captured) parent, then we try to get valid children
-          // (Basically, if node is a valid child of the nearest parent, we get it and its children, ...)
-          // (...otherwise we explore deeper, which can only really be the case if node is a CtBodyHolder)
-          var result = ElementCapture.parseFreeElement(node, parent)
-            .map(AdditionAction::of)
-            .toList();
-          return result.isEmpty() ? deepUpdateListOf(parent) : result;
-        })
-        .or(() -> getNearestSubjectElement(node).map(EditActions::deepUpdateListOf))
-        .orElseGet(Collections::emptyList);
+      // Result in topological order (parent nodes before children)
+      return getSimpleActions(node, AdditionAction::of);
     }
     if (operation instanceof DeleteOperation || operation instanceof DeleteTreeOperation) {
       var node = operation.getSrcNode();
-      var nearestParent = getNearestValidParent(node);
-      return nearestParent
-        .map(parent -> {
-          var result = ElementCapture.parseFreeElement(node, parent)
-            .map(DeletionAction::of)
-            .toList()
-            .reversed();
-          return result.isEmpty() ? deepUpdateListOf(parent) : result;
-        })
-        .or(() -> getNearestSubjectElement(node).map(EditActions::deepUpdateListOf))
-        .orElseGet(Collections::emptyList);
+      // Result in reverse topological order (child nodes before parents)
+      return getSimpleActions(node, DeletionAction::of).reversed();
     }
     if (operation instanceof MoveOperation) {
-      // TODO
-      return Collections.emptyList();
+      var sourceRoot = operation.getSrcNode();
+      var destRoot = operation.getDstNode();
+      var identityMapping = BiStream.of(sourceRoot, destRoot)
+        .map(CtElement::descendantIterator)
+        .map(Streams::stream)
+        .collect(StreamsX::zip)
+        .collect(CollectorsX.toBiMap());
+      var additionsStream = getSimpleActions(destRoot, AdditionAction::of).stream()
+        .mapMulti(StreamsX.onlyOfType(AdditionAction.class));
+      var deletionsStream = getSimpleActions(sourceRoot, DeletionAction::of).reversed().stream()
+        .mapMulti(StreamsX.onlyOfType(DeletionAction.class));
+      var additionsPartition = additionsStream
+        .collect(Collectors.partitioningBy(
+          a -> identityMapping.containsValue(a.getNewSubject().getElement())
+        ));
+      var deletionsPartition = deletionsStream
+        .collect(Collectors.partitioningBy(
+          d -> identityMapping.containsKey(d.getOldSubject().getElement())
+        ));
+      var trueAdditions = additionsPartition.get(false);
+      var trueDeletions = deletionsPartition.get(false);
+      var moveAdditionsStream = additionsPartition.get(true).stream().map(EditAction::getNewSubject);
+      var moveDeletionsStream = deletionsPartition.get(true).stream().map(EditAction::getOldSubject);
+      var trueMovesStream = StreamsX.zip(moveDeletionsStream, moveAdditionsStream)
+        .map(p -> MoveAction.of(p.getLeft(), p.getRight()));
+      // TODO: Deep updates
+      return StreamsX.concat(trueDeletions.stream(), trueMovesStream, trueAdditions.stream()).toList();
     }
     if (operation instanceof UpdateOperation) {
       // TODO
       return Collections.emptyList();
     }
     return Collections.emptyList();
+  }
+
+  private List<? extends EditAction> getSimpleActions(CtElement changeRoot,
+                                                      Function<? super Subject, ? extends EditAction> validActionMapper) {
+    var nearestParent = getNearestValidParent(changeRoot);
+    return nearestParent
+      .map(parent -> {
+        // If there is a valid (captured) parent, then we try to get valid children
+        // (Basically, if node is a valid child of the nearest parent, we get it and its children, ...)
+        // (...otherwise we explore deeper, which can only really be the case if node is a CtBodyHolder)
+        var result = ElementCapture.parseFreeElement(changeRoot, parent)
+          .map(validActionMapper)
+          .toList();
+        return result.isEmpty() ? deepUpdateListOf(parent) : result;
+      })
+      .or(() -> getNearestSubjectElement(changeRoot).map(EditActions::deepUpdateListOf))
+      .orElseGet(Collections::emptyList);
   }
 
   private Optional<CtElement> getNearestSubjectElement(CtElement node) {

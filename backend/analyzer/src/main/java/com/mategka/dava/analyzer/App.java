@@ -3,9 +3,7 @@ package com.mategka.dava.analyzer;
 import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.DefaultMap;
 import com.mategka.dava.analyzer.collections.IndexMap;
-import com.mategka.dava.analyzer.extension.CollectorsX;
-import com.mategka.dava.analyzer.extension.OptionalsX;
-import com.mategka.dava.analyzer.extension.StreamsX;
+import com.mategka.dava.analyzer.extension.*;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.Spoon;
@@ -22,7 +20,6 @@ import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import spoon.reflect.declaration.CtCompilationUnit;
-import spoon.reflect.declaration.CtElement;
 import spoon.support.compiler.VirtualFile;
 
 import java.io.IOException;
@@ -139,15 +136,15 @@ public class App {
                 .map(EditActions::fromOperation)
                 .flatMap(Collection::stream)
                 .toList();
+              // TODO: Remove mappings entries for moves (handle those separately)
               var mappings = astDiff.getMappingsComp().asSet().stream()
                 .filter(m -> !m.first.isRoot())
                 .filter(m -> !m.first.getType().isEmpty())
-                .map(m -> Stream.of(m.first, m.second)
-                  .map(e -> e.getMetadata(Spoon.METADATA_KEY))
-                  .map(Optional::ofNullable)
-                  .map(o -> OptionalsX.cast(o, CtElement.class))
+                .map(m -> BiStream.of(m.first, m.second)
+                  .map(Spoon::getMetaElement)
+                  .nonNull()
                   .map(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e))
-                  .collect(CollectorsX.toPair())
+                  .toPair()
                 )
                 .map(OptionalsX::pair)
                 .mapMulti(OptionalsX.yieldIfPresent())

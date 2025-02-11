@@ -7,7 +7,7 @@ import lombok.NonNull;
 import lombok.Value;
 
 @Value(staticConstructor = "of")
-public class AdditionAction implements EditAction {
+public class AdditionAction implements SimpleEditAction {
 
   Subject oldSubject = null;
 

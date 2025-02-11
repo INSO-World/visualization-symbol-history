@@ -1,10 +1,9 @@
 package com.mategka.dava.analyzer.extension;
 
+import com.leakyabstractions.result.core.Results;
 import lombok.experimental.UtilityClass;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -31,6 +30,13 @@ public class ListsX {
       Stream.of(head),
       Arrays.stream(tails).flatMap(Collection::stream)
     ).toList();
+  }
+
+  public boolean isImmutable(List<?> list) {
+    return Results.ofCallable(() -> list.addAll(Collections.emptyList()))
+      .getFailure()
+      .map(e -> e instanceof UnsupportedOperationException)
+      .orElse(false);
   }
 
 }

@@ -92,7 +92,7 @@ public class App {
             Map<String, VirtualFile> effectiveFiles = new ChainMap<>(overrideFiles, parentFiles);
             Map<VirtualFile, CtCompilationUnit> effectiveUnits = effectiveFiles.values().stream()
               .filter(Objects::nonNull)
-              .collect(CollectorsX.toMap(Spoon::parse));
+              .collect(CollectorsX.mapToValue(Spoon::parse));
             // START xdiffs
             var xdiffs = relevantDiffs.put(FileChangeType.RENAMED, new ArrayList<>());
             assert xdiffs != null;
@@ -132,23 +132,18 @@ public class App {
               var newUnit = effectiveUnits.get(newFile);
               var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
               var editScript = astDiff.getRootOperations();
-              var actions = editScript.stream()
-                .map(EditActions::fromOperation)
-                .flatMap(Collection::stream)
-                .toList();
-              // TODO: Remove mappings entries for moves (handle those separately)
-              var mappings = astDiff.getMappingsComp().asSet().stream()
-                .filter(m -> !m.first.isRoot())
-                .filter(m -> !m.first.getType().isEmpty())
-                .map(m -> BiStream.of(m.first, m.second)
-                  .map(Spoon::getMetaElement)
-                  .nonNull()
-                  .map(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e))
-                  .toPair()
+              var mappings = PairStream.mapping(
+                  astDiff.getMappingsComp().asSet(),
+                  m -> Pair.of(m.first, m.second)
                 )
+                .filterBoth(t -> !t.isRoot() && !t.getType().isEmpty())
+                .mapBoth(Spoon::getMetaElement)
+                .mapBoth(Optional::ofNullable)
+                .mapBoth(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e))
                 .map(OptionalsX::pair)
                 .mapMulti(OptionalsX.yieldIfPresent())
-                .toList();
+                .collect(CollectorsX.toBiMap());
+              var actions = EditActions.fromDiff(astDiff, mappings);
               workspace.replaceFileEntry(diff.getOldPath(), newFile, newUnit);
               int dummy = 1;
             }

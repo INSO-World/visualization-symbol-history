@@ -1,17 +1,21 @@
 package com.mategka.dava.analyzer.spoon.action;
 
+import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.ClassSet;
 import com.mategka.dava.analyzer.collections.Stack;
-import com.mategka.dava.analyzer.extension.BiStream;
-import com.mategka.dava.analyzer.extension.CollectorsX;
-import com.mategka.dava.analyzer.extension.StreamsX;
+import com.mategka.dava.analyzer.extension.*;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.symbol.ElementCapture;
 import com.mategka.dava.analyzer.struct.symbol.Subject;
 
-import com.google.common.collect.Streams;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
+import gumtree.spoon.diff.Diff;
 import gumtree.spoon.diff.operations.*;
 import lombok.experimental.UtilityClass;
+import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
 import spoon.reflect.code.CtBodyHolder;
 import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLocalVariable;
@@ -20,6 +24,8 @@ import spoon.reflect.declaration.*;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 @UtilityClass
 public class EditActions {
@@ -44,6 +50,108 @@ public class EditActions {
     CtConstructor.class
   );
 
+  public List<EditAction> fromDiff(
+    Diff astDiff,
+    BiMap<CtElement, CtElement> mappings
+  ) {
+    var rawActions = astDiff.getRootOperations().stream()
+      .map(EditActions::fromOperation)
+      .map(Covariant::<EditAction>list)
+      .flatMap(Collection::stream)
+      .filter(a -> !(a instanceof DeepUpdateAction))
+      .distinct()
+      .toList();
+    var deletionsMap = rawActions.stream()
+      .mapMulti(StreamsX.onlyOfType(DeletionAction.class))
+      .map(PairsX.mapToLeft(d -> d.getSubject().getElement()))
+      .filter(p -> mappings.containsKey(p.getLeft()))
+      .collect(CollectorsX.entriesToMap());
+    var actionsToIndices = StreamsX.streamWithIndex(rawActions).collect(CollectorsX.entriesToMap());
+    var simpleActions = rawActions.stream()
+      .mapMulti(StreamsX.onlyOfType(SimpleEditAction.class))
+      .toList();
+    var replacementOrigins = simpleActions.stream()
+      .filter(a -> a.getSubject().getParent() instanceof CtPackage)
+      .filter(a -> a.getSubject().getElement() instanceof CtType<?>)
+      .toList();
+    var replacementDeletion = replacementOrigins.stream()
+      .mapMulti(StreamsX.onlyOfType(DeletionAction.class))
+      .findFirst();
+    var replacementAddition = replacementOrigins.reversed().stream()
+      .mapMulti(StreamsX.onlyOfType(AdditionAction.class))
+      .findFirst();
+    var replacementActions = OptionalsX.pair(replacementDeletion, replacementAddition);
+    var discardThreshold = replacementActions.map(Pair::getRight).map(actionsToIndices::get).orElse(-1);
+    // TODO: UpdateAction for elements which are mapped and used in neither deletions nor additions
+    return StreamsX.streamWithIndex(rawActions)
+      .<EditAction>mapMulti((pair, consumer) -> {
+        var action = pair.getLeft();
+        var index = pair.getRight();
+        if (replacementActions.isPresent()) {
+          if (index < discardThreshold) {
+            // Discard element
+            return;
+          }
+          if (index.equals(discardThreshold)) {
+            var oldSubject = replacementActions.get().getLeft().getOldSubject();
+            consumer.accept(ReplacementAction.of(oldSubject, action.getNewSubject()));
+            return;
+          }
+        }
+        if (action instanceof AdditionAction additionAction) {
+          var newElement = additionAction.getSubject().getElement();
+          if (mappings.inverse().containsKey(newElement)) {
+            var deletionAction = ChainMap.getOnce(mappings.inverse(), deletionsMap, newElement);
+            assert deletionAction != null;
+            consumer.accept(MoveAction.of(deletionAction.getSubject(), additionAction.getSubject()));
+            return;
+          }
+        }
+        consumer.accept(action);
+      })
+      .toList();
+    /*var rawAdditions = rawActions.stream()
+      .mapMulti(StreamsX.onlyOfType(AdditionAction.class))
+      .collect(Collectors.toSet());
+    var rawDeletions = rawActions.stream()
+      .mapMulti(StreamsX.onlyOfType(DeletionAction.class))
+      .collect(Collectors.toSet());
+    var confusedActions = Stream.of(rawAdditions, rawDeletions)
+      .map(Covariant::<SimpleEditAction>set)
+      .flatMap(Collection::stream)
+      .collect(Collectors.groupingBy(SimpleEditAction::getSubject))
+      .values().stream()
+      .filter(actions -> actions.size() > 1)
+      .flatMap(Collection::stream)
+      .collect(Collectors.toSet());
+    var additions = SetsX.difference(rawAdditions, confusedActions);
+    var deletions = SetsX.difference(rawDeletions, confusedActions);
+    var others = SetsX.difference(rawActions, rawAdditions, rawDeletions);
+    var deletionsPartition = deletions.stream()
+      .collect(Collectors.partitioningBy(
+        d -> mappings.containsKey(d.getOldSubject().getElement())
+      ));
+    var additionsPartition = additions.stream()
+      .collect(Collectors.partitioningBy(
+        a -> mappings.containsValue(a.getNewSubject().getElement())
+      ));
+    var trueDeletions = deletionsPartition.get(false);
+    var trueAdditions = additionsPartition.get(false);
+    var moveAdditionsMap = additionsPartition.get(true).stream()
+      .map(EditAction::getNewSubject)
+      .collect(CollectorsX.mapToKey(Subject::getElement));
+    var trueMovesStream = deletionsPartition.get(true).stream()
+      .map(EditAction::getOldSubject)
+      .map(PairsX.mapToRight(s -> ChainMap.getOnce(mappings, moveAdditionsMap, s.getElement())))
+      .map(PairsX.reduce(MoveAction::of));
+    return StreamsX.concat(
+      trueDeletions.stream(),
+      trueAdditions.stream(),
+      trueMovesStream,
+      others.stream()
+    ).toList();*/
+  }
+
   public List<? extends EditAction> fromOperation(Operation<?> operation) {
     if (operation instanceof InsertOperation || operation instanceof InsertTreeOperation) {
       var node = operation.getSrcNode();
@@ -55,39 +163,39 @@ public class EditActions {
       // Result in reverse topological order (child nodes before parents)
       return getSimpleActions(node, DeletionAction::of).reversed();
     }
-    if (operation instanceof MoveOperation) {
+    /*if (operation instanceof MoveOperation) {
       var sourceRoot = operation.getSrcNode();
       var destRoot = operation.getDstNode();
-      var identityMapping = BiStream.of(sourceRoot, destRoot)
-        .map(CtElement::descendantIterator)
-        .map(Streams::stream)
-        .collect(StreamsX::zip)
-        .collect(CollectorsX.toBiMap());
+      var deletionsStream = getSimpleActions(sourceRoot, DeletionAction::of).stream()
+        .mapMulti(StreamsX.onlyOfType(DeletionAction.class));
       var additionsStream = getSimpleActions(destRoot, AdditionAction::of).stream()
         .mapMulti(StreamsX.onlyOfType(AdditionAction.class));
-      var deletionsStream = getSimpleActions(sourceRoot, DeletionAction::of).reversed().stream()
-        .mapMulti(StreamsX.onlyOfType(DeletionAction.class));
-      var additionsPartition = additionsStream
-        .collect(Collectors.partitioningBy(
-          a -> identityMapping.containsValue(a.getNewSubject().getElement())
-        ));
       var deletionsPartition = deletionsStream
         .collect(Collectors.partitioningBy(
-          d -> identityMapping.containsKey(d.getOldSubject().getElement())
+          d -> mapping.containsKey(d.getOldSubject().getElement())
         ));
-      var trueAdditions = additionsPartition.get(false);
+      var additionsPartition = additionsStream
+        .collect(Collectors.partitioningBy(
+          a -> mapping.containsValue(a.getNewSubject().getElement())
+        ));
       var trueDeletions = deletionsPartition.get(false);
-      var moveAdditionsStream = additionsPartition.get(true).stream().map(EditAction::getNewSubject);
-      var moveDeletionsStream = deletionsPartition.get(true).stream().map(EditAction::getOldSubject);
-      var trueMovesStream = StreamsX.zip(moveDeletionsStream, moveAdditionsStream)
-        .map(p -> MoveAction.of(p.getLeft(), p.getRight()));
-      // TODO: Deep updates
+      var trueAdditions = additionsPartition.get(false);
+      var moveAdditionsMap = additionsPartition.get(true).stream()
+        .map(EditAction::getNewSubject)
+        .collect(CollectorsX.mapToKey(Subject::getElement));
+      var trueMovesStream = deletionsPartition.get(true).stream()
+        .map(EditAction::getOldSubject)
+        .map(PairsX.mapToRight(Subject::getElement))
+        .map(PairsX.mapRight(mapping::get))
+        .map(PairsX.mapRight(moveAdditionsMap::get))
+        .map(PairsX.reduce(MoveAction::of));
+      // TODO?: Deep updates
       return StreamsX.concat(trueDeletions.stream(), trueMovesStream, trueAdditions.stream()).toList();
     }
     if (operation instanceof UpdateOperation) {
-      // TODO
+      // TODO?: UpdateOperation
       return Collections.emptyList();
-    }
+    }*/
     return Collections.emptyList();
   }
 
@@ -153,7 +261,7 @@ public class EditActions {
   private Optional<CtElement> getNearestValidParent(CtElement node) {
     CtElement current = node;
     Queue<CtElement> parents = new ArrayDeque<>();
-    boolean expectingType = false;
+    boolean expectingType = VALID_TYPE_MEMBER_NODE_CLASSES.containsClassOf(current);
     while (true) {
       if (!current.isParentInitialized()) {
         // No parent available (should not occur since node must not be at package level or above)

@@ -30,8 +30,12 @@ public class CollectorsX {
     return Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue);
   }
 
-  public <K, V> Collector<K, ?, Map<K, V>> toMap(Function<K, V> mapper) {
+  public <K, V> Collector<K, ?, Map<K, V>> mapToValue(Function<K, V> mapper) {
     return Collectors.toMap(Function.identity(), mapper);
+  }
+
+  public <K, V> Collector<V, ?, Map<K, V>> mapToKey(Function<V, K> mapper) {
+    return Collectors.toMap(mapper, Function.identity());
   }
 
   public <A, B> Collector<Pair<A, B>, ?, BiMap<A, B>> toBiMap() {

@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.function.*;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @UtilityClass
@@ -78,6 +79,10 @@ public class StreamsX {
   @SafeVarargs
   public <T> Stream<T> concat(Stream<? extends T>... streams) {
     return Arrays.stream(streams).flatMap(Function.identity());
+  }
+
+  public <T> Stream<Pair<T, Integer>> streamWithIndex(Collection<T> collection) {
+    return StreamsX.zip(collection.stream(), IntStream.range(0, collection.size()).boxed());
   }
 
   public <T> Stepper<T> stepper(Stream<T> stream) {

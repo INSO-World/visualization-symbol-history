@@ -154,15 +154,21 @@ public class FastRecordCollection<T extends Record> implements Collection<T> {
     if (recordEntry == null) {
       return false;
     }
-    var t = supplier.apply(recordEntry.getValue());
+    var recordId = recordEntry.getKey();
+    var record = recordEntry.getValue();
+    var t = supplier.apply(record);
     if (recordMap.inverse().containsKey(t)) {
       return false;
     }
     var components = componentsOf(t);
-    internalRemove(recordEntry.getValue());
-    if (components.stream().anyMatch(componentMap::containsKey)) {
+    var allMappedComponentsMapToRecord = components.stream()
+      .map(componentMap::get)
+      .filter(Objects::nonNull)
+      .allMatch(recordId::equals);
+    if (!allMappedComponentsMapToRecord) {
       throw new IllegalArgumentException("Input object contained duplicate field value");
     }
+    internalRemove(record);
     internalAdd(t, components);
     return true;
   }

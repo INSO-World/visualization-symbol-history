@@ -4,7 +4,6 @@ import com.mategka.dava.analyzer.struct.symbol.Subject;
 
 import lombok.NonNull;
 import lombok.Value;
-import lombok.experimental.Delegate;
 import spoon.reflect.declaration.CtElement;
 
 @Value(staticConstructor = "of")

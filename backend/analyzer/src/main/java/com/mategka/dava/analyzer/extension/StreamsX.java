@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.extension;
 
+import com.mategka.dava.analyzer.extension.option.Option;
+
 import com.google.common.collect.Streams;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -54,8 +56,8 @@ public class StreamsX {
     );
   }
 
-  public <T, U> BiConsumer<T, Consumer<U>> mapToZeroOrOne(Function<T, Optional<U>> mapper) {
-    return (v, c) -> mapper.apply(v).ifPresent(c);
+  public <T, U> BiConsumer<T, Consumer<U>> mapToZeroOrOne(Function<T, Option<U>> mapper) {
+    return (v, c) -> mapper.apply(v).ifSome(c);
   }
 
   public <T, U extends T> BiConsumer<T, Consumer<U>> onlyOfType(Class<? extends U> clazz) {

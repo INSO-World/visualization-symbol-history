@@ -1,9 +1,9 @@
 package com.mategka.dava.analyzer.struct.property.value;
 
+import com.mategka.dava.analyzer.extension.option.Option;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.util.Optional;
 
 @Getter
 @AllArgsConstructor(staticName = "of")
@@ -14,8 +14,8 @@ public final class UnknownType implements Type {
   String qualifiedName;
 
   @Override
-  public Optional<String> getUnknownTypeName() {
-    return Optional.of(qualifiedName);
+  public Option<String> getUnknownTypeName() {
+    return Option.Some(qualifiedName);
   }
 
   @Override

@@ -1,7 +1,9 @@
 package com.mategka.dava.analyzer.spoon;
 
 import com.mategka.dava.analyzer.collections.Box;
+import com.mategka.dava.analyzer.extension.Streamer;
 import com.mategka.dava.analyzer.extension.StreamsX;
+import com.mategka.dava.analyzer.extension.option.Option;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +18,6 @@ import spoon.reflect.path.CtPathException;
 import spoon.reflect.path.impl.CtPathImpl;
 
 import java.util.Objects;
-import java.util.Optional;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor(staticName = "of")
@@ -36,10 +37,10 @@ public class CtEqPath implements CtPath, Comparable<CtPath> {
     return of(element.getPath());
   }
 
-  public <T extends CtElement> Optional<T> evaluateOn(CtModel model, Class<T> clazz) {
-    return path.evaluateOn(model.getRootPackage()).stream()
+  public <T extends CtElement> Option<T> evaluateOn(CtModel model, Class<T> clazz) {
+    return Streamer.of(path.evaluateOn(model.getRootPackage()))
       .mapMulti(StreamsX.onlyOfType(clazz))
-      .findFirst();
+      .findFirstAsOption();
   }
 
   @Override

@@ -1,12 +1,14 @@
 package com.mategka.dava.analyzer.struct.property.index;
 
-import com.mategka.dava.analyzer.extension.OptionalsX;
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.SimpleProperty;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -36,12 +38,12 @@ public class PropertyMap extends HashMap<String, Property> {
     return collector(Map.Entry::getKey, Map.Entry::getValue);
   }
 
-  public <T extends Property> Optional<T> get(Class<T> propertyClass) {
-    return OptionalsX.cast(Optional.ofNullable(super.get(PropertyKeys.get(propertyClass))), propertyClass);
+  public <T extends Property> Option<T> get(Class<T> propertyClass) {
+    return Option.fromNullable(super.get(PropertyKeys.get(propertyClass))).narrow(propertyClass);
   }
 
   public <T> T getOrDefault(Class<? extends SimpleProperty<T>> propertyClass, T defaultValue) {
-    return get(propertyClass).map(SimpleProperty::value).orElse(defaultValue);
+    return get(propertyClass).map(SimpleProperty::value).getOrElse(defaultValue);
   }
 
   public Property put(Property property) {

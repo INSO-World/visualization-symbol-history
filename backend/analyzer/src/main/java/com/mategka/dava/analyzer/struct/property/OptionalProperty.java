@@ -1,11 +1,11 @@
 package com.mategka.dava.analyzer.struct.property;
 
+import com.mategka.dava.analyzer.extension.option.Option;
+
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Optional;
+public non-sealed interface OptionalProperty<T> extends TypedProperty<Option<? extends T>> {
 
-public non-sealed interface OptionalProperty<T> extends TypedProperty<Optional<? extends T>> {
-
-  @NotNull Optional<? extends T> value();
+  @NotNull Option<? extends T> value();
 
 }

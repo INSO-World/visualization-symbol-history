@@ -1,17 +1,19 @@
 package com.mategka.dava.analyzer.extension.option;
 
+import com.mategka.dava.analyzer.extension.ObjectsX;
 import com.mategka.dava.analyzer.extension.Pair;
 
 import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.SequencedCollection;
 import java.util.concurrent.Callable;
 import java.util.function.*;
 
-public sealed interface Option<T> permits None, Some {
+public sealed interface Option<T> extends Comparable<Option<T>> permits None, Some {
 
   static <T> @NotNull Option<T> Some(@NonNull T value) {
     return new Some<>(value);
@@ -44,13 +46,17 @@ public sealed interface Option<T> permits None, Some {
 
   static <L, R> @NotNull Option<Pair<L, R>> pair(@NotNull Option<L> left, @NotNull Option<R> right) {
     if (left.isSome() && right.isSome()) {
-      return Some(Pair.of(left.get(), right.get()));
+      return Some(Pair.of(left.getOrThrow(), right.getOrThrow()));
     }
     return None();
   }
 
   static <L, R> @NotNull Option<Pair<L, R>> pair(@NotNull Pair<Option<L>, Option<R>> optionPair) {
     return pair(optionPair.left(), optionPair.right());
+  }
+
+  static <T> BiConsumer<Option<T>, Consumer<T>> yieldIfSome() {
+    return Option::ifSome;
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -64,7 +70,7 @@ public sealed interface Option<T> permits None, Some {
 
   static <T> @NotNull Option<T> fromCallable(@NotNull Callable<T> callable) {
     try {
-      return Some(callable.call());
+      return fromNullable(callable.call());
     } catch (Exception _e) {
       return None();
     }
@@ -74,7 +80,23 @@ public sealed interface Option<T> permits None, Some {
 
   boolean isNone();
 
-  @NotNull T get();
+  default @NotNull T getOrThrow() {
+    return getOrThrow(() -> new NoSuchElementException("Option was None"));
+  }
+
+  <E extends RuntimeException> @NotNull T getOrThrow(@NotNull Supplier<E> exceptionSupplier);
+
+  default T getOrElse(T defaultValue) {
+    return fold(Function.identity(), () -> defaultValue);
+  }
+
+  default T getOrCompute(@NotNull Supplier<T> supplier) {
+    return fold(Function.identity(), supplier);
+  }
+
+  default T getOrNull() {
+    return getOrElse(null);
+  }
 
   void ifSome(@NotNull Consumer<T> consumer);
 
@@ -83,6 +105,8 @@ public sealed interface Option<T> permits None, Some {
   default @NotNull Optional<T> toOptional() {
     return fold(Optional::of, Optional::empty);
   }
+
+  boolean contains(@Nullable T value);
 
   <U> U fold(@NotNull Function<T, U> ifSome, @NotNull Supplier<U> ifNone);
 
@@ -98,6 +122,14 @@ public sealed interface Option<T> permits None, Some {
 
   default <U> @NotNull Option<U> flatMap(@NotNull Function<T, Option<U>> mapper) {
     return fold(mapper, Option::None);
+  }
+
+  @Override
+  default int compareTo(@NotNull Option<T> o) {
+    return fold(
+      value -> o instanceof Some<T> some ? ObjectsX.compare(value, some.value()) : -1,
+      () -> o instanceof Some<T> ? 1 : 0
+    );
   }
 
 }

@@ -1,9 +1,9 @@
 package com.mategka.dava.analyzer.struct.property.value;
 
+import com.mategka.dava.analyzer.extension.option.Option;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.util.Optional;
 
 @Getter
 @AllArgsConstructor(staticName = "of")
@@ -14,8 +14,8 @@ public final class KnownType implements Type {
   long id;
 
   @Override
-  public Optional<Long> getKnownTypeId() {
-    return Optional.of(id);
+  public Option<Long> getKnownTypeId() {
+    return Option.Some(id);
   }
 
   @Override

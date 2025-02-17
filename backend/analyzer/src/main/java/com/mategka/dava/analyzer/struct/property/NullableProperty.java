@@ -1,13 +1,13 @@
 package com.mategka.dava.analyzer.struct.property;
 
-import org.jetbrains.annotations.NotNull;
+import com.mategka.dava.analyzer.extension.option.Option;
 
-import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
 
 public sealed interface NullableProperty<T> extends TypedProperty<T> permits ParentProperty {
 
-  default @NotNull Optional<T> asOptional() {
-    return Optional.ofNullable(value());
+  default @NotNull Option<T> asOption() {
+    return Option.fromNullable(value());
   }
 
 }

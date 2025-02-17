@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
 import com.mategka.dava.analyzer.extension.ListsX;
-import com.mategka.dava.analyzer.extension.OptionalsX;
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.value.*;
@@ -12,7 +12,9 @@ import spoon.reflect.code.CtConstructorCall;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.declaration.*;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -45,14 +47,14 @@ public class Symbolizer {
   }
 
   public Stream<Symbol> symbolizeType(CtType<?> typeDeclaration, Symbol packageSymbol) {
-    if (packageSymbol.getPropertyValue(KindProperty.class).orElseThrow() != Kind.PACKAGE) {
+    if (packageSymbol.getPropertyValue(KindProperty.class).getOrThrow() != Kind.PACKAGE) {
       throw new IllegalArgumentException("Given parent symbol was not a package-kind symbol");
     }
     return symbolize(typeDeclaration, packageSymbol);
   }
 
   public Stream<Symbol> symbolize(CtElement rootElement, Symbol baseParent) {
-    var parentElement = OptionalsX.when(rootElement.isParentInitialized(), rootElement::getParent).orElse(rootElement);
+    var parentElement = Option.when(rootElement.isParentInitialized(), rootElement::getParent).getOrElse(rootElement);
     return ElementCapture.parseElement(rootElement, parentElement)
       .map(mapper(baseParent));
   }
@@ -93,9 +95,9 @@ public class Symbolizer {
     if (!Spoon.isRegularConstructor(constructor)) {
       throw new IllegalArgumentException("Given subject constitutes an illegal constructor symbol basis");
     }
-    var name = OptionalsX.cast(constructor.getParent(), CtNamedElement.class)
+    var name = Option.cast(constructor.getParent(), CtNamedElement.class)
       .map(CtNamedElement::getSimpleName)
-      .orElse("");
+      .getOrElse("");
     var visibility = Visibility.fromModifiable(constructor);
     return commonSymbolBuilder(context, constructor)
       .property(Kind.CONSTRUCTOR.toProperty())
@@ -119,10 +121,10 @@ public class Symbolizer {
   }
 
   private Symbol parseEnumConstant(CtEnumValue<?> enumConstant) {
-    var arguments = Optional.ofNullable(enumConstant.getDefaultExpression())
+    var arguments = Option.fromNullable(enumConstant.getDefaultExpression())
       .map(i -> (CtConstructorCall<?>) i)
       .map(CtAbstractInvocation::getArguments)
-      .orElseGet(Collections::emptyList);
+      .getOrCompute(Collections::emptyList);
     return commonSymbolBuilder(context, enumConstant)
       .property(Kind.ENUM_CONSTANT.toProperty())
       .build();
@@ -133,7 +135,7 @@ public class Symbolizer {
     var kind = modifiers.containsAll(Modifier.CONSTANT_FIELD_MODIFIERS)
       ? Kind.CONSTANT
       : Kind.FIELD;
-    var initialValue = Optional.ofNullable(field.getDefaultExpression());
+    var initialValue = Option.fromNullable(field.getDefaultExpression());
     return commonSymbolBuilder(context, field)
       .property(kind.toProperty())
       .build();
@@ -144,7 +146,7 @@ public class Symbolizer {
     var kind = modifiers.containsAll(Modifier.CONSTANT_VARIABLE_MODIFIERS)
       ? Kind.CONSTANT
       : Kind.VARIABLE;
-    var initialValue = Optional.ofNullable(variable.getDefaultExpression());
+    var initialValue = Option.fromNullable(variable.getDefaultExpression());
     return commonSymbolBuilder(context, variable)
       .property(kind.toProperty())
       .build();

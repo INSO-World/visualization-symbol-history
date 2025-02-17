@@ -2,7 +2,9 @@ package com.mategka.dava.analyzer.struct.symbol;
 
 import com.mategka.dava.analyzer.collections.ClassSet;
 import com.mategka.dava.analyzer.collections.Stack;
+import com.mategka.dava.analyzer.extension.Streamer;
 import com.mategka.dava.analyzer.extension.StreamsX;
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.spoon.Spoon;
 
 import lombok.experimental.UtilityClass;
@@ -11,7 +13,9 @@ import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.declaration.*;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.Map;
+import java.util.Queue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -106,18 +110,18 @@ public class ElementCapture {
     throw new IllegalArgumentException("Given parent constitutes an illegal symbol parent");
   }
 
-  public Optional<CtElement> getNearestSubjectElement(CtElement node) {
+  public Option<CtElement> getNearestSubjectElement(CtElement node) {
     CtElement current = node;
     Stack<CtElement> parents = new Stack<>();
     do {
       if (!current.isParentInitialized()) {
         // No parent available, abort (should not occur since node must not be at package level or above)
-        return Optional.empty();
+        return Option.None();
       }
       current = current.getParent();
       if (current == null) {
         // Invalid parent, abort
-        return Optional.empty();
+        return Option.None();
       }
       parents.push(current);
     } while (!(current instanceof CtPackage));
@@ -131,36 +135,36 @@ public class ElementCapture {
           // However, if we have a CtExecutable-to-CtBodyHolder parent sequence, a variable declaration may be the LCA
           if (relevantChildren.contains(node)) {
             // If the node itself IS one of these variable declarations, then its parent is the previous parent
-            return Optional.of(current);
+            return Option.Some(current);
           }
           // Otherwise, the declaration among the relevantChildren would have to be among the remaining parents
-          var variableDeclaration = parents.stream().filter(relevantChildren::contains).findFirst();
-          if (variableDeclaration.isPresent()) {
+          var variableDeclaration = Streamer.of(parents).filter(relevantChildren::contains).findFirstAsOption();
+          if (variableDeclaration.isSome()) {
             // If it is, then that is the correct parent (and node is a child of it)
             return variableDeclaration;
           }
           // Otherwise, we fall back to the default behavior if a parent sequence disparity is found
         }
-        return Optional.of(current);
+        return Option.Some(current);
       }
       current = next;
     }
-    return Optional.empty();
+    return Option.None();
   }
 
-  public Optional<CtElement> getNearestValidParent(CtElement node) {
+  public Option<CtElement> getNearestValidParent(CtElement node) {
     CtElement current = node;
     Queue<CtElement> parents = new ArrayDeque<>();
     boolean expectingType = VALID_TYPE_MEMBER_NODE_CLASSES.containsClassOf(current);
     while (true) {
       if (!current.isParentInitialized()) {
         // No parent available (should not occur since node must not be at package level or above)
-        return Optional.empty();
+        return Option.None();
       }
       current = current.getParent();
       if (current == null) {
         // Invalid parent, abort
-        return Optional.empty();
+        return Option.None();
       }
       parents.add(current);
       if (current instanceof CtPackage) {
@@ -169,24 +173,24 @@ public class ElementCapture {
       }
       if (expectingType && !(current instanceof CtType<?>)) {
         // Was expecting type but parent was not, abort
-        return Optional.empty();
+        return Option.None();
       }
       if (INVALID_PARENT_NODE_CLASSES.containsClassOf(current)) {
         // Invalid parent type, abort (symbols under these are never added)
-        return Optional.empty();
+        return Option.None();
       }
       if (current instanceof CtConstructor<?> constructor && !Spoon.isRegularConstructor(constructor)) {
         // Invalid parent type, abort (only symbols under explicit, regular constructors are ever captured)
-        return Optional.empty();
+        return Option.None();
       }
       if (VALID_TYPE_MEMBER_NODE_CLASSES.containsClassOf(current)) {
         // Expect main type or type declared in main type (e.g., not an anonymous class)
         expectingType = true;
       }
     }
-    return parents.stream()
+    return Streamer.of(parents)
       .filter(VALID_PARENT_NODE_CLASSES::containsClassOf)
-      .findFirst();
+      .findFirstAsOption();
   }
 
 }

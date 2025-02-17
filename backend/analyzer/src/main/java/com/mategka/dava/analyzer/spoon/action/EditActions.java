@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer.spoon.action;
 
 import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.extension.*;
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.struct.symbol.ElementCapture;
 import com.mategka.dava.analyzer.struct.symbol.Subject;
 
@@ -18,10 +19,6 @@ import java.util.function.Function;
 
 @UtilityClass
 public class EditActions {
-
-  private record ListedAction<T extends EditAction>(T action, int index) {}
-
-  private record ReplacementTuple(ListedAction<DeletionAction> deletion, ListedAction<AdditionAction> addition) {}
 
   public List<EditAction> fromDiff(
     Diff astDiff,
@@ -48,8 +45,8 @@ public class EditActions {
       .<EditAction>mapMulti((pair, consumer) -> {
         var action = pair.left();
         var index = pair.right();
-        if (replacement.isPresent()) {
-          var r = replacement.get();
+        if (replacement.isSome()) {
+          var r = replacement.getOrThrow();
           var discardThreshold = r.addition().index();
           if (index < discardThreshold || action instanceof BodyUpdateAction) {
             // Discard element
@@ -75,19 +72,20 @@ public class EditActions {
       .toList();
   }
 
-  private Optional<ReplacementTuple> findRootReplacement(Collection<SimpleEditAction> simpleActions, Map<? super EditAction, Integer> actionsToIndices) {
+  private Option<ReplacementTuple> findRootReplacement(Collection<SimpleEditAction> simpleActions,
+                                                       Map<? super EditAction, Integer> actionsToIndices) {
     var candidates = simpleActions.stream()
       .filter(a -> a.getReferenceParent() instanceof CtPackage)
       .filter(a -> a.getReferenceElement() instanceof CtType<?>)
       .toList();
     var deletion = CollectionsX.firstOfType(candidates, DeletionAction.class);
     var addition = CollectionsX.lastOfType(candidates, AdditionAction.class);
-    if (deletion.isEmpty() || addition.isEmpty()) {
-      return Optional.empty();
+    if (deletion.isNone() || addition.isNone()) {
+      return Option.None();
     }
-    var deletionAction = deletion.map(d -> new ListedAction<>(d, actionsToIndices.get(d))).get();
-    var additionAction = addition.map(a -> new ListedAction<>(a, actionsToIndices.get(a))).get();
-    return Optional.of(new ReplacementTuple(deletionAction, additionAction));
+    var deletionAction = deletion.map(d -> new ListedAction<>(d, actionsToIndices.get(d))).getOrThrow();
+    var additionAction = addition.map(a -> new ListedAction<>(a, actionsToIndices.get(a))).getOrThrow();
+    return Option.Some(new ReplacementTuple(deletionAction, additionAction));
   }
 
   public List<? extends EditAction> fromOperation(Operation<?> operation) {
@@ -130,6 +128,14 @@ public class EditActions {
       parent,
       ElementCapture.getNearestValidParent(parent).orElseThrow()
     ));
+  }
+
+  private record ListedAction<T extends EditAction>(T action, int index) {
+
+  }
+
+  private record ReplacementTuple(ListedAction<DeletionAction> deletion, ListedAction<AdditionAction> addition) {
+
   }
 
 }

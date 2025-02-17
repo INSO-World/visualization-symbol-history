@@ -19,7 +19,7 @@ public record ParentProperty(KnownType value) implements NullableProperty<KnownT
 
   @Override
   public String toString() {
-    return asOptional().map(KnownType::toString).orElse("(none)");
+    return asOption().map(KnownType::toString).getOrElse("(none)");
   }
 
 }

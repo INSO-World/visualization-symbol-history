@@ -1,9 +1,10 @@
 package com.mategka.dava.analyzer.util;
 
+import com.mategka.dava.analyzer.extension.Streamer;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.util.Arrays;
+import org.jetbrains.annotations.NotNull;
 
 @Getter
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
@@ -58,11 +59,11 @@ public enum JavaSyntax {
   int fromVersion;
   int toVersion;
 
-  public static JavaSyntax fromVersion(int version) {
-    return Arrays.stream(values())
+  public static @NotNull JavaSyntax fromVersion(int version) {
+    return Streamer.of(values())
       .filter(v -> v.covers(version))
-      .findFirst()
-      .orElseThrow();
+      .findFirstAsOption()
+      .getOrThrow();
   }
 
   public boolean covers(int version) {

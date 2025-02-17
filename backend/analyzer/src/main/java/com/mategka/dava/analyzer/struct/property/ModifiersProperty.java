@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.struct.property;
 
+import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 import com.mategka.dava.analyzer.struct.property.value.Modifier;
 
@@ -8,7 +10,6 @@ import spoon.support.reflect.CtExtendedModifier;
 
 import java.util.EnumSet;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @PropertyKey("modifiers")
@@ -20,13 +21,12 @@ public record ModifiersProperty(EnumSet<Modifier> value) implements EnumSetPrope
 
   public static EnumSet<Modifier> getModifiers(CtModifiable modifiable) {
     var visibility = modifiable.getVisibility();
-    return modifiable.getExtendedModifiers().stream()
+    return Streamer.of(modifiable.getExtendedModifiers())
       .map(CtExtendedModifier::getKind)
       .filter(kind -> kind != visibility)
       .filter(Objects::nonNull)
       .map(Modifier::fromModifierKind)
-      .filter(Optional::isPresent)
-      .map(Optional::get)
+      .mapMulti(Option.yieldIfSome())
       .collect(Collectors.toCollection(() -> EnumSet.noneOf(Modifier.class)));
   }
 

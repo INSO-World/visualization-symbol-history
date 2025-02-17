@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.git;
 
+import com.mategka.dava.analyzer.extension.option.Option;
+
 import com.leakyabstractions.result.api.Result;
 import com.leakyabstractions.result.core.Results;
 import lombok.AccessLevel;
@@ -20,7 +22,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -52,12 +53,8 @@ public class RepositoryWrapper implements AutoCloseable {
     throw new FileNotFoundException(folder.getPath());
   }
 
-  public Optional<Ref> resolveRef(@NotNull String name) {
-    try {
-      return Optional.ofNullable(repository.findRef(name));
-    } catch (IOException e) {
-      return Optional.empty();
-    }
+  public Option<Ref> resolveRef(@NotNull String name) {
+    return Option.fromCallable(() -> repository.findRef(name));
   }
 
   public RevWalk commitsUpTo(@NotNull Ref head, CommitOrder order) throws IOException {

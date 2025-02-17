@@ -3,8 +3,8 @@ package com.mategka.dava.analyzer.extension.option;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.NoSuchElementException;
 import java.util.function.*;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
@@ -29,8 +29,8 @@ public final class None<T> implements Option<T> {
   }
 
   @Override
-  public @NotNull T get() {
-    throw new NoSuchElementException("Option was None");
+  public <E extends RuntimeException> @NotNull T getOrThrow(@NotNull Supplier<E> exceptionSupplier) {
+    throw exceptionSupplier.get();
   }
 
   @Override
@@ -41,6 +41,11 @@ public final class None<T> implements Option<T> {
   @Override
   public void ifNone(@NotNull Runnable runnable) {
     runnable.run();
+  }
+
+  @Override
+  public boolean contains(@Nullable T value) {
+    return false;
   }
 
   @Override

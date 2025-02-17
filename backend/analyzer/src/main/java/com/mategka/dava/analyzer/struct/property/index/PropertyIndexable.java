@@ -1,11 +1,11 @@
 package com.mategka.dava.analyzer.struct.property.index;
 
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.struct.property.*;
 
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
-import java.util.Optional;
 
 public interface PropertyIndexable {
 
@@ -21,13 +21,13 @@ public interface PropertyIndexable {
   }
 
   @SuppressWarnings("unchecked")
-  default <T> Optional<T> getPropertyValue(@NotNull Class<? extends TypedProperty<T>> propertyClass) {
+  default <T> Option<T> getPropertyValue(@NotNull Class<? extends TypedProperty<T>> propertyClass) {
     var property = getProperty(propertyClass);
     return switch (property) {
-      case null -> Optional.empty();
-      case OptionalProperty<?> optionalProperty -> (Optional<T>) optionalProperty.value();
-      case NullableProperty<T> nullableProperty -> nullableProperty.asOptional();
-      default -> Optional.of(property.value());
+      case null -> Option.None();
+      case OptionalProperty<?> optionalProperty -> (Option<T>) optionalProperty.value();
+      case NullableProperty<T> nullableProperty -> nullableProperty.asOption();
+      default -> Option.fromNullable(property.value());
     };
   }
 

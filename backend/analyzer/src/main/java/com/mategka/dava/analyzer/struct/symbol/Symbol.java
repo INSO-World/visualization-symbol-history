@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
+import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
@@ -35,24 +37,24 @@ public final class Symbol implements PropertyIndexable {
     var name = symbol.getPropertyValue(SimpleNameProperty.class);
     var kind = symbol.getPropertyValue(KindProperty.class);
     var parent = symbol.getPropertyValue(ParentProperty.class);
-    if (name.isEmpty() || kind.isEmpty() || parent.isPresent()) {
+    if (name.isNone() || kind.isNone() || parent.isSome()) {
       return false;
     }
-    return ROOT_PACKAGE_NAME.equals(name.get()) && Kind.PACKAGE.equals(kind.get());
+    return ROOT_PACKAGE_NAME.equals(name.getOrThrow()) && Kind.PACKAGE.equals(kind.getOrThrow());
   }
 
   public @NotNull String getDisplayName() {
     return getPropertyValue(SimpleNameProperty.class)
-      .orElseGet(() -> "(unnamed %s)".formatted(
+      .getOrCompute(() -> "(unnamed %s)".formatted(
         getPropertyValue(KindProperty.class)
           .map(Kind::toPseudoKeyword)
-          .orElse("symbol")
+          .getOrElse("symbol")
       ));
   }
 
   public @NotNull CtEqPath getPath() throws NoSuchElementException {
     return getPropertyValue(PathProperty.class)
-      .orElseThrow(() -> new NoSuchElementException("Symbol has no known path"));
+      .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
   }
 
   public @NotNull Key getKey() {
@@ -62,7 +64,7 @@ public final class Symbol implements PropertyIndexable {
   private long getParentId() throws NoSuchElementException {
     return getPropertyValue(ParentProperty.class)
       .map(KnownType::getId)
-      .orElseThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
+      .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
   }
 
   public Key getParentKey() throws NoSuchElementException {
@@ -71,11 +73,11 @@ public final class Symbol implements PropertyIndexable {
 
   public PropertyMap diff(@NotNull Collection<Property> newProperties) {
     return newProperties.stream()
-      .filter(p -> Optional.of(p.getKey())
+      .filter(p -> Option.Some(p.getKey())
         .map(properties::get)
         .map(Property::value)
         .map(v -> !v.equals(p.value()))
-        .orElse(false)
+        .getOrElse(false)
       )
       .collect(PropertyMap.collectProperties());
   }
@@ -95,11 +97,11 @@ public final class Symbol implements PropertyIndexable {
   }
 
   public Symbol withUpdates(@NotNull Collection<? extends SymbolUpdate> updates) {
-    var violation = updates.stream().filter(u -> !u.appliesTo(this)).findFirst();
-    if (violation.isPresent()) {
+    var violation = Streamer.of(updates).filter(u -> !u.appliesTo(this)).findFirstAsOption();
+    if (violation.isSome()) {
       throw new IllegalArgumentException(
         "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(
-          violation.get(), violation.get().getStrandId(), id, strandId)
+          violation.getOrThrow().getId(), violation.getOrThrow().getStrandId(), id, strandId)
       );
     }
     var updatedProperties = updates.stream()

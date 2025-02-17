@@ -1,10 +1,15 @@
 package com.mategka.dava.analyzer.struct.property.value;
 
+import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.option.Option;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import spoon.reflect.declaration.ModifierKind;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Locale;
 
 @Getter
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
@@ -25,10 +30,10 @@ public enum Modifier {
 
   private ModifierKind spoonKind;
 
-  public static Optional<Modifier> fromModifierKind(ModifierKind modifier) {
-    return Arrays.stream(values())
+  public static Option<Modifier> fromModifierKind(ModifierKind modifier) {
+    return Streamer.of(values())
       .filter(v -> v.spoonKind == modifier)
-      .findFirst();
+      .findFirstAsOption();
   }
 
   public String toKeyword() {

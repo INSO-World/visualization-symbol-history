@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.util;
 
+import com.mategka.dava.analyzer.extension.option.Option;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -34,7 +36,7 @@ public class IntervalLongSet implements Set<Long> {
     final long value = n.longValue();
     return internalFloor(value)
       .map(e -> e.containsBeforeEnding(value))
-      .orElse(false);
+      .getOrElse(false);
   }
 
   @Override
@@ -168,8 +170,8 @@ public class IntervalLongSet implements Set<Long> {
     return StreamSupport.longStream(spliterator(), true);
   }
 
-  private Optional<Entry> internalFloor(Long value) {
-    return Optional.ofNullable(internalSet.floor(new Entry(value, 1)));
+  private Option<Entry> internalFloor(Long value) {
+    return Option.fromNullable(internalSet.floor(new Entry(value, 1)));
   }
 
   private record Entry(long start, long end) {

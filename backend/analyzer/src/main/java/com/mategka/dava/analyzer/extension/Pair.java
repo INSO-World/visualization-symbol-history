@@ -32,22 +32,22 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
   }
 
   public static <L, R, L2, R2> Function<Pair<? extends L, ? extends R>, Pair<L2, R2>> mapping(
-      Function<? super L, ? extends L2> mapper1, Function<? super R, ? extends R2> mapper2) {
+    Function<? super L, ? extends L2> mapper1, Function<? super R, ? extends R2> mapper2) {
     return pair -> pair.map(mapper1, mapper2);
   }
 
   public static <L, R, L2> Function<Pair<? extends L, R>, Pair<L2, R>> mappingLeft(
-      Function<? super L, ? extends L2> mapper1) {
+    Function<? super L, ? extends L2> mapper1) {
     return pair -> pair.mapLeft(mapper1);
   }
 
   public static <L, R, R2> Function<Pair<L, ? extends R>, Pair<L, R2>> mappingRight(
-      Function<? super R, ? extends R2> mapper2) {
+    Function<? super R, ? extends R2> mapper2) {
     return pair -> pair.mapRight(mapper2);
   }
 
   public static <T, U> Function<Pair<? extends T, ? extends T>, Pair<U, U>> mapping(
-      Function<? super T, ? extends U> mapper) {
+    Function<? super T, ? extends U> mapper) {
     return pair -> map(pair, mapper);
   }
 

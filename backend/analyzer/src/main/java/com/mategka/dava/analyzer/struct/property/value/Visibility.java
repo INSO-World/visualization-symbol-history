@@ -1,6 +1,8 @@
 package com.mategka.dava.analyzer.struct.property.value;
 
+import com.mategka.dava.analyzer.extension.Streamer;
 import com.mategka.dava.analyzer.extension.StreamsX;
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.struct.property.VisibilityProperty;
 
 import lombok.*;
@@ -9,9 +11,7 @@ import spoon.reflect.declaration.CtModifiable;
 import spoon.reflect.declaration.ModifierKind;
 import spoon.support.reflect.CtExtendedModifier;
 
-import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 
 @Getter
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
@@ -28,22 +28,21 @@ public enum Visibility {
 
   private ModifierKind spoonKind;
 
-  public static Optional<Visibility> fromModifierKind(ModifierKind modifier) {
-    return Arrays.stream(values())
+  public static Option<Visibility> fromModifierKind(ModifierKind modifier) {
+    return Streamer.of(values())
       .filter(v -> v.spoonKind == modifier)
-      .findFirst();
+      .findFirstAsOption();
   }
 
   public static Visibility fromModifiable(CtModifiable modifiable) {
-    return modifiable.getExtendedModifiers().stream()
+    return Streamer.of(modifiable.getExtendedModifiers())
       .sorted(StreamsX.falseFirst(CtExtendedModifier::isImplicit))
       .map(CtExtendedModifier::getKind)
       .filter(Objects::nonNull)
       .map(Visibility::fromModifierKind)
-      .filter(Optional::isPresent)
-      .map(Optional::get)
-      .findFirst()
-      .orElse(PACKAGE_PRIVATE);
+      .mapMulti(Option.yieldIfSome())
+      .findFirstAsOption()
+      .getOrElse(PACKAGE_PRIVATE);
   }
 
   public VisibilityProperty toProperty() {

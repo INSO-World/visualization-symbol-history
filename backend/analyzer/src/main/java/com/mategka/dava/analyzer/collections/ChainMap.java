@@ -1,5 +1,8 @@
 package com.mategka.dava.analyzer.collections;
 
+import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.option.Option;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -69,18 +72,18 @@ public class ChainMap<K, V> implements Map<K, V> {
 
   @Override
   public V get(Object key) {
-    return getInternal(key).orElse(null);
+    return getInternal(key).getOrNull();
   }
 
-  public Optional<V> getStrict(K key) {
+  public Option<V> getStrict(K key) {
     return getInternal(key);
   }
 
-  private Optional<V> getInternal(Object key) {
+  private Option<V> getInternal(Object key) {
     //noinspection SuspiciousMethodCalls
-    return maps.stream()
+    return Streamer.of(maps)
       .filter(map -> map.containsKey(key))
-      .findFirst()
+      .findFirstAsOption()
       .map(map -> map.get(key));
   }
 

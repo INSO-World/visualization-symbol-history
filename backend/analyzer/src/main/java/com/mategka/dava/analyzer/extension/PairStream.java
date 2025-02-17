@@ -1,7 +1,6 @@
 package com.mategka.dava.analyzer.extension;
 
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.NotNull;
 
@@ -10,10 +9,11 @@ import java.util.function.*;
 import java.util.stream.*;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class PairStream<T> implements Stream<Pair<T, T>> {
+public class PairStream<T> extends AbstractStreamAdapter<Pair<T, T>, PairStream<T>> {
 
-  Stream<Pair<T, T>> stream;
+  private PairStream(Stream<Pair<T, T>> stream) {
+    super(stream, PairStream::new);
+  }
 
   public static <T> PairStream<T> empty() {
     return new PairStream<>(Stream.empty());
@@ -52,11 +52,6 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
                               .mapBoth(Covariant::<T>stream)
                               .flatMap(StreamsX::zip)
     );
-  }
-
-  @Override
-  public PairStream<T> filter(Predicate<? super Pair<T, T>> predicate) {
-    return new PairStream<>(stream.filter(predicate));
   }
 
   public PairStream<T> filterLeft(Predicate<? super T> predicate) {
@@ -117,27 +112,12 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
     return new PairStream<>(map((Function<? super Pair<T, T>, ? extends Pair<U, U>>) mapper));
   }
 
-  @Override
-  public IntStream mapToInt(ToIntFunction<? super Pair<T, T>> mapper) {
-    return stream.mapToInt(mapper);
-  }
-
   public IntStream mapToInt(ToIntBiFunction<? super T, ? super T> mapper) {
     return mapToInt(p -> mapper.applyAsInt(p.left(), p.right()));
   }
 
-  @Override
-  public LongStream mapToLong(ToLongFunction<? super Pair<T, T>> mapper) {
-    return stream.mapToLong(mapper);
-  }
-
   public LongStream mapToLong(ToLongBiFunction<? super T, ? super T> mapper) {
     return mapToLong(p -> mapper.applyAsLong(p.left(), p.right()));
-  }
-
-  @Override
-  public DoubleStream mapToDouble(ToDoubleFunction<? super Pair<T, T>> mapper) {
-    return stream.mapToDouble(mapper);
   }
 
   public DoubleStream mapToDouble(ToDoubleBiFunction<? super T, ? super T> mapper) {
@@ -164,127 +144,32 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
     return flatMapToPairs(p -> mapper.apply(p.left(), p.right()));
   }
 
-  @Override
-  public IntStream flatMapToInt(Function<? super Pair<T, T>, ? extends IntStream> mapper) {
-    return stream.flatMapToInt(mapper);
-  }
-
   public IntStream flatMapToInt(BiFunction<? super T, ? super T, ? extends IntStream> mapper) {
     return flatMapToInt(p -> mapper.apply(p.left(), p.right()));
-  }
-
-  @Override
-  public LongStream flatMapToLong(Function<? super Pair<T, T>, ? extends LongStream> mapper) {
-    return stream.flatMapToLong(mapper);
   }
 
   public LongStream flatMapToLong(BiFunction<? super T, ? super T, ? extends LongStream> mapper) {
     return flatMapToLong(p -> mapper.apply(p.left(), p.right()));
   }
 
-  @Override
-  public DoubleStream flatMapToDouble(Function<? super Pair<T, T>, ? extends DoubleStream> mapper) {
-    return stream.flatMapToDouble(mapper);
-  }
-
   public DoubleStream flatMapToDouble(BiFunction<? super T, ? super T, ? extends DoubleStream> mapper) {
     return flatMapToDouble(p -> mapper.apply(p.left(), p.right()));
-  }
-
-  @Override
-  public PairStream<T> distinct() {
-    return new PairStream<>(stream.distinct());
-  }
-
-  @Override
-  public PairStream<T> sorted() {
-    return new PairStream<>(stream.sorted());
-  }
-
-  @Override
-  public PairStream<T> sorted(Comparator<? super Pair<T, T>> comparator) {
-    return new PairStream<>(stream.sorted(comparator));
   }
 
   public PairStream<T> sorted(ToIntBiFunction<? super T, ? super T> comparator) {
     return sorted(Comparator.comparingInt(p -> comparator.applyAsInt(p.left(), p.right())));
   }
 
-  @Override
-  public PairStream<T> peek(Consumer<? super Pair<T, T>> action) {
-    return new PairStream<>(stream.peek(action));
-  }
-
   public PairStream<T> peek(BiConsumer<? super T, ? super T> action) {
     return peek(p -> action.accept(p.left(), p.right()));
-  }
-
-  @Override
-  public PairStream<T> limit(long maxSize) {
-    return new PairStream<>(stream.limit(maxSize));
-  }
-
-  @Override
-  public PairStream<T> skip(long n) {
-    return new PairStream<>(stream.skip(n));
-  }
-
-  @Override
-  public void forEach(Consumer<? super Pair<T, T>> action) {
-    stream.forEach(action);
   }
 
   public void forEach(BiConsumer<? super T, ? super T> action) {
     forEach(p -> action.accept(p.left(), p.right()));
   }
 
-  @Override
-  public void forEachOrdered(Consumer<? super Pair<T, T>> action) {
-    stream.forEachOrdered(action);
-  }
-
   public void forEachOrdered(BiConsumer<? super T, ? super T> action) {
     forEachOrdered(p -> action.accept(p.left(), p.right()));
-  }
-
-  @Override
-  public @NotNull Object @NotNull [] toArray() {
-    return stream.toArray();
-  }
-
-  @Override
-  public @NotNull <A> A @NotNull [] toArray(IntFunction<A[]> generator) {
-    return stream.toArray(generator);
-  }
-
-  @Override
-  public Pair<T, T> reduce(Pair<T, T> identity, BinaryOperator<Pair<T, T>> accumulator) {
-    return stream.reduce(identity, accumulator);
-  }
-
-  @Override
-  public @NotNull Optional<Pair<T, T>> reduce(BinaryOperator<Pair<T, T>> accumulator) {
-    return stream.reduce(accumulator);
-  }
-
-  @Override
-  public <U> U reduce(U identity, BiFunction<U, ? super Pair<T, T>, U> accumulator, BinaryOperator<U> combiner) {
-    return stream.reduce(identity, accumulator, combiner);
-  }
-
-  @Override
-  public <R> R collect(Supplier<R> supplier, BiConsumer<R, ? super Pair<T, T>> accumulator, BiConsumer<R, R> combiner) {
-    return stream.collect(supplier, accumulator, combiner);
-  }
-
-  @Override
-  public <R, A> R collect(Collector<? super Pair<T, T>, A, R> collector) {
-    return stream.collect(collector);
-  }
-
-  @Override
-  public @NotNull Optional<Pair<T, T>> min(Comparator<? super Pair<T, T>> comparator) {
-    return stream.min(comparator);
   }
 
   public @NotNull Optional<Pair<T, T>> min() {
@@ -295,27 +180,12 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
     return min(Comparator.comparingInt(p -> comparator.applyAsInt(p.left(), p.right())));
   }
 
-  @Override
-  public @NotNull Optional<Pair<T, T>> max(Comparator<? super Pair<T, T>> comparator) {
-    return stream.max(comparator);
-  }
-
   public @NotNull Optional<Pair<T, T>> max() {
     return max(Comparator.nullsLast(Comparator.naturalOrder()));
   }
 
   public @NotNull Optional<Pair<T, T>> max(ToIntBiFunction<? super T, ? super T> comparator) {
     return max(Comparator.comparingInt(p -> comparator.applyAsInt(p.left(), p.right())));
-  }
-
-  @Override
-  public long count() {
-    return stream.count();
-  }
-
-  @Override
-  public boolean anyMatch(Predicate<? super Pair<T, T>> predicate) {
-    return stream.anyMatch(predicate);
   }
 
   public boolean anyMatchLeft(Predicate<? super T> predicate) {
@@ -342,11 +212,6 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
     return filterBoth(leftPredicate, rightPredicate).findAny().isPresent();
   }
 
-  @Override
-  public boolean allMatch(Predicate<? super Pair<T, T>> predicate) {
-    return stream.allMatch(predicate);
-  }
-
   public boolean allMatchLeft(Predicate<? super T> predicate) {
     return map(Pair::left).allMatch(predicate);
   }
@@ -369,11 +234,6 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
 
   public boolean allMatchBoth(Predicate<? super T> leftPredicate, Predicate<? super T> rightPredicate) {
     return !anyMatchEither(Predicate.not(leftPredicate), Predicate.not(rightPredicate));
-  }
-
-  @Override
-  public boolean noneMatch(Predicate<? super Pair<T, T>> predicate) {
-    return stream.noneMatch(predicate);
   }
 
   public boolean noneMatchLeft(Predicate<? super T> predicate) {
@@ -400,58 +260,8 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
     return !anyMatchBoth(leftPredicate, rightPredicate);
   }
 
-  @Override
-  public @NotNull Optional<Pair<T, T>> findFirst() {
-    return stream.findFirst();
-  }
-
   public @NotNull Pair<T, T> toPair() {
     return findFirst().orElseThrow();
-  }
-
-  @Override
-  public @NotNull Optional<Pair<T, T>> findAny() {
-    return stream.findAny();
-  }
-
-  @Override
-  public @NotNull Iterator<Pair<T, T>> iterator() {
-    return stream.iterator();
-  }
-
-  @Override
-  public @NotNull Spliterator<Pair<T, T>> spliterator() {
-    return stream.spliterator();
-  }
-
-  @Override
-  public boolean isParallel() {
-    return stream.isParallel();
-  }
-
-  @Override
-  public @NotNull PairStream<T> sequential() {
-    return isParallel() ? new PairStream<>(stream.sequential()) : this;
-  }
-
-  @Override
-  public @NotNull PairStream<T> parallel() {
-    return isParallel() ? this : new PairStream<>(stream.parallel());
-  }
-
-  @Override
-  public @NotNull PairStream<T> unordered() {
-    return new PairStream<>(stream.unordered());
-  }
-
-  @Override
-  public @NotNull PairStream<T> onClose(@NotNull Runnable closeHandler) {
-    return new PairStream<>(stream.onClose(closeHandler));
-  }
-
-  @Override
-  public void close() {
-    stream.close();
   }
 
 }

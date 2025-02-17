@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.function.*;
 
@@ -12,7 +13,8 @@ import java.util.function.*;
 @AllArgsConstructor(access = AccessLevel.PACKAGE)
 public final class Some<T> implements Option<T> {
 
-  @NonNull T value;
+  @NonNull
+  T value;
 
   public @NotNull T value() {
     return value;
@@ -29,7 +31,7 @@ public final class Some<T> implements Option<T> {
   }
 
   @Override
-  public @NotNull T get() {
+  public <E extends RuntimeException> @NotNull T getOrThrow(@NotNull Supplier<E> exceptionSupplier) {
     return value;
   }
 
@@ -41,6 +43,11 @@ public final class Some<T> implements Option<T> {
   @Override
   public void ifNone(@NotNull Runnable _runnable) {
     // Do nothing
+  }
+
+  @Override
+  public boolean contains(@Nullable T value) {
+    return this.value.equals(value);
   }
 
   @Override
@@ -61,6 +68,17 @@ public final class Some<T> implements Option<T> {
   @Override
   public @NotNull Option<T> filter(@NotNull Predicate<T> predicate) {
     return predicate.test(value) ? this : None.instance();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof Some<?> some)) return false;
+    return value.equals(some.value);
+  }
+
+  @Override
+  public int hashCode() {
+    return value.hashCode();
   }
 
 }

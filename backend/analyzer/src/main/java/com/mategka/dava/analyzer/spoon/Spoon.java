@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.spoon;
 
-import com.mategka.dava.analyzer.extension.OptionalsX;
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.util.JavaSyntax;
 
 import com.github.gumtreediff.tree.Tree;
@@ -81,9 +81,9 @@ public class Spoon {
   public String descriptorOf(CtElement element) {
     return "%s %s".formatted(
       simpleNameOf(element.getClass()),
-      OptionalsX.cast(element, CtNamedElement.class)
+      Option.cast(element, CtNamedElement.class)
         .map(CtNamedElement::getSimpleName)
-        .orElse("(unnamed)")
+        .getOrElse("(unnamed)")
     );
   }
 

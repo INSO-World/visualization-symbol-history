@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.collections;
 
 import com.mategka.dava.analyzer.extension.ObjectsX;
+import com.mategka.dava.analyzer.extension.option.Option;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -10,7 +11,9 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.*;
 
 @SuppressWarnings("unused")
@@ -85,12 +88,12 @@ public class Box<T> implements Iterable<T>, Comparable<Object> {
     value = null;
   }
 
-  public Optional<T> toOptional() {
-    return Optional.ofNullable(value);
+  public Option<T> toOption() {
+    return Option.fromNullable(value);
   }
 
   public T getOrDefault(T defaultValue) {
-    return toOptional().orElse(defaultValue);
+    return toOption().getOrElse(defaultValue);
   }
 
   public @Nullable T setIfAbsent(T value) {

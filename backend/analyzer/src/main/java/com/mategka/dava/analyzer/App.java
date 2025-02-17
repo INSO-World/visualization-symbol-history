@@ -4,6 +4,7 @@ import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.DefaultMap;
 import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.extension.*;
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.Spoon;
@@ -33,7 +34,7 @@ public class App {
     // ?REPO
     // ?REPO
     try (RepositoryWrapper repository = RepositoryWrapper.open("?REPO")) {
-      Ref mainBranch = repository.resolveRef("main").orElseThrow();
+      Ref mainBranch = repository.resolveRef("main").getOrThrow();
       var reflectionContext = new ReflectionContext();
       var history = History.emptyOfBranch(repository, mainBranch);
       var timeBefore = System.currentTimeMillis();
@@ -54,8 +55,8 @@ public class App {
             offset = 0;
             System.out.println();
           }
-          var parent = OptionalsX.getFirst(commit.parents());
-          if (parent.isEmpty()) {
+          var parent = Option.getFirst(commit.parents());
+          if (parent.isNone()) {
             // TODO: Fix initial commit variant algorithm
             var diffs = repository.initialCommitFilesOf(commit);
             var additions = RelevantDiffs.extract(diffs).get(FileChangeType.ADDED);
@@ -75,7 +76,7 @@ public class App {
             // TODO: Process symbol additions
             continue;
           }
-          var actualParent = parent.get();
+          var actualParent = parent.getOrThrow();
           var parentStrand = history.getStrandMapping().get(actualParent.sha());
           var parentWorkspace = workspaces.get(parentStrand);
           var parentFiles = parentWorkspace.getSpoonFiles();
@@ -136,10 +137,10 @@ public class App {
                 )
                 .filterBoth(t -> !t.isRoot() && !t.getType().isEmpty())
                 .mapBoth(Spoon::getMetaElement)
-                .mapBoth(Optional::ofNullable)
+                .mapBoth(Option::fromNullable)
                 .mapBoth(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e))
-                .map(OptionalsX::pair)
-                .mapMulti(OptionalsX.yieldIfPresent())
+                .map(Option::pair)
+                .mapMulti(Option.yieldIfSome())
                 .collect(CollectorsX.toBiMap());
               var actions = EditActions.fromDiff(astDiff, mappings);
               workspace.replaceFileEntry(diff.getOldPath(), newFile, newUnit);

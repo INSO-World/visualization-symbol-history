@@ -4,6 +4,8 @@ import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
+import com.mategka.dava.analyzer.struct.property.value.Kind;
+import com.mategka.dava.analyzer.struct.property.value.KnownType;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -36,14 +38,14 @@ public final class Symbol implements PropertyIndexable {
     if (name.isEmpty() || kind.isEmpty() || parent.isPresent()) {
       return false;
     }
-    return ROOT_PACKAGE_NAME.equals(name.get()) && KindProperty.Value.PACKAGE.equals(kind.get());
+    return ROOT_PACKAGE_NAME.equals(name.get()) && Kind.PACKAGE.equals(kind.get());
   }
 
   public @NotNull String getDisplayName() {
     return getPropertyValue(SimpleNameProperty.class)
       .orElseGet(() -> "(unnamed %s)".formatted(
         getPropertyValue(KindProperty.class)
-          .map(KindProperty.Value::toPseudoKeyword)
+          .map(Kind::toPseudoKeyword)
           .orElse("symbol")
       ));
   }
@@ -59,7 +61,7 @@ public final class Symbol implements PropertyIndexable {
 
   private long getParentId() throws NoSuchElementException {
     return getPropertyValue(ParentProperty.class)
-      .map(TypeValue.KnownType::getId)
+      .map(KnownType::getId)
       .orElseThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
   }
 

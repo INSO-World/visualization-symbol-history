@@ -5,7 +5,6 @@ import com.mategka.dava.analyzer.util.AbstractPath;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import lombok.experimental.UtilityClass;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -30,6 +29,10 @@ public class CollectorsX {
     return Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue);
   }
 
+  public <K, V> Collector<Pair<K, V>, ?, Map<K, V>> pairsToMap() {
+    return Collectors.toMap(Pair::left, Pair::right);
+  }
+
   public <K, V> Collector<K, ?, Map<K, V>> mapToValue(Function<K, V> mapper) {
     return Collectors.toMap(Function.identity(), mapper);
   }
@@ -39,7 +42,7 @@ public class CollectorsX {
   }
 
   public <A, B> Collector<Pair<A, B>, ?, BiMap<A, B>> toBiMap() {
-    return Collectors.toMap(Pair::getLeft, Pair::getRight, FunctionsX.takeSecond(), HashBiMap::create);
+    return Collectors.toMap(Pair::left, Pair::right, FunctionsX.takeSecond(), HashBiMap::create);
   }
 
 }

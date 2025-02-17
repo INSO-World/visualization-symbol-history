@@ -7,16 +7,14 @@ import lombok.NonNull;
 import lombok.Value;
 
 @Value(staticConstructor = "of")
-public class DeepUpdateAction implements EditAction {
+public class BodyUpdateAction implements EditAction {
 
   @NonNull
   Subject oldSubject;
 
-  Subject newSubject = null;
-
   @Override
   public String toString() {
-    return "% " + Spoon.descriptorOf(oldSubject.getElement());
+    return "% " + oldSubject.toDescriptor();
   }
 
 }

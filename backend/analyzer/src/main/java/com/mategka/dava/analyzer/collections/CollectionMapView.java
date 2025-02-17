@@ -23,7 +23,7 @@ public class CollectionMapView<T, K, V> extends AbstractMap<K, V> {
   @Override
   public @NotNull Set<Entry<K, V>> entrySet() {
     return collection.stream()
-      .map(e -> Map.entry(keyExtractor.apply(e), valueExtractor.apply(e)))
+      .map(e -> MapEntry.of(keyExtractor.apply(e), valueExtractor.apply(e)))
       .collect(Collectors.toSet());
   }
 
@@ -46,7 +46,7 @@ public class CollectionMapView<T, K, V> extends AbstractMap<K, V> {
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), collection, keyExtractor, valueExtractor);
+    return Objects.hash(collection, keyExtractor, valueExtractor);
   }
 
 }

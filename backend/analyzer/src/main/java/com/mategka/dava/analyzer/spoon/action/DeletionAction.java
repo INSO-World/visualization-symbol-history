@@ -5,6 +5,7 @@ import com.mategka.dava.analyzer.struct.symbol.Subject;
 
 import lombok.NonNull;
 import lombok.Value;
+import spoon.reflect.declaration.CtElement;
 
 @Value(staticConstructor = "of")
 public class DeletionAction implements SimpleEditAction {
@@ -12,11 +13,22 @@ public class DeletionAction implements SimpleEditAction {
   @NonNull
   Subject oldSubject;
 
-  Subject newSubject = null;
+  @Override
+  public Subject getReferenceSubject() {
+    return oldSubject;
+  }
+
+  public CtElement getOldElement() {
+    return oldSubject.getElement();
+  }
+
+  public CtElement getOldParent() {
+    return oldSubject.getParent();
+  }
 
   @Override
   public String toString() {
-    return "- " + Spoon.descriptorOf(oldSubject.getElement());
+    return "- " + oldSubject.toDescriptor();
   }
 
 }

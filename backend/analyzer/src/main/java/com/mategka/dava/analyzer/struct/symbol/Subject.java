@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
+import com.mategka.dava.analyzer.spoon.Spoon;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import spoon.reflect.declaration.CtElement;
@@ -17,6 +19,10 @@ public class Subject {
 
   @NonNull
   CtElement parent;
+
+  public String toDescriptor() {
+    return Spoon.descriptorOf(element);
+  }
 
   @Override
   public boolean equals(Object o) {

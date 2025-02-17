@@ -109,12 +109,12 @@ public class Stack<T> implements Collection<T> {
   @Override
   public boolean equals(Object o) {
     if (!(o instanceof Stack<?> stack)) return false;
-    return Objects.equals(deque, stack.deque);
+    return deque.equals(stack.deque);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(deque);
+    return deque.hashCode();
   }
 
 }

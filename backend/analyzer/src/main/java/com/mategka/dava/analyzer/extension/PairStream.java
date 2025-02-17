@@ -3,7 +3,6 @@ package com.mategka.dava.analyzer.extension;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -24,13 +23,15 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
     return new PairStream<>(Covariant.stream(stream).map(Covariant::pair));
   }
 
-  public static <T, U> PairStream<T> mapping(Collection<U> collection, Function<? super U, ? extends Pair<? extends T, ? extends T>> mapper) {
+  public static <T, U> PairStream<T> mapping(Collection<U> collection,
+                                             Function<? super U, ? extends Pair<? extends T, ? extends T>> mapper) {
     return mapping(collection.stream(), mapper);
   }
 
-  public static <T, U> PairStream<T> mapping(Stream<U> stream, Function<? super U, ? extends Pair<? extends T, ? extends T>> mapper) {
+  public static <T, U> PairStream<T> mapping(Stream<U> stream,
+                                             Function<? super U, ? extends Pair<? extends T, ? extends T>> mapper) {
     //noinspection unchecked
-    return new PairStream<>(stream.map((Function<? super U, ? extends Pair<T,T>>) mapper));
+    return new PairStream<>(stream.map((Function<? super U, ? extends Pair<T, T>>) mapper));
   }
 
   public static <T> PairStream<T> of(T left, T right) {
@@ -59,11 +60,11 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public PairStream<T> filterLeft(Predicate<? super T> predicate) {
-    return filter(p -> predicate.test(p.getLeft()));
+    return filter(p -> predicate.test(p.left()));
   }
 
   public PairStream<T> filterRight(Predicate<? super T> predicate) {
-    return filter(p -> predicate.test(p.getRight()));
+    return filter(p -> predicate.test(p.right()));
   }
 
   public PairStream<T> filterEither(Predicate<? super T> predicate) {
@@ -71,7 +72,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public PairStream<T> filterEither(Predicate<? super T> leftPredicate, Predicate<? super T> rightPredicate) {
-    return filter(p -> leftPredicate.test(p.getLeft()) || rightPredicate.test(p.getRight()));
+    return filter(p -> leftPredicate.test(p.left()) || rightPredicate.test(p.right()));
   }
 
   public PairStream<T> filterBoth(Predicate<? super T> predicate) {
@@ -79,7 +80,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public PairStream<T> filterBoth(Predicate<? super T> leftPredicate, Predicate<? super T> rightPredicate) {
-    return filter(p -> leftPredicate.test(p.getLeft()) && rightPredicate.test(p.getRight()));
+    return filter(p -> leftPredicate.test(p.left()) && rightPredicate.test(p.right()));
   }
 
   @Override
@@ -88,7 +89,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public <R> Stream<R> mapReduce(BiFunction<? super T, ? super T, ? extends R> mapper) {
-    return map(p -> mapper.apply(p.getLeft(), p.getRight()));
+    return map(p -> mapper.apply(p.left(), p.right()));
   }
 
   public PairStream<T> mapLeft(Function<? super T, ? extends T> mapper) {
@@ -106,8 +107,8 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   public <U> PairStream<U> mapBoth(Function<? super T, ? extends U> leftMapper,
                                    Function<? super T, ? extends U> rightMapper) {
     return new PairStream<>(map(p -> Pair.of(
-      leftMapper.apply(p.getLeft()),
-      rightMapper.apply(p.getRight())
+      leftMapper.apply(p.left()),
+      rightMapper.apply(p.right())
     )));
   }
 
@@ -122,7 +123,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public IntStream mapToInt(ToIntBiFunction<? super T, ? super T> mapper) {
-    return mapToInt(p -> mapper.applyAsInt(p.getLeft(), p.getRight()));
+    return mapToInt(p -> mapper.applyAsInt(p.left(), p.right()));
   }
 
   @Override
@@ -131,7 +132,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public LongStream mapToLong(ToLongBiFunction<? super T, ? super T> mapper) {
-    return mapToLong(p -> mapper.applyAsLong(p.getLeft(), p.getRight()));
+    return mapToLong(p -> mapper.applyAsLong(p.left(), p.right()));
   }
 
   @Override
@@ -140,7 +141,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public DoubleStream mapToDouble(ToDoubleBiFunction<? super T, ? super T> mapper) {
-    return mapToDouble(p -> mapper.applyAsDouble(p.getLeft(), p.getRight()));
+    return mapToDouble(p -> mapper.applyAsDouble(p.left(), p.right()));
   }
 
   @Override
@@ -149,7 +150,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public <R> Stream<R> flatMap(BiFunction<? super T, ? super T, ? extends Stream<? extends R>> mapper) {
-    return flatMap(p -> mapper.apply(p.getLeft(), p.getRight()));
+    return flatMap(p -> mapper.apply(p.left(), p.right()));
   }
 
   public <R> PairStream<R> flatMapToPairs(
@@ -160,7 +161,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
 
   public <R> PairStream<R> flatMapToPairs(
     BiFunction<? super T, ? super T, ? extends Stream<? extends Pair<? extends R, ? extends R>>> mapper) {
-    return flatMapToPairs(p -> mapper.apply(p.getLeft(), p.getRight()));
+    return flatMapToPairs(p -> mapper.apply(p.left(), p.right()));
   }
 
   @Override
@@ -169,7 +170,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public IntStream flatMapToInt(BiFunction<? super T, ? super T, ? extends IntStream> mapper) {
-    return flatMapToInt(p -> mapper.apply(p.getLeft(), p.getRight()));
+    return flatMapToInt(p -> mapper.apply(p.left(), p.right()));
   }
 
   @Override
@@ -178,7 +179,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public LongStream flatMapToLong(BiFunction<? super T, ? super T, ? extends LongStream> mapper) {
-    return flatMapToLong(p -> mapper.apply(p.getLeft(), p.getRight()));
+    return flatMapToLong(p -> mapper.apply(p.left(), p.right()));
   }
 
   @Override
@@ -187,7 +188,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public DoubleStream flatMapToDouble(BiFunction<? super T, ? super T, ? extends DoubleStream> mapper) {
-    return flatMapToDouble(p -> mapper.apply(p.getLeft(), p.getRight()));
+    return flatMapToDouble(p -> mapper.apply(p.left(), p.right()));
   }
 
   @Override
@@ -206,7 +207,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public PairStream<T> sorted(ToIntBiFunction<? super T, ? super T> comparator) {
-    return sorted(Comparator.comparingInt(p -> comparator.applyAsInt(p.getLeft(), p.getRight())));
+    return sorted(Comparator.comparingInt(p -> comparator.applyAsInt(p.left(), p.right())));
   }
 
   @Override
@@ -215,7 +216,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public PairStream<T> peek(BiConsumer<? super T, ? super T> action) {
-    return peek(p -> action.accept(p.getLeft(), p.getRight()));
+    return peek(p -> action.accept(p.left(), p.right()));
   }
 
   @Override
@@ -234,7 +235,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public void forEach(BiConsumer<? super T, ? super T> action) {
-    forEach(p -> action.accept(p.getLeft(), p.getRight()));
+    forEach(p -> action.accept(p.left(), p.right()));
   }
 
   @Override
@@ -243,7 +244,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public void forEachOrdered(BiConsumer<? super T, ? super T> action) {
-    forEachOrdered(p -> action.accept(p.getLeft(), p.getRight()));
+    forEachOrdered(p -> action.accept(p.left(), p.right()));
   }
 
   @Override
@@ -291,7 +292,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public @NotNull Optional<Pair<T, T>> min(ToIntBiFunction<? super T, ? super T> comparator) {
-    return min(Comparator.comparingInt(p -> comparator.applyAsInt(p.getLeft(), p.getRight())));
+    return min(Comparator.comparingInt(p -> comparator.applyAsInt(p.left(), p.right())));
   }
 
   @Override
@@ -304,7 +305,7 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public @NotNull Optional<Pair<T, T>> max(ToIntBiFunction<? super T, ? super T> comparator) {
-    return max(Comparator.comparingInt(p -> comparator.applyAsInt(p.getLeft(), p.getRight())));
+    return max(Comparator.comparingInt(p -> comparator.applyAsInt(p.left(), p.right())));
   }
 
   @Override
@@ -318,11 +319,11 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public boolean anyMatchLeft(Predicate<? super T> predicate) {
-    return map(Pair::getLeft).anyMatch(predicate);
+    return map(Pair::left).anyMatch(predicate);
   }
 
   public boolean anyMatchRight(Predicate<? super T> predicate) {
-    return map(Pair::getRight).anyMatch(predicate);
+    return map(Pair::right).anyMatch(predicate);
   }
 
   public boolean anyMatchEither(Predicate<? super T> predicate) {
@@ -347,11 +348,11 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public boolean allMatchLeft(Predicate<? super T> predicate) {
-    return map(Pair::getLeft).allMatch(predicate);
+    return map(Pair::left).allMatch(predicate);
   }
 
   public boolean allMatchRight(Predicate<? super T> predicate) {
-    return map(Pair::getRight).allMatch(predicate);
+    return map(Pair::right).allMatch(predicate);
   }
 
   public boolean allMatchEither(Predicate<? super T> predicate) {
@@ -376,11 +377,11 @@ public class PairStream<T> implements Stream<Pair<T, T>> {
   }
 
   public boolean noneMatchLeft(Predicate<? super T> predicate) {
-    return map(Pair::getLeft).noneMatch(predicate);
+    return map(Pair::left).noneMatch(predicate);
   }
 
   public boolean noneMatchRight(Predicate<? super T> predicate) {
-    return map(Pair::getRight).noneMatch(predicate);
+    return map(Pair::right).noneMatch(predicate);
   }
 
   public boolean noneMatchEither(Predicate<? super T> predicate) {

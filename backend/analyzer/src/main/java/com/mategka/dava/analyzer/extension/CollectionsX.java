@@ -2,8 +2,7 @@ package com.mategka.dava.analyzer.extension;
 
 import lombok.experimental.UtilityClass;
 
-import java.util.Collection;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -17,6 +16,14 @@ public class CollectionsX {
 
   public <T, K> Map<K, T> groupBy(Collection<T> collection, Function<? super T, K> keyFn) {
     return collection.stream().collect(Collectors.toMap(keyFn, Function.identity()));
+  }
+
+  public <T, U extends T> Optional<U> firstOfType(SequencedCollection<T> collection, Class<U> clazz) {
+    return collection.stream().mapMulti(StreamsX.onlyOfType(clazz)).findFirst();
+  }
+
+  public <T, U extends T> Optional<U> lastOfType(SequencedCollection<T> collection, Class<U> clazz) {
+    return firstOfType(collection.reversed(), clazz);
   }
 
 }

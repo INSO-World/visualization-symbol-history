@@ -2,7 +2,6 @@ package com.mategka.dava.analyzer.extension;
 
 import com.leakyabstractions.result.core.Results;
 import lombok.experimental.UtilityClass;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Optional;
 import java.util.SequencedCollection;
@@ -54,7 +53,7 @@ public class OptionalsX {
   }
 
   public <L, R> Optional<Pair<L, R>> pair(Pair<Optional<L>, Optional<R>> optionalPair) {
-    return pair(optionalPair.getLeft(), optionalPair.getRight());
+    return pair(optionalPair.left(), optionalPair.right());
   }
 
   public <T> BiConsumer<Optional<T>, Consumer<T>> yieldIfPresent() {

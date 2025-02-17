@@ -4,6 +4,7 @@ import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.OptionalsX;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.*;
+import com.mategka.dava.analyzer.struct.property.value.*;
 
 import lombok.Value;
 import spoon.reflect.code.CtAbstractInvocation;
@@ -23,7 +24,7 @@ public class Symbolizer {
   private static Symbol.SymbolBuilder commonSymbolBuilder(SymbolCreationContext context, CtElement element) {
     var annotations = ListsX.map(
       element.getAnnotations(),
-      a -> TypeValue.UnknownType.of(a.getAnnotationType().getQualifiedName())
+      a -> UnknownType.of(a.getAnnotationType().getQualifiedName())
     );
     var builder = context.symbolBuilder()
       .property(new AnnotationsProperty(annotations))
@@ -44,7 +45,7 @@ public class Symbolizer {
   }
 
   public Stream<Symbol> symbolizeType(CtType<?> typeDeclaration, Symbol packageSymbol) {
-    if (packageSymbol.getPropertyValue(KindProperty.class).orElseThrow() != KindProperty.Value.PACKAGE) {
+    if (packageSymbol.getPropertyValue(KindProperty.class).orElseThrow() != Kind.PACKAGE) {
       throw new IllegalArgumentException("Given parent symbol was not a package-kind symbol");
     }
     return symbolize(typeDeclaration, packageSymbol);
@@ -81,7 +82,7 @@ public class Symbolizer {
   }
 
   private Symbol parseTypeDeclaration(CtType<?> typeDeclaration) {
-    var visibility = VisibilityProperty.Visibility.fromModifiable(typeDeclaration);
+    var visibility = Visibility.fromModifiable(typeDeclaration);
     return commonSymbolBuilder(context, typeDeclaration)
       .property(KindProperty.fromType(typeDeclaration))
       .property(visibility.toProperty())
@@ -95,25 +96,25 @@ public class Symbolizer {
     var name = OptionalsX.cast(constructor.getParent(), CtNamedElement.class)
       .map(CtNamedElement::getSimpleName)
       .orElse("");
-    var visibility = VisibilityProperty.Visibility.fromModifiable(constructor);
+    var visibility = Visibility.fromModifiable(constructor);
     return commonSymbolBuilder(context, constructor)
-      .property(KindProperty.Value.CONSTRUCTOR.toProperty())
+      .property(Kind.CONSTRUCTOR.toProperty())
       .property(new SimpleNameProperty(name))
       .property(visibility.toProperty())
       .build();
   }
 
   private Symbol parseMethod(CtMethod<?> method) {
-    var visibility = VisibilityProperty.Visibility.fromModifiable(method);
+    var visibility = Visibility.fromModifiable(method);
     return commonSymbolBuilder(context, method)
-      .property(KindProperty.Value.METHOD.toProperty())
+      .property(Kind.METHOD.toProperty())
       .property(visibility.toProperty())
       .build();
   }
 
   private Symbol parseParameter(CtParameter<?> parameter) {
     return commonSymbolBuilder(context, parameter)
-      .property(KindProperty.Value.PARAMETER.toProperty())
+      .property(Kind.PARAMETER.toProperty())
       .build();
   }
 
@@ -123,15 +124,15 @@ public class Symbolizer {
       .map(CtAbstractInvocation::getArguments)
       .orElseGet(Collections::emptyList);
     return commonSymbolBuilder(context, enumConstant)
-      .property(KindProperty.Value.ENUM_CONSTANT.toProperty())
+      .property(Kind.ENUM_CONSTANT.toProperty())
       .build();
   }
 
   private Symbol parseField(CtField<?> field) {
     var modifiers = ModifiersProperty.getModifiers(field);
-    var kind = modifiers.containsAll(ModifiersProperty.Modifier.CONSTANT_FIELD_MODIFIERS)
-      ? KindProperty.Value.CONSTANT
-      : KindProperty.Value.FIELD;
+    var kind = modifiers.containsAll(Modifier.CONSTANT_FIELD_MODIFIERS)
+      ? Kind.CONSTANT
+      : Kind.FIELD;
     var initialValue = Optional.ofNullable(field.getDefaultExpression());
     return commonSymbolBuilder(context, field)
       .property(kind.toProperty())
@@ -140,9 +141,9 @@ public class Symbolizer {
 
   private Symbol parseVariable(CtLocalVariable<?> variable) {
     var modifiers = ModifiersProperty.getModifiers(variable);
-    var kind = modifiers.containsAll(ModifiersProperty.Modifier.CONSTANT_VARIABLE_MODIFIERS)
-      ? KindProperty.Value.CONSTANT
-      : KindProperty.Value.VARIABLE;
+    var kind = modifiers.containsAll(Modifier.CONSTANT_VARIABLE_MODIFIERS)
+      ? Kind.CONSTANT
+      : Kind.VARIABLE;
     var initialValue = Optional.ofNullable(variable.getDefaultExpression());
     return commonSymbolBuilder(context, variable)
       .property(kind.toProperty())

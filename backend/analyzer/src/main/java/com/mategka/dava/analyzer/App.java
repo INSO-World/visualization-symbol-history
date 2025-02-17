@@ -13,7 +13,6 @@ import com.mategka.dava.analyzer.struct.symbol.*;
 import com.mategka.dava.analyzer.wip.ReflectionContext;
 
 import gumtree.spoon.builder.CtWrapper;
-import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.lib.Ref;
@@ -25,7 +24,6 @@ import spoon.support.compiler.VirtualFile;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class App {
@@ -116,8 +114,8 @@ public class App {
             var updates = new IndexMap<>(HashMap::new, SymbolUpdate::getId);
             for (var diffPair : derivativeDiffPairs) {
               assert false; // TODO: Remove 10 xdiffs lines above and implement this
-              var type = diffPair.getLeft();
-              var diff = diffPair.getRight();
+              var type = diffPair.left();
+              var diff = diffPair.right();
               // Treat declared type as renamed symbol
               var oldUnit = parentWorkspace.getUnit(diff.getOldPath());
               var newUnit = effectiveUnits.get(overrideFiles.get(diff.getNewPath()));
@@ -201,8 +199,8 @@ public class App {
       .flatMap(e -> e.getValue().stream().map(d -> Pair.of(e.getKey(), d)))
       .flatMap(p -> {
         List<Pair<String, VirtualFile>> entries = new ArrayList<>();
-        var type = p.getLeft();
-        var diff = p.getRight();
+        var type = p.left();
+        var diff = p.right();
         if (type.isRemovingOldResource()) {
           entries.add(Pair.of(diff.getOldPath(), null));
         }
@@ -213,7 +211,7 @@ public class App {
         }
         return entries.stream();
       })
-      .collect(Collectors.toMap(Pair::getLeft, Pair::getRight));
+      .collect(CollectorsX.pairsToMap());
   }
 
 }

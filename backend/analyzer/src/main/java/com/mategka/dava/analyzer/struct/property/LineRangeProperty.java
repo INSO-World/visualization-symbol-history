@@ -1,8 +1,8 @@
 package com.mategka.dava.analyzer.struct.property;
 
+import com.mategka.dava.analyzer.extension.Pair;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 
-import org.apache.commons.lang3.tuple.Pair;
 import spoon.reflect.declaration.CtElement;
 
 @PropertyKey("lines")
@@ -22,7 +22,7 @@ public record LineRangeProperty(Pair<Integer, Integer> value) implements SimpleP
 
   @Override
   public String toString() {
-    return "%d:%d".formatted(value.getLeft(), value.getRight());
+    return "%d:%d".formatted(value.left(), value.right());
   }
 
 }

@@ -1,50 +1,29 @@
 package com.mategka.dava.analyzer.collections;
 
+import com.mategka.dava.analyzer.extension.CollectorsX;
+import com.mategka.dava.analyzer.extension.RecordsX;
+
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.RecordComponent;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class FastRecordCollection<T extends Record> implements Collection<T> {
 
   private final Class<T> recordClass;
   private final BiMap<Long, T> recordMap = HashBiMap.create();
   private final Map<Object, Long> componentMap = new HashMap<>();
-  private final Collection<Method> accessors;
+  private final Function<T, Stream<Object>> componentExtractor;
   private long counter = 0;
 
   public FastRecordCollection(Class<T> recordClass) {
     this.recordClass = recordClass;
-    accessors = Arrays.stream(recordClass.getRecordComponents())
-      .map(RecordComponent::getAccessor)
-      .toList();
-  }
-
-  private Collection<Object> componentsOf(T instance) throws IllegalStateException {
-    return accessors.stream().map(m -> {
-      try {
-        return m.invoke(instance);
-      } catch (IllegalAccessException | InvocationTargetException e) {
-        return new IllegalStateException(
-          "Field values could not be retrieved for %s instance".formatted(instance.getClass().getSimpleName())
-        );
-      }
-    }).toList();
-  }
-
-  public <C> ComponentMap<C> componentMap(Function<T, C> accessor) {
-    return new ComponentMap<>(accessor);
+    componentExtractor = RecordsX.componentExtractor(recordClass);
   }
 
   public <K, V> Map<K, V> getMap(Function<T, K> keyAccessor, Function<T, V> valueAccessor) {
@@ -96,7 +75,7 @@ public class FastRecordCollection<T extends Record> implements Collection<T> {
     if (recordMap.inverse().containsKey(t)) {
       return false;
     }
-    var components = componentsOf(t);
+    var components = componentExtractor.apply(t).toList();
     if (components.stream().anyMatch(componentMap::containsKey)) {
       throw new IllegalArgumentException("Input object contained duplicate field value");
     }
@@ -128,8 +107,7 @@ public class FastRecordCollection<T extends Record> implements Collection<T> {
     }
     var recordInstance = recordMap.remove(id);
     assert recordInstance != null;
-    var components = componentsOf(recordInstance);
-    components.forEach(componentMap::remove);
+    componentExtractor.apply(recordInstance).forEach(componentMap::remove);
     return true;
   }
 
@@ -160,7 +138,7 @@ public class FastRecordCollection<T extends Record> implements Collection<T> {
     if (recordMap.inverse().containsKey(t)) {
       return false;
     }
-    var components = componentsOf(t);
+    var components = componentExtractor.apply(t).toList();
     var allMappedComponentsMapToRecord = components.stream()
       .map(componentMap::get)
       .filter(Objects::nonNull)
@@ -176,7 +154,7 @@ public class FastRecordCollection<T extends Record> implements Collection<T> {
   private synchronized boolean internalRemove(Object o) {
     //noinspection unchecked
     var record = (T) o;
-    var components = componentsOf(record);
+    var components = componentExtractor.apply(record);
     var removedRecordId = recordMap.inverse().remove(record);
     if (removedRecordId == null) {
       return false;
@@ -199,7 +177,7 @@ public class FastRecordCollection<T extends Record> implements Collection<T> {
     }
     Set<Object> componentValues = new HashSet<>(componentMap.keySet());
     Map<T, Collection<Object>> collectionComponents = relevantElements.stream()
-      .collect(Collectors.toMap(Function.identity(), this::componentsOf));
+      .collect(CollectorsX.mapToValue(r -> componentExtractor.apply(r).toList()));
     var allValues = collectionComponents.values().stream().flatMap(Collection::stream).toList();
     for (var value : allValues) {
       if (!componentValues.add(value)) {
@@ -254,77 +232,6 @@ public class FastRecordCollection<T extends Record> implements Collection<T> {
   @Override
   public int hashCode() {
     return Objects.hash(recordClass, recordMap.values(), componentMap.keySet());
-  }
-
-  @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-  public class ComponentMap<C> implements Map<C, T> {
-
-    private final Function<T, C> accessor;
-
-    @Override
-    public int size() {
-      return FastRecordCollection.this.size();
-    }
-
-    @Override
-    public boolean isEmpty() {
-      return FastRecordCollection.this.isEmpty();
-    }
-
-    @Override
-    public boolean containsKey(Object key) {
-      return containsWhere(null, key);
-    }
-
-    @Override
-    public boolean containsValue(Object value) {
-      return contains(value);
-    }
-
-    @Override
-    public T get(Object key) {
-      return FastRecordCollection.this.getWhere(null, key);
-    }
-
-    @Override
-    public @Nullable T put(C key, T value) {
-      throw new UnsupportedOperationException("FastRecordCollection views cannot be mutated");
-    }
-
-    @Override
-    public T remove(Object key) {
-      throw new UnsupportedOperationException("FastRecordCollection views cannot be mutated");
-    }
-
-    @Override
-    public void putAll(@NotNull Map<? extends C, ? extends T> m) {
-      throw new UnsupportedOperationException("FastRecordCollection views cannot be mutated");
-    }
-
-    @Override
-    public void clear() {
-      throw new UnsupportedOperationException("FastRecordCollection views cannot be mutated");
-    }
-
-    @Override
-    public @NotNull Set<C> keySet() {
-      return recordMap.values().stream()
-        .map(accessor)
-        .collect(Collectors.toSet());
-    }
-
-    @Override
-    public @NotNull Collection<T> values() {
-      return recordMap.values();
-    }
-
-    @Override
-    public @NotNull Set<Entry<C, T>> entrySet() {
-      return recordMap.values().stream()
-        .map(r -> Map.entry(accessor.apply(r), r))
-        .collect(Collectors.toSet());
-    }
-
   }
 
 }

@@ -8,10 +8,6 @@ import org.jetbrains.annotations.NotNull;
 @PropertyKey(PropertyKey.UNDEFINED)
 public sealed interface Property permits TypedProperty {
 
-  static Object getDefault(Class<? extends Property> propertyClass) {
-    return Properties.getDefault(propertyClass);
-  }
-
   default @NotNull String getKey() {
     return PropertyKeys.get(getClass());
   }

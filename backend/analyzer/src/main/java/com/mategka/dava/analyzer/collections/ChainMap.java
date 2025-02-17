@@ -122,7 +122,7 @@ public class ChainMap<K, V> implements Map<K, V> {
   @Override
   public @NotNull Set<Map.Entry<K, V>> entrySet() {
     return keySet().stream()
-      .map(key -> new Entry<>(key, get(key)))
+      .map(key -> MapEntry.of(key, get(key)))
       .collect(Collectors.toSet());
   }
 
@@ -182,44 +182,6 @@ public class ChainMap<K, V> implements Map<K, V> {
   @Override
   public int hashCode() {
     return Objects.hashCode(maps);
-  }
-
-  public static class Entry<K, V> implements Map.Entry<K, V> {
-
-    private final K key;
-    private final V value;
-
-    protected Entry(final K key, final V value) {
-      this.key = key;
-      this.value = value;
-    }
-
-    @Override
-    public K getKey() {
-      return key;
-    }
-
-    @Override
-    public V getValue() {
-      return value;
-    }
-
-    @Override
-    public V setValue(V value) {
-      throw new UnsupportedOperationException("ChainMap.Entry is immutable");
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof Entry<?, ?> entry)) return false;
-      return Objects.equals(key, entry.key) && Objects.equals(value, entry.value);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(key, value);
-    }
-
   }
 
 }

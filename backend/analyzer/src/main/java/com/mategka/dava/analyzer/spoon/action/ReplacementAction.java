@@ -19,8 +19,7 @@ public class ReplacementAction implements EditAction {
   @Override
   public String toString() {
     return PairStream.of(oldSubject, newSubject)
-      .mapBoth(Subject::getElement)
-      .mapBoth(Spoon::descriptorOf)
+      .mapBoth(Subject::toDescriptor)
       .mapReduce("R %s -> %s"::formatted)
       .findFirst()
       .orElseThrow();

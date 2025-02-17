@@ -5,7 +5,10 @@ import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.extension.StreamsX;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.spoon.Spoon;
-import com.mategka.dava.analyzer.struct.property.*;
+import com.mategka.dava.analyzer.struct.property.ParentProperty;
+import com.mategka.dava.analyzer.struct.property.PathProperty;
+import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
+import com.mategka.dava.analyzer.struct.property.value.Kind;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
 
@@ -33,21 +36,6 @@ public class StrandWorkspace {
   final Strand strand;
 
   final FastRecordCollection<FileEntry> fileEntries = new FastRecordCollection<>(FileEntry.class);
-
-//  /**
-//   * Maps Git workspace paths to their associated Spoon file.
-//   */
-//  final BiMap<String, VirtualFile> spoonFiles = HashBiMap.create();
-//
-//  /**
-//   * Maps Spoon files to their associated Spoon AST.
-//   */
-//  final Map<VirtualFile, CtCompilationUnit> spoonUnits = new HashMap<>();
-//
-//  /**
-//   * Maps Spoon files to associated symbols.
-//   */
-//  final BiMap<VirtualFile, Symbol> filesToSymbols = HashBiMap.create();
 
   /**
    * Maps Spoon paths to symbols.
@@ -78,8 +66,8 @@ public class StrandWorkspace {
     }
     if (pakkage instanceof CtModelImpl.CtRootPackage) {
       var rootPackage = context.symbolBuilder()
-        .property(new SimpleNameProperty(Symbol.ROOT_PACKAGE_NAME))
-        .property(KindProperty.Value.PACKAGE.toProperty())
+        .property(SimpleNameProperty.forRootPackage())
+        .property(Kind.PACKAGE.toProperty())
         .property(childPackagePathProperty)
         .build();
       keysToSymbols.put(rootPackage);
@@ -88,7 +76,7 @@ public class StrandWorkspace {
     }
     var parentSymbol = getPackage(pakkage.getDeclaringPackage(), context);
     var childSymbol = context.symbolBuilder()
-      .property(KindProperty.Value.PACKAGE.toProperty())
+      .property(Kind.PACKAGE.toProperty())
       .property(SimpleNameProperty.fromElement(pakkage))
       .property(ParentProperty.fromSymbol(parentSymbol))
       .property(childPackagePathProperty)

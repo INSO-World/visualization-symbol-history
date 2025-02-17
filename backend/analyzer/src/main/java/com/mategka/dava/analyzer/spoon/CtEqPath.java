@@ -1,7 +1,12 @@
 package com.mategka.dava.analyzer.spoon;
 
+import com.mategka.dava.analyzer.collections.Box;
+import com.mategka.dava.analyzer.extension.StreamsX;
+
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Delegate;
+import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.NotNull;
 import spoon.reflect.CtModel;
 import spoon.reflect.CtModelImpl;
@@ -13,15 +18,16 @@ import spoon.reflect.path.impl.CtPathImpl;
 import java.util.Objects;
 import java.util.Optional;
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor(staticName = "of")
 public class CtEqPath implements CtPath, Comparable<CtPath> {
 
   public static final CtEqPath EMPTY = CtEqPath.of(new CtPathImpl());
 
   @Delegate
-  private final CtPath path;
+  CtPath path;
 
-  private String cachedStringRepresentation = null;
+  Box<String> cachedStringRepresentation = Box.empty();
 
   public static CtEqPath of(CtElement element) throws CtPathException {
     if (element instanceof CtModelImpl.CtRootPackage) {
@@ -32,8 +38,7 @@ public class CtEqPath implements CtPath, Comparable<CtPath> {
 
   public <T extends CtElement> Optional<T> evaluateOn(CtModel model, Class<T> clazz) {
     return path.evaluateOn(model.getRootPackage()).stream()
-      .filter(clazz::isInstance)
-      .map(clazz::cast)
+      .mapMulti(StreamsX.onlyOfType(clazz))
       .findFirst();
   }
 
@@ -50,10 +55,7 @@ public class CtEqPath implements CtPath, Comparable<CtPath> {
 
   @Override
   public String toString() {
-    if (cachedStringRepresentation != null) {
-      return cachedStringRepresentation;
-    }
-    return cachedStringRepresentation = path.toString();
+    return cachedStringRepresentation.computeIfAbsent(path::toString);
   }
 
   @Override

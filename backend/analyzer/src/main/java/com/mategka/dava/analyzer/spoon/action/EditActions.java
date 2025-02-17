@@ -116,7 +116,7 @@ public class EditActions {
         return result.isEmpty() ? bodyUpdateListOf(parent) : result;
       })
       .or(() -> ElementCapture.getNearestSubjectElement(changeRoot).map(EditActions::bodyUpdateListOf))
-      .orElseGet(Collections::emptyList);
+      .getOrCompute(Collections::emptyList);
   }
 
   private List<BodyUpdateAction> bodyUpdateListOf(CtElement parent) {
@@ -126,7 +126,7 @@ public class EditActions {
   private BodyUpdateAction bodyUpdateOf(CtElement parent) {
     return BodyUpdateAction.of(Subject.of(
       parent,
-      ElementCapture.getNearestValidParent(parent).orElseThrow()
+      ElementCapture.getNearestValidParent(parent).getOrThrow()
     ));
   }
 

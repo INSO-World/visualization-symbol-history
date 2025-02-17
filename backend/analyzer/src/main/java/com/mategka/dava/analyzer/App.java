@@ -3,7 +3,9 @@ package com.mategka.dava.analyzer;
 import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.DefaultMap;
 import com.mategka.dava.analyzer.collections.IndexMap;
-import com.mategka.dava.analyzer.extension.*;
+import com.mategka.dava.analyzer.extension.CollectorsX;
+import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.extension.PairStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
@@ -152,7 +154,7 @@ public class App {
               var packageDeclaration = newUnit.getPackageDeclaration().getReference().getDeclaration();
               var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
               var typeDeclaration = newUnit.getMainType();
-              StreamsX.stepper(symbolizer.symbolizeType(typeDeclaration, pakkage))
+              symbolizer.symbolizeType(typeDeclaration, pakkage).stepper()
                 .takeOne(s -> {
                   workspace.putClassSymbol(new FileEntry(diff.getNewPath(), newFile, newUnit, s));
                   additions.add(s);
@@ -163,7 +165,7 @@ public class App {
                 });
             }
             for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
-              StreamsX.stepper(parentWorkspace.getSymbolsFromFilePath(diff.getOldPath()))
+              parentWorkspace.getSymbolsFromFilePath(diff.getOldPath()).stepper()
                 .takeOne(s -> {
                   workspace.removeClassSymbolHierarchy(s);
                   deletions.add(s);

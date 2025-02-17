@@ -3,7 +3,6 @@ package com.mategka.dava.analyzer.struct.symbol;
 import com.mategka.dava.analyzer.collections.ClassSet;
 import com.mategka.dava.analyzer.collections.Stack;
 import com.mategka.dava.analyzer.extension.Streamer;
-import com.mategka.dava.analyzer.extension.StreamsX;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.spoon.Spoon;
 
@@ -22,7 +21,7 @@ import java.util.stream.Stream;
 @UtilityClass
 public class ElementCapture {
 
-  private final ClassSet CLASSES_TO_CAPTURE = ClassSet.of(
+  public final ClassSet CLASSES_TO_CAPTURE = ClassSet.of(
     CtType.class,
     CtConstructor.class,
     CtParameter.class,
@@ -49,22 +48,22 @@ public class ElementCapture {
     CtConstructor.class
   );
 
-  public Stream<CtElement> getVariables(CtBodyHolder element) {
+  public Streamer<CtElement> getVariables(CtBodyHolder element) {
     if (element.getBody() == null) {
-      return Stream.empty();
+      return Streamer.empty();
     }
-    return element.getBody().getDirectChildren().stream()
+    return Streamer.ofCollection(element.getBody().getDirectChildren())
       .flatMap(childElement -> {
         if (childElement instanceof CtType<?> || childElement instanceof CtLambda<?>) {
-          return Stream.empty();
+          return Streamer.empty();
         }
         if (childElement instanceof CtBodyHolder bodyHolder) {
           return getVariables(bodyHolder);
         }
         if (childElement instanceof CtLocalVariable<?> localVariable) {
-          return Stream.of(localVariable);
+          return Streamer.of(localVariable);
         }
-        return Stream.empty();
+        return Streamer.empty();
       });
   }
 
@@ -81,21 +80,21 @@ public class ElementCapture {
     return Stream.empty();
   }
 
-  public Stream<Subject> parseElement(CtElement element, CtElement parent) {
+  public Streamer<Subject> parseElement(CtElement element, CtElement parent) {
     if (!CLASSES_TO_CAPTURE.containsClassOf(element)) {
-      return Stream.empty();
+      return Streamer.empty();
     }
     if (element instanceof CtConstructor<?> constructor && !Spoon.isRegularConstructor(constructor)) {
-      return Stream.empty();
+      return Streamer.empty();
     }
     element.setAllMetadata(Map.of("%captured%", true));
-    return StreamsX.cons(
+    return Streamer.cons(
       Subject.of(element, parent),
       relevantChildrenOf(element).flatMap(m -> parseElement(m, element))
     );
   }
 
-  public Stream<Subject> parseFreeElement(CtElement element, CtElement parent) {
+  public Streamer<Subject> parseFreeElement(CtElement element, CtElement parent) {
     if (parent instanceof CtPackage || parent instanceof CtType<?>) {
       return parseElement(element, parent);
     } else if (parent instanceof CtConstructor<?> || parent instanceof CtMethod<?>) {
@@ -105,7 +104,7 @@ public class ElementCapture {
       if (element instanceof CtBodyHolder bodyHolder) {
         return getVariables(bodyHolder).flatMap(e -> parseElement(e, parent));
       }
-      return Stream.empty();
+      return Streamer.empty();
     }
     throw new IllegalArgumentException("Given parent constitutes an illegal symbol parent");
   }
@@ -138,7 +137,9 @@ public class ElementCapture {
             return Option.Some(current);
           }
           // Otherwise, the declaration among the relevantChildren would have to be among the remaining parents
-          var variableDeclaration = Streamer.of(parents).filter(relevantChildren::contains).findFirstAsOption();
+          var variableDeclaration = Streamer.ofCollection(parents)
+            .filter(relevantChildren::contains)
+            .findFirstAsOption();
           if (variableDeclaration.isSome()) {
             // If it is, then that is the correct parent (and node is a child of it)
             return variableDeclaration;
@@ -188,7 +189,7 @@ public class ElementCapture {
         expectingType = true;
       }
     }
-    return Streamer.of(parents)
+    return Streamer.ofCollection(parents)
       .filter(VALID_PARENT_NODE_CLASSES::containsClassOf)
       .findFirstAsOption();
   }

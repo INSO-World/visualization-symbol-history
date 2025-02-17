@@ -21,7 +21,7 @@ public record ModifiersProperty(EnumSet<Modifier> value) implements EnumSetPrope
 
   public static EnumSet<Modifier> getModifiers(CtModifiable modifiable) {
     var visibility = modifiable.getVisibility();
-    return Streamer.of(modifiable.getExtendedModifiers())
+    return Streamer.ofCollection(modifiable.getExtendedModifiers())
       .map(CtExtendedModifier::getKind)
       .filter(kind -> kind != visibility)
       .filter(Objects::nonNull)

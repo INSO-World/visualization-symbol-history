@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.collections;
 
-import com.mategka.dava.analyzer.extension.ObjectsX;
+import com.mategka.dava.analyzer.extension.ComparatorsX;
 import com.mategka.dava.analyzer.extension.option.Option;
 
 import lombok.AccessLevel;
@@ -140,7 +140,7 @@ public class Box<T> implements Iterable<T>, Comparable<Object> {
   @Override
   public int compareTo(@NotNull Object o) {
     var otherValue = (o instanceof Box<?> box) ? box.value : o;
-    return ObjectsX.nullsFirstComparator().compare(value, otherValue);
+    return ComparatorsX.nullsFirstComparator().compare(value, otherValue);
   }
 
 }

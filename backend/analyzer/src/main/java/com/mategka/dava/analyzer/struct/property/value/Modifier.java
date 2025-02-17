@@ -31,7 +31,7 @@ public enum Modifier {
   private ModifierKind spoonKind;
 
   public static Option<Modifier> fromModifierKind(ModifierKind modifier) {
-    return Streamer.of(values())
+    return Streamer.ofArray(values())
       .filter(v -> v.spoonKind == modifier)
       .findFirstAsOption();
   }

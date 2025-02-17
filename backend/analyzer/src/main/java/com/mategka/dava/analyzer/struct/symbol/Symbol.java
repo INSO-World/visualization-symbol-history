@@ -97,7 +97,7 @@ public final class Symbol implements PropertyIndexable {
   }
 
   public Symbol withUpdates(@NotNull Collection<? extends SymbolUpdate> updates) {
-    var violation = Streamer.of(updates).filter(u -> !u.appliesTo(this)).findFirstAsOption();
+    var violation = Streamer.ofCollection(updates).filter(u -> !u.appliesTo(this)).findFirstAsOption();
     if (violation.isSome()) {
       throw new IllegalArgumentException(
         "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(

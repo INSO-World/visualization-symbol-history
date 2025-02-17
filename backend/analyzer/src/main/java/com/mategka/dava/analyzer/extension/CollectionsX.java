@@ -23,7 +23,7 @@ public class CollectionsX {
   }
 
   public <T, U extends T> Option<U> firstOfType(SequencedCollection<T> collection, Class<U> clazz) {
-    return Streamer.of(collection).mapMulti(StreamsX.onlyOfType(clazz)).findFirstAsOption();
+    return Streamer.ofCollection(collection).narrow(clazz).findFirstAsOption();
   }
 
   public <T, U extends T> Option<U> lastOfType(SequencedCollection<T> collection, Class<U> clazz) {

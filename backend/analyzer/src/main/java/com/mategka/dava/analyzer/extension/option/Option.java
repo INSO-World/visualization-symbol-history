@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.extension.option;
 
-import com.mategka.dava.analyzer.extension.ObjectsX;
+import com.mategka.dava.analyzer.extension.ComparatorsX;
 import com.mategka.dava.analyzer.extension.Pair;
 
 import lombok.NonNull;
@@ -127,7 +127,7 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
   @Override
   default int compareTo(@NotNull Option<T> o) {
     return fold(
-      value -> o instanceof Some<T> some ? ObjectsX.compare(value, some.value()) : -1,
+      value -> o instanceof Some<T> some ? ComparatorsX.compare(value, some.value()) : -1,
       () -> o instanceof Some<T> ? 1 : 0
     );
   }

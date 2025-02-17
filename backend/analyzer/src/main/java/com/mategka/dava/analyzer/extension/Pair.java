@@ -19,6 +19,10 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
   L left;
   R right;
 
+  public static <L, R> Pair<L, R> fromEntry(Map.Entry<L, R> entry) {
+    return Pair.of(entry.getKey(), entry.getValue());
+  }
+
   public static <T, U> Pair<U, U> map(Pair<? extends T, ? extends T> pair, Function<? super T, ? extends U> mapper) {
     return new Pair<>(mapper.apply(pair.left), mapper.apply(pair.right));
   }
@@ -86,7 +90,7 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
 
   @Override
   public int compareTo(@NotNull Pair<L, R> o) {
-    var comparator = ObjectsX.nullsFirstComparator();
+    var comparator = ComparatorsX.nullsFirstComparator();
     var diffLeft = comparator.compare(left, o.left);
     return (diffLeft != 0) ? diffLeft : comparator.compare(right, o.right);
   }

@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.spoon;
 
+import com.mategka.dava.analyzer.extension.Streamer;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.util.JavaSyntax;
 
@@ -33,8 +34,7 @@ public class Spoon {
   }
 
   public List<CtCompilationUnit> getCompilationUnits(CtModel model) {
-    return model.getAllModules()
-      .stream()
+    return Streamer.ofCollection(model.getAllModules())
       .flatMap(module -> module.getFactory().CompilationUnit().getMap().values().stream())
       .filter(unit -> unit.getUnitType() == CtCompilationUnit.UNIT_TYPE.TYPE_DECLARATION)
       .map(element -> (CtCompilationUnit) element)

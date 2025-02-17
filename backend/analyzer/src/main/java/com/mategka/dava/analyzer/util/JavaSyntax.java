@@ -60,7 +60,7 @@ public enum JavaSyntax {
   int toVersion;
 
   public static @NotNull JavaSyntax fromVersion(int version) {
-    return Streamer.of(values())
+    return Streamer.ofArray(values())
       .filter(v -> v.covers(version))
       .findFirstAsOption()
       .getOrThrow();

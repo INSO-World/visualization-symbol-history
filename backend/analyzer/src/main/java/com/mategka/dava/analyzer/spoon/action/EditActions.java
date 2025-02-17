@@ -14,7 +14,9 @@ import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtPackage;
 import spoon.reflect.declaration.CtType;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
 
 @UtilityClass
@@ -30,18 +32,27 @@ public class EditActions {
       .flatMap(Collection::stream)
       .distinct()
       .toList();
-    var deletionsMap = rawActions.stream()
-      .mapMulti(StreamsX.onlyOfType(DeletionAction.class))
+    var deletionsMap = Streamer.ofCollection(rawActions)
+      .narrow(DeletionAction.class)
       .map(Pair.fromRight(DeletionAction::getOldElement))
       .filter(p -> mappings.containsKey(p.left()))
       .collect(CollectorsX.pairsToMap());
-    var actionsToIndices = StreamsX.streamWithIndex(rawActions).collect(CollectorsX.pairsToMap());
-    var simpleActions = rawActions.stream()
-      .mapMulti(StreamsX.onlyOfType(SimpleEditAction.class))
-      .toList();
-    var replacement = findRootReplacement(simpleActions, actionsToIndices);
-    // TODO: UpdateAction for elements which are mapped and used in neither deletions nor additions
-    return StreamsX.streamWithIndex(rawActions)
+    var replacement = findRootReplacement(rawActions);
+    var updateMappingKeys = SetsX.difference(mappings.keySet(), deletionsMap.keySet());
+    var updatesStream = PairStream.mapping(mappings.entrySet(), Pair::fromEntry)
+      .filterLeft(updateMappingKeys::contains)
+      .filterBoth(ElementCapture.CLASSES_TO_CAPTURE::containsClassOf)
+      .map(elements -> {
+        var oldParent = ElementCapture.getNearestValidParent(elements.left());
+        var newParent = ElementCapture.getNearestValidParent(elements.right());
+        return Option.pair(oldParent, newParent).map(parents -> {
+          var oldSubject = Subject.of(elements.left(), parents.left());
+          var newSubject = Subject.of(elements.right(), parents.right());
+          return UpdateAction.of(oldSubject, newSubject);
+        });
+      })
+      .mapMulti(Option.yieldIfSome());
+    return Streamer.ofCollectionWithIndex(rawActions)
       .<EditAction>mapMulti((pair, consumer) -> {
         var action = pair.left();
         var index = pair.right();
@@ -69,12 +80,14 @@ public class EditActions {
         }
         consumer.accept(action);
       })
+      .concat(updatesStream)
       .toList();
   }
 
-  private Option<ReplacementTuple> findRootReplacement(Collection<SimpleEditAction> simpleActions,
-                                                       Map<? super EditAction, Integer> actionsToIndices) {
-    var candidates = simpleActions.stream()
+  private Option<ReplacementTuple> findRootReplacement(Collection<EditAction> rawActions) {
+    var actionsToIndices = Streamer.ofCollectionWithIndex(rawActions).collect(CollectorsX.pairsToMap());
+    var candidates = Streamer.ofCollection(rawActions)
+      .narrow(SimpleEditAction.class)
       .filter(a -> a.getReferenceParent() instanceof CtPackage)
       .filter(a -> a.getReferenceElement() instanceof CtType<?>)
       .toList();

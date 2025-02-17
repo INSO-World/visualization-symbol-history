@@ -24,6 +24,10 @@ public class ListsX {
     return list.stream().map(mapper).flatMap(Collection::stream).toList();
   }
 
+  public <T, U extends T> List<U> sublistOfType(Collection<T> collection, Class<U> clazz) {
+    return Streamer.ofCollection(collection).narrow(clazz).toList();
+  }
+
   @SafeVarargs
   public <T> List<T> cons(T head, List<T>... tails) {
     return Stream.concat(

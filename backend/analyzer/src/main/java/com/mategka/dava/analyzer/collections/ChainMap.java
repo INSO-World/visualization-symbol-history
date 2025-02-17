@@ -81,7 +81,7 @@ public class ChainMap<K, V> implements Map<K, V> {
 
   private Option<V> getInternal(Object key) {
     //noinspection SuspiciousMethodCalls
-    return Streamer.of(maps)
+    return Streamer.ofCollection(maps)
       .filter(map -> map.containsKey(key))
       .findFirstAsOption()
       .map(map -> map.get(key));

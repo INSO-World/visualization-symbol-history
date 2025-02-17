@@ -1,8 +1,7 @@
 package com.mategka.dava.analyzer.spoon;
 
 import com.mategka.dava.analyzer.collections.Box;
-import com.mategka.dava.analyzer.extension.Streamer;
-import com.mategka.dava.analyzer.extension.StreamsX;
+import com.mategka.dava.analyzer.extension.CollectionsX;
 import com.mategka.dava.analyzer.extension.option.Option;
 
 import lombok.AccessLevel;
@@ -38,9 +37,7 @@ public class CtEqPath implements CtPath, Comparable<CtPath> {
   }
 
   public <T extends CtElement> Option<T> evaluateOn(CtModel model, Class<T> clazz) {
-    return Streamer.of(path.evaluateOn(model.getRootPackage()))
-      .mapMulti(StreamsX.onlyOfType(clazz))
-      .findFirstAsOption();
+    return CollectionsX.firstOfType(path.evaluateOn(model.getRootPackage()), clazz);
   }
 
   @Override

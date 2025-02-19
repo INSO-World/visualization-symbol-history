@@ -13,15 +13,18 @@ import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.spoon.action.EditActions;
 import com.mategka.dava.analyzer.struct.*;
 import com.mategka.dava.analyzer.struct.symbol.*;
-import com.mategka.dava.analyzer.wip.ReflectionContext;
+import com.mategka.dava.analyzer.util.Benchmark;
 
+import com.google.common.collect.BiMap;
 import gumtree.spoon.builder.CtWrapper;
+import gumtree.spoon.diff.Diff;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import spoon.reflect.declaration.CtCompilationUnit;
+import spoon.reflect.declaration.CtElement;
 import spoon.support.compiler.VirtualFile;
 
 import java.io.IOException;
@@ -37,9 +40,8 @@ public class App {
     // ?REPO
     try (RepositoryWrapper repository = RepositoryWrapper.open("?REPO")) {
       Ref mainBranch = repository.resolveRef("main").getOrThrow();
-      var reflectionContext = new ReflectionContext();
+      var benchmark = Benchmark.start();
       var history = History.emptyOfBranch(repository, mainBranch);
-      var timeBefore = System.currentTimeMillis();
       var symbolIdCounter = new AtomicLong();
       int offset = 0;
       var comparator = new AstComparator();
@@ -94,18 +96,8 @@ public class App {
             Map<VirtualFile, CtCompilationUnit> effectiveUnits = effectiveFiles.values().stream()
               .filter(Objects::nonNull)
               .collect(CollectorsX.mapToValue(Spoon::parse));
-            // START xdiffs
-            var xdiffs = relevantDiffs.put(FileChangeType.RENAMED, new ArrayList<>());
-            assert xdiffs != null;
-            var xxdiffs = relevantDiffs.put(FileChangeType.MOVED, new ArrayList<>());
-            assert xxdiffs != null;
-            xdiffs.addAll(xxdiffs);
-            relevantDiffs.get(FileChangeType.DELETED).addAll(xdiffs);
-            relevantDiffs.get(FileChangeType.ADDED).addAll(xdiffs);
-            var xxxdiffs = relevantDiffs.put(FileChangeType.COPIED, new ArrayList<>());
-            assert xxxdiffs != null;
-            relevantDiffs.get(FileChangeType.ADDED).addAll(xxxdiffs);
-            // END xdiffs
+            // TODO: Remove call after implementing RENAMED, MOVED and COPIED
+            moveDerivativeDiffEntries(relevantDiffs);
             // TODO: Do not trust rename, move and copy hints from Git
             var derivativeDiffPairs = Stream.of(FileChangeType.RENAMED, FileChangeType.MOVED, FileChangeType.COPIED)
               .flatMap(t -> relevantDiffs.get(t).stream().map(d -> Pair.of(t, d)))
@@ -133,17 +125,7 @@ public class App {
               var newUnit = effectiveUnits.get(newFile);
               var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
               var editScript = astDiff.getRootOperations();
-              var mappings = PairStream.mapping(
-                  astDiff.getMappingsComp().asSet(),
-                  m -> Pair.of(m.first, m.second)
-                )
-                .filterBoth(t -> !t.isRoot() && !t.getType().isEmpty())
-                .mapBoth(Spoon::getMetaElement)
-                .mapBoth(Option::fromNullable)
-                .mapBoth(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e))
-                .map(Option::pair)
-                .mapMulti(Option.yieldIfSome())
-                .collect(CollectorsX.toBiMap());
+              var mappings = extractMappings(astDiff);
               var actions = EditActions.fromDiff(astDiff, mappings);
               workspace.replaceFileEntry(diff.getOldPath(), newFile, newUnit);
               int dummy = 1;
@@ -187,11 +169,38 @@ public class App {
         }
       }
       System.out.println("Done!");
-      var time = System.currentTimeMillis() - timeBefore;
-      System.out.println("Time (ms): " + time);
+      var time = benchmark.end();
+      System.out.println("Time (ms): " + time.toMillis());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static void moveDerivativeDiffEntries(EnumMap<FileChangeType, List<DiffEntry>> relevantDiffs) {
+    var movedDiffs = relevantDiffs.put(FileChangeType.RENAMED, new ArrayList<>());
+    assert movedDiffs != null;
+    var actuallyMovedDiffs = relevantDiffs.put(FileChangeType.MOVED, new ArrayList<>());
+    assert actuallyMovedDiffs != null;
+    movedDiffs.addAll(actuallyMovedDiffs);
+    relevantDiffs.get(FileChangeType.DELETED).addAll(movedDiffs);
+    relevantDiffs.get(FileChangeType.ADDED).addAll(movedDiffs);
+    var copiedDiffs = relevantDiffs.put(FileChangeType.COPIED, new ArrayList<>());
+    assert copiedDiffs != null;
+    relevantDiffs.get(FileChangeType.ADDED).addAll(copiedDiffs);
+  }
+
+  private static BiMap<CtElement, CtElement> extractMappings(Diff astDiff) {
+    return PairStream.mapping(
+        astDiff.getMappingsComp().asSet(),
+        m -> Pair.of(m.first, m.second)
+      )
+      .filterBoth(t -> !t.isRoot() && !t.getType().isEmpty())
+      .mapBoth(Spoon::getMetaElement)
+      .mapBoth(Option::fromNullable)
+      .mapBoth(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e))
+      .map(Option::pair)
+      .mapMulti(Option.yieldIfSome())
+      .collect(CollectorsX.toBiMap());
   }
 
   private static Map<String, VirtualFile> getOverrides(

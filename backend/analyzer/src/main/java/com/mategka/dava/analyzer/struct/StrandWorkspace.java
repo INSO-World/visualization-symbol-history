@@ -2,7 +2,7 @@ package com.mategka.dava.analyzer.struct;
 
 import com.mategka.dava.analyzer.collections.FastRecordCollection;
 import com.mategka.dava.analyzer.collections.IndexMap;
-import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.MyStream;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
@@ -143,14 +143,14 @@ public class StrandWorkspace {
     return fileEntries.getWhere(FileEntry::gitPath, filePath).spoonUnit();
   }
 
-  public Streamer<Symbol> getSymbolsFromFilePath(String filePath) {
+  public MyStream<Symbol> getSymbolsFromFilePath(String filePath) {
     var typeSymbol = fileEntries.getWhere(FileEntry::gitPath, filePath).rootSymbol();
-    return Streamer.cons(typeSymbol, getDescendantSymbols(typeSymbol));
+    return MyStream.cons(typeSymbol, getDescendantSymbols(typeSymbol));
   }
 
-  private Streamer<Symbol> getDescendantSymbols(Symbol symbol) {
+  private MyStream<Symbol> getDescendantSymbols(Symbol symbol) {
     var children = parentsToChildren.get(symbol.getKey());
-    return Streamer.ofCollection(children).concat(children.stream().flatMap(this::getDescendantSymbols));
+    return MyStream.from(children).concat(children.stream().flatMap(this::getDescendantSymbols));
   }
 
   private void updateModel(CtModel model) {

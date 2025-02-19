@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.util;
 
-import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.MyStream;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -60,7 +60,7 @@ public enum JavaSyntax {
   int toVersion;
 
   public static @NotNull JavaSyntax fromVersion(int version) {
-    return Streamer.ofArray(values())
+    return MyStream.from(values())
       .filter(v -> v.covers(version))
       .findFirstAsOption()
       .getOrThrow();

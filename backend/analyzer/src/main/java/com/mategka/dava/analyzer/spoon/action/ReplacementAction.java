@@ -15,6 +15,12 @@ public class ReplacementAction implements EditAction {
   @NonNull
   Subject newSubject;
 
+  static ReplacementAction fromTuple(ReplacementTuple tuple) {
+    var oldSubject = tuple.deletion().action().getOldSubject();
+    var newSubject = tuple.addition().action().getNewSubject();
+    return ReplacementAction.of(oldSubject, newSubject);
+  }
+
   @Override
   public String toString() {
     return PairStream.of(oldSubject, newSubject)

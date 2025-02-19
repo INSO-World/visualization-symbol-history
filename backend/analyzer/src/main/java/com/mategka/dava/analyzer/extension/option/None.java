@@ -29,7 +29,7 @@ public final class None<T> implements Option<T> {
   }
 
   @Override
-  public <E extends RuntimeException> @NotNull T getOrThrow(@NotNull Supplier<E> exceptionSupplier) {
+  public @NotNull T getOrThrow(@NotNull Supplier<? extends RuntimeException> exceptionSupplier) {
     throw exceptionSupplier.get();
   }
 

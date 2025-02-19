@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.collections;
 
-import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.MyStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 
 import org.jetbrains.annotations.NotNull;
@@ -81,7 +81,7 @@ public class ChainMap<K, V> implements Map<K, V> {
 
   private Option<V> getInternal(Object key) {
     //noinspection SuspiciousMethodCalls
-    return Streamer.ofCollection(maps)
+    return MyStream.from(maps)
       .filter(map -> map.containsKey(key))
       .findFirstAsOption()
       .map(map -> map.get(key));

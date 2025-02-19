@@ -50,7 +50,7 @@ public class PairStream<T> extends AbstractStreamAdapter<Pair<T, T>, PairStream<
   public static <T> PairStream<T> zip(Stream<? extends T> streamA, Stream<? extends T> streamB) {
     return new PairStream<>(PairStream.of(streamA, streamB)
                               .mapBoth(Covariant::<T>stream)
-                              .flatMap(Streamer::zip)
+                              .flatMap(MyStream::zip)
     );
   }
 

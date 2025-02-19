@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.property;
 
-import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.MyStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 import com.mategka.dava.analyzer.struct.property.value.Modifier;
@@ -21,7 +21,7 @@ public record ModifiersProperty(EnumSet<Modifier> value) implements EnumSetPrope
 
   public static EnumSet<Modifier> getModifiers(CtModifiable modifiable) {
     var visibility = modifiable.getVisibility();
-    return Streamer.ofCollection(modifiable.getExtendedModifiers())
+    return MyStream.from(modifiable.getExtendedModifiers())
       .map(CtExtendedModifier::getKind)
       .filter(kind -> kind != visibility)
       .filter(Objects::nonNull)

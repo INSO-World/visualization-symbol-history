@@ -16,7 +16,7 @@ import java.util.function.*;
 public sealed interface Option<T> extends Comparable<Option<T>> permits None, Some {
 
   static <T> @NotNull Option<T> Some(@NonNull T value) {
-    return new Some<>(value);
+    return Some.of(value);
   }
 
   static <T> @NotNull Option<T> None() {
@@ -84,7 +84,7 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
     return getOrThrow(() -> new NoSuchElementException("Option was None"));
   }
 
-  <E extends RuntimeException> @NotNull T getOrThrow(@NotNull Supplier<E> exceptionSupplier);
+  @NotNull T getOrThrow(@NotNull Supplier<? extends RuntimeException> exceptionSupplier);
 
   default T getOrElse(T defaultValue) {
     return fold(Function.identity(), () -> defaultValue);

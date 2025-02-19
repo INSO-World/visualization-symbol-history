@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
 import com.mategka.dava.analyzer.extension.ListsX;
-import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.MyStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.*;
@@ -46,14 +46,14 @@ public class Symbolizer {
     return builder;
   }
 
-  public Streamer<Symbol> symbolizeType(CtType<?> typeDeclaration, Symbol packageSymbol) {
+  public MyStream<Symbol> symbolizeType(CtType<?> typeDeclaration, Symbol packageSymbol) {
     if (packageSymbol.getPropertyValue(KindProperty.class).getOrThrow() != Kind.PACKAGE) {
       throw new IllegalArgumentException("Given parent symbol was not a package-kind symbol");
     }
     return symbolize(typeDeclaration, packageSymbol);
   }
 
-  public Streamer<Symbol> symbolize(CtElement rootElement, Symbol baseParent) {
+  public MyStream<Symbol> symbolize(CtElement rootElement, Symbol baseParent) {
     var parentElement = Option.when(rootElement.isParentInitialized(), rootElement::getParent).getOrElse(rootElement);
     return ElementCapture.parseElement(rootElement, parentElement)
       .map(mapper(baseParent));

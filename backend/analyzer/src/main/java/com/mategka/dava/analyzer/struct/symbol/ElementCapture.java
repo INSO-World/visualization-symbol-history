@@ -2,7 +2,7 @@ package com.mategka.dava.analyzer.struct.symbol;
 
 import com.mategka.dava.analyzer.collections.ClassSet;
 import com.mategka.dava.analyzer.collections.Stack;
-import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.MyStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.spoon.Spoon;
 
@@ -48,22 +48,22 @@ public class ElementCapture {
     CtConstructor.class
   );
 
-  public Streamer<CtElement> getVariables(CtBodyHolder element) {
+  public MyStream<CtElement> getVariables(CtBodyHolder element) {
     if (element.getBody() == null) {
-      return Streamer.empty();
+      return MyStream.empty();
     }
-    return Streamer.ofCollection(element.getBody().getDirectChildren())
+    return MyStream.from(element.getBody().getDirectChildren())
       .flatMap(childElement -> {
         if (childElement instanceof CtType<?> || childElement instanceof CtLambda<?>) {
-          return Streamer.empty();
+          return MyStream.empty();
         }
         if (childElement instanceof CtBodyHolder bodyHolder) {
           return getVariables(bodyHolder);
         }
         if (childElement instanceof CtLocalVariable<?> localVariable) {
-          return Streamer.of(localVariable);
+          return MyStream.from(localVariable);
         }
-        return Streamer.empty();
+        return MyStream.empty();
       });
   }
 
@@ -80,21 +80,21 @@ public class ElementCapture {
     return Stream.empty();
   }
 
-  public Streamer<Subject> parseElement(CtElement element, CtElement parent) {
+  public MyStream<Subject> parseElement(CtElement element, CtElement parent) {
     if (!CLASSES_TO_CAPTURE.containsClassOf(element)) {
-      return Streamer.empty();
+      return MyStream.empty();
     }
     if (element instanceof CtConstructor<?> constructor && !Spoon.isRegularConstructor(constructor)) {
-      return Streamer.empty();
+      return MyStream.empty();
     }
     element.setAllMetadata(Map.of("%captured%", true));
-    return Streamer.cons(
+    return MyStream.cons(
       Subject.of(element, parent),
       relevantChildrenOf(element).flatMap(m -> parseElement(m, element))
     );
   }
 
-  public Streamer<Subject> parseFreeElement(CtElement element, CtElement parent) {
+  public MyStream<Subject> parseFreeElement(CtElement element, CtElement parent) {
     if (parent instanceof CtPackage || parent instanceof CtType<?>) {
       return parseElement(element, parent);
     } else if (parent instanceof CtConstructor<?> || parent instanceof CtMethod<?>) {
@@ -104,7 +104,7 @@ public class ElementCapture {
       if (element instanceof CtBodyHolder bodyHolder) {
         return getVariables(bodyHolder).flatMap(e -> parseElement(e, parent));
       }
-      return Streamer.empty();
+      return MyStream.empty();
     }
     throw new IllegalArgumentException("Given parent constitutes an illegal symbol parent");
   }
@@ -137,7 +137,7 @@ public class ElementCapture {
             return Option.Some(current);
           }
           // Otherwise, the declaration among the relevantChildren would have to be among the remaining parents
-          var variableDeclaration = Streamer.ofCollection(parents)
+          var variableDeclaration = MyStream.from(parents)
             .filter(relevantChildren::contains)
             .findFirstAsOption();
           if (variableDeclaration.isSome()) {
@@ -189,7 +189,7 @@ public class ElementCapture {
         expectingType = true;
       }
     }
-    return Streamer.ofCollection(parents)
+    return MyStream.from(parents)
       .filter(VALID_PARENT_NODE_CLASSES::containsClassOf)
       .findFirstAsOption();
   }

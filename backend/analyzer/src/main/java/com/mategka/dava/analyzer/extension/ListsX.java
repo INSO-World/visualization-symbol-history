@@ -25,7 +25,7 @@ public class ListsX {
   }
 
   public <T, U extends T> List<U> sublistOfType(Collection<T> collection, Class<U> clazz) {
-    return Streamer.ofCollection(collection).narrow(clazz).toList();
+    return MyStream.from(collection).narrow(clazz).toList();
   }
 
   @SafeVarargs

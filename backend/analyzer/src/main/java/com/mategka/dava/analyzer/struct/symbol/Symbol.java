@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
-import com.mategka.dava.analyzer.extension.Streamer;
+import com.mategka.dava.analyzer.extension.MyStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.struct.property.*;
@@ -97,7 +97,7 @@ public final class Symbol implements PropertyIndexable {
   }
 
   public Symbol withUpdates(@NotNull Collection<? extends SymbolUpdate> updates) {
-    var violation = Streamer.ofCollection(updates).filter(u -> !u.appliesTo(this)).findFirstAsOption();
+    var violation = MyStream.from(updates).filter(u -> !u.appliesTo(this)).findFirstAsOption();
     if (violation.isSome()) {
       throw new IllegalArgumentException(
         "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(

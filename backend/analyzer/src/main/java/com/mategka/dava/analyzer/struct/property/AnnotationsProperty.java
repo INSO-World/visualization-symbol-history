@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
-import com.mategka.dava.analyzer.struct.property.value.Type;
+import com.mategka.dava.analyzer.struct.property.value.type.Type;
 
 import java.util.List;
 import java.util.stream.Collectors;

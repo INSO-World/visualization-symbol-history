@@ -69,9 +69,10 @@ public class EditActions {
 
   private Stream<UpdateAction> getUpdatesStream(BiMap<CtElement, CtElement> mappings, Set<CtElement> deletions) {
     var updateMappingKeys = SetsX.difference(mappings.keySet(), deletions);
-    return PairStream.mapping(mappings.entrySet(), Pair::fromEntry)
-      .filterLeft(updateMappingKeys::contains)
-      .filterBoth(ElementCapture.CLASSES_TO_CAPTURE::containsClassOf)
+    return MyStream.from(mappings.entrySet())
+      .map(Pair::fromEntry)
+      .filter(Pair.filteringLeft(updateMappingKeys::contains))
+      .filter(Pair.filtering(ElementCapture.CLASSES_TO_CAPTURE::containsClassOf))
       .map(elements -> {
         var oldParent = ElementCapture.getNearestValidParent(elements.left());
         var newParent = ElementCapture.getNearestValidParent(elements.right());

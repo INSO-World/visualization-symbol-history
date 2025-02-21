@@ -8,18 +8,18 @@ import com.mategka.dava.analyzer.struct.property.value.Modifier;
 import spoon.reflect.declaration.CtModifiable;
 import spoon.support.reflect.CtExtendedModifier;
 
-import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @PropertyKey("modifiers")
-public record ModifiersProperty(EnumSet<Modifier> value) implements EnumSetProperty<Modifier> {
+public record ModifiersProperty(Set<Modifier> value) implements SetProperty<Modifier> {
 
   public static ModifiersProperty fromModifiable(CtModifiable modifiable) {
     return new ModifiersProperty(getModifiers(modifiable));
   }
 
-  public static EnumSet<Modifier> getModifiers(CtModifiable modifiable) {
+  public static Set<Modifier> getModifiers(CtModifiable modifiable) {
     var visibility = modifiable.getVisibility();
     return MyStream.from(modifiable.getExtendedModifiers())
       .map(CtExtendedModifier::getKind)
@@ -27,7 +27,7 @@ public record ModifiersProperty(EnumSet<Modifier> value) implements EnumSetPrope
       .filter(Objects::nonNull)
       .map(Modifier::fromModifierKind)
       .mapMulti(Option.yieldIfSome())
-      .collect(Collectors.toCollection(() -> EnumSet.noneOf(Modifier.class)));
+      .collect(Collectors.toSet());
   }
 
   @Override

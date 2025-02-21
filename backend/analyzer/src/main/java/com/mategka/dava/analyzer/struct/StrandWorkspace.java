@@ -11,6 +11,7 @@ import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
+import com.mategka.dava.analyzer.struct.symbol.SymbolKey;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -44,14 +45,14 @@ public class StrandWorkspace {
   /**
    * Maps symbol IDs to symbols.
    */
-  final IndexMap<Symbol.Key, Symbol> keysToSymbols = new IndexMap<>(Symbol::getKey);
+  final IndexMap<SymbolKey, Symbol> keysToSymbols = new IndexMap<>(Symbol::getKey);
 
   final Set<Symbol> innerPackageSymbols = new HashSet<>();
 
   /**
    * Maps parent to child symbols.
    */
-  final Multimap<Symbol.Key, Symbol> parentsToChildren = HashMultimap.create();
+  final Multimap<SymbolKey, Symbol> parentsToChildren = HashMultimap.create();
 
   CtModel model = Spoon.EMPTY_MODEL;
 

@@ -8,8 +8,6 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface PropertyKey {
 
-  String UNDEFINED = "$$undefined";
-
   @NotNull String value();
 
 }

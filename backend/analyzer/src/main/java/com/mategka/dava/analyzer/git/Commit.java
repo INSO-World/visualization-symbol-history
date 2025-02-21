@@ -12,6 +12,10 @@ import java.util.List;
 
 public record Commit(@NotNull RevCommit revCommit) {
 
+  public String shortSha() {
+    return sha().substring(0, 6);
+  }
+
   public String sha() {
     return revCommit.getId().getName();
   }

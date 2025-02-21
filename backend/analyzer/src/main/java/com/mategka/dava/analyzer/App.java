@@ -4,18 +4,19 @@ import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.DefaultMap;
 import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.extension.CollectorsX;
+import com.mategka.dava.analyzer.extension.MyStream;
 import com.mategka.dava.analyzer.extension.Pair;
-import com.mategka.dava.analyzer.extension.PairStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.Spoon;
-import com.mategka.dava.analyzer.spoon.action.EditActions;
+import com.mategka.dava.analyzer.spoon.action.*;
 import com.mategka.dava.analyzer.struct.*;
 import com.mategka.dava.analyzer.struct.symbol.*;
 import com.mategka.dava.analyzer.util.Benchmark;
 
 import com.google.common.collect.BiMap;
+import com.google.common.collect.Multimap;
 import gumtree.spoon.builder.CtWrapper;
 import gumtree.spoon.diff.Diff;
 import org.eclipse.jgit.diff.DiffEntry;
@@ -51,10 +52,9 @@ public class App {
       try (RevWalk walk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (RevCommit revCommit : walk) {
           var commit = new Commit(revCommit);
-          var commitSha = commit.sha();
-          var strand = history.getStrandMapping().get(commitSha);
+          var strand = history.getStrandMapping().get(commit.sha());
           var workspace = workspaces.get(strand);
-          System.out.print(commitSha.substring(0, 6) + " ");
+          System.out.print(commit.shortSha() + " ");
           if (++offset >= 12) {
             offset = 0;
             System.out.println();
@@ -87,7 +87,7 @@ public class App {
           try (DiffFormatter formatter = repository.newFormatter()) {
             var diffs = formatter.scan(actualParent.tree(), commit.tree());
             var relevantDiffs = RelevantDiffs.extract(diffs);
-            Map<String, VirtualFile> overrideFiles = getOverrides(relevantDiffs, repository);
+            Map<String, VirtualFile> overrideFiles = getOverrides(relevantDiffs.asMap(), repository);
             if (overrideFiles.isEmpty()) {
               // No relevant changes
               continue;
@@ -102,11 +102,11 @@ public class App {
             var derivativeDiffPairs = Stream.of(FileChangeType.RENAMED, FileChangeType.MOVED, FileChangeType.COPIED)
               .flatMap(t -> relevantDiffs.get(t).stream().map(d -> Pair.of(t, d)))
               .toList();
-            var creationContext = new SymbolCreationContext(symbolIdCounter, strand.getId(), commitSha);
+            var creationContext = new SymbolCreationContext(symbolIdCounter, strand.getId(), commit.sha());
             var symbolizer = new Symbolizer(creationContext);
             List<Symbol> additions = new ArrayList<>();
             List<Symbol> deletions = new ArrayList<>();
-            var updates = new IndexMap<>(HashMap::new, SymbolUpdate::getId);
+            Map<Long, SymbolUpdate> updates = new IndexMap<>(HashMap::new, u -> u.getKey().symbolId());
             for (var diffPair : derivativeDiffPairs) {
               assert false; // TODO: Remove 10 xdiffs lines above and implement this
               var type = diffPair.left();
@@ -124,9 +124,24 @@ public class App {
               var newFile = overrideFiles.get(diff.getNewPath());
               var newUnit = effectiveUnits.get(newFile);
               var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
-              var editScript = astDiff.getRootOperations();
               var mappings = extractMappings(astDiff);
               var actions = EditActions.fromDiff(astDiff, mappings);
+              for (var action : actions) {
+                switch (action) {
+                  case ReplacementAction replacementAction -> {
+                  }
+                  case AdditionAction additionAction -> {
+                  }
+                  case DeletionAction deletionAction -> {
+                  }
+                  case BodyUpdateAction bodyUpdateAction -> {
+                  }
+                  case MoveAction moveAction -> {
+                  }
+                  case UpdateAction updateAction -> {
+                  }
+                }
+              }
               workspace.replaceFileEntry(diff.getOldPath(), newFile, newUnit);
               int dummy = 1;
             }
@@ -155,9 +170,7 @@ public class App {
                 .forEachRemaining(deletions::add);
             }
             var commitDiff = CommitDiff.builder()
-              .parentCommitShas(List.of(actualParent.sha()))
-              .commitSha(commitSha)
-              .commitDate(commit.dateTime())
+              .commit(commit)
               .successions(Collections.emptyMap())
               .refactorings(Collections.emptyList())
               .additions(additions)
@@ -176,35 +189,30 @@ public class App {
     }
   }
 
-  private static void moveDerivativeDiffEntries(EnumMap<FileChangeType, List<DiffEntry>> relevantDiffs) {
-    var movedDiffs = relevantDiffs.put(FileChangeType.RENAMED, new ArrayList<>());
-    assert movedDiffs != null;
-    var actuallyMovedDiffs = relevantDiffs.put(FileChangeType.MOVED, new ArrayList<>());
-    assert actuallyMovedDiffs != null;
+  private static void moveDerivativeDiffEntries(Multimap<FileChangeType, DiffEntry> relevantDiffs) {
+    var movedDiffs = relevantDiffs.removeAll(FileChangeType.RENAMED);
+    var actuallyMovedDiffs = relevantDiffs.removeAll(FileChangeType.MOVED);
     movedDiffs.addAll(actuallyMovedDiffs);
-    relevantDiffs.get(FileChangeType.DELETED).addAll(movedDiffs);
-    relevantDiffs.get(FileChangeType.ADDED).addAll(movedDiffs);
-    var copiedDiffs = relevantDiffs.put(FileChangeType.COPIED, new ArrayList<>());
-    assert copiedDiffs != null;
-    relevantDiffs.get(FileChangeType.ADDED).addAll(copiedDiffs);
+    relevantDiffs.putAll(FileChangeType.DELETED, movedDiffs);
+    relevantDiffs.putAll(FileChangeType.ADDED, movedDiffs);
+    var copiedDiffs = relevantDiffs.removeAll(FileChangeType.COPIED);
+    relevantDiffs.putAll(FileChangeType.ADDED, copiedDiffs);
   }
 
   private static BiMap<CtElement, CtElement> extractMappings(Diff astDiff) {
-    return PairStream.mapping(
-        astDiff.getMappingsComp().asSet(),
-        m -> Pair.of(m.first, m.second)
-      )
-      .filterBoth(t -> !t.isRoot() && !t.getType().isEmpty())
-      .mapBoth(Spoon::getMetaElement)
-      .mapBoth(Option::fromNullable)
-      .mapBoth(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e))
+    return MyStream.from(astDiff.getMappingsComp().asSet())
+      .map(m -> Pair.of(m.first, m.second))
+      .filter(Pair.filtering(t -> !t.isRoot() && !t.getType().isEmpty()))
+      .map(Pair.mapping(Spoon::getMetaElement))
+      .map(Pair.mapping(Option::fromNullable))
+      .map(Pair.mapping(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e)))
       .map(Option::pair)
       .mapMulti(Option.yieldIfSome())
       .collect(CollectorsX.toBiMap());
   }
 
   private static Map<String, VirtualFile> getOverrides(
-    Map<FileChangeType, List<DiffEntry>> diffs,
+    Map<FileChangeType, Collection<DiffEntry>> diffs,
     RepositoryWrapper repository
   ) {
     return diffs.entrySet().stream()

@@ -102,4 +102,14 @@ public class CommitDiff {
       .build();
   }
 
+  public static class CommitDiffBuilder {
+
+    public CommitDiffBuilder commit(Commit commit) {
+      return parentCommitShas(ListsX.map(commit.parents(), Commit::sha))
+        .commitSha(commit.sha())
+        .commitDate(commit.dateTime());
+    }
+
+  }
+
 }

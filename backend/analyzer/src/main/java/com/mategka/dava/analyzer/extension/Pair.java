@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @AllArgsConstructor(staticName = "of")
@@ -35,6 +36,28 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
     return r -> Pair.of(mapper.apply(r), r);
   }
 
+  public static <L, R, T> Function<Pair<? extends L, ? extends R>, T> folding(
+    BiFunction<? super L, ? super R, ? extends T> reducer) {
+    return pair -> pair.fold(reducer);
+  }
+
+  public static <L, R> Predicate<Pair<? extends L, ? extends R>> filtering(
+    Predicate<? super L> filter1, Predicate<? super R> filter2) {
+    return pair -> filter1.test(pair.left()) && filter2.test(pair.right());
+  }
+
+  public static <L, R> Predicate<Pair<? extends L, ? extends R>> filteringLeft(Predicate<? super L> filter1) {
+    return pair -> filter1.test(pair.left());
+  }
+
+  public static <L, R> Predicate<Pair<? extends L, ? extends R>> filteringRight(Predicate<? super R> filter2) {
+    return pair -> filter2.test(pair.right());
+  }
+
+  public static <T> Predicate<Pair<? extends T, ? extends T>> filtering(Predicate<? super T> filter) {
+    return filtering(filter, filter);
+  }
+
   public static <L, R, L2, R2> Function<Pair<? extends L, ? extends R>, Pair<L2, R2>> mapping(
     Function<? super L, ? extends L2> mapper1, Function<? super R, ? extends R2> mapper2) {
     return pair -> pair.map(mapper1, mapper2);
@@ -52,7 +75,7 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
 
   public static <T, U> Function<Pair<? extends T, ? extends T>, Pair<U, U>> mapping(
     Function<? super T, ? extends U> mapper) {
-    return pair -> map(pair, mapper);
+    return mapping(mapper, mapper);
   }
 
   public L left() {

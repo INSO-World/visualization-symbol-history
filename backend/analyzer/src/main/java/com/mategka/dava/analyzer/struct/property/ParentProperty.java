@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
-import com.mategka.dava.analyzer.struct.property.value.KnownType;
+import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import org.jetbrains.annotations.NotNull;
@@ -14,7 +14,7 @@ public record ParentProperty(KnownType value) implements NullableProperty<KnownT
   }
 
   public static ParentProperty fromSymbol(@NotNull Symbol symbol) {
-    return fromId(symbol.getId());
+    return fromId(symbol.getKey().symbolId());
   }
 
   @Override

@@ -7,6 +7,7 @@ import com.google.common.collect.HashBiMap;
 import lombok.experimental.UtilityClass;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -29,6 +30,10 @@ public class CollectorsX {
     return Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue);
   }
 
+  public <T> Collector<T, ?, String> commaSeparated() {
+    return Collectors.mapping(Objects::toString, Collectors.joining(", "));
+  }
+
   public <K, V> Collector<Pair<K, V>, ?, Map<K, V>> pairsToMap() {
     return Collectors.toMap(Pair::left, Pair::right);
   }
@@ -42,7 +47,7 @@ public class CollectorsX {
   }
 
   public <A, B> Collector<Pair<A, B>, ?, BiMap<A, B>> toBiMap() {
-    return Collectors.toMap(Pair::left, Pair::right, FunctionsX.takeSecond(), HashBiMap::create);
+    return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b, HashBiMap::create);
   }
 
 }

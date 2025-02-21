@@ -10,7 +10,7 @@ import java.util.stream.Stream;
 @UtilityClass
 public class ListsX {
 
-  public <T, U> List<U> map(List<T> list, Function<? super T, U> mapper) {
+  public <T, U> List<U> map(Collection<T> list, Function<? super T, U> mapper) {
     if (list == null) {
       return null;
     }

@@ -2,31 +2,30 @@ package com.mategka.dava.analyzer.git;
 
 import com.mategka.dava.analyzer.extension.PathsX;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import lombok.experimental.UtilityClass;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Collection;
 
 @UtilityClass
 public class RelevantDiffs {
 
-  public EnumMap<FileChangeType, List<DiffEntry>> extract(Collection<DiffEntry> diffs) {
-    var result = new EnumMap<FileChangeType, List<DiffEntry>>(FileChangeType.class);
-    for (FileChangeType type : FileChangeType.values()) {
-      result.put(type, new ArrayList<>());
-    }
+  public Multimap<FileChangeType, DiffEntry> extract(Collection<DiffEntry> diffs) {
+    var result = HashMultimap.<FileChangeType, DiffEntry>create();
     for (var diff : diffs) {
       var changeType = diff.getChangeType();
       switch (changeType) {
         case ADD, MODIFY, COPY -> {
           if (isFileRelevant(diff.getNewPath())) {
-            result.get(FileChangeType.fromJGitChangeType(changeType)).add(diff);
+            result.put(FileChangeType.fromJGitChangeType(changeType), diff);
           }
         }
         case DELETE -> {
           if (isFileRelevant(diff.getOldPath())) {
-            result.get(FileChangeType.DELETED).add(diff);
+            result.put(FileChangeType.DELETED, diff);
           }
         }
         case RENAME -> {
@@ -34,14 +33,14 @@ public class RelevantDiffs {
           var newPathIsRelevant = isFileRelevant(diff.getNewPath());
           if (oldPathIsRelevant && newPathIsRelevant) {
             if (PathsX.areSiblingPaths(diff.getOldPath(), diff.getNewPath())) {
-              result.get(FileChangeType.RENAMED).add(diff);
+              result.put(FileChangeType.RENAMED, diff);
             } else {
-              result.get(FileChangeType.MOVED).add(diff);
+              result.put(FileChangeType.MOVED, diff);
             }
           } else if (oldPathIsRelevant) {
-            result.get(FileChangeType.DELETED).add(diff);
+            result.put(FileChangeType.DELETED, diff);
           } else if (newPathIsRelevant) {
-            result.get(FileChangeType.ADDED).add(diff);
+            result.put(FileChangeType.ADDED, diff);
           }
         }
       }

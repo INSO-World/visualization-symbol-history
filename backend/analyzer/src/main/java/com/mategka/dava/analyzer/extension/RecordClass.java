@@ -5,8 +5,6 @@ import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
 import java.util.List;
@@ -15,13 +13,11 @@ import java.util.List;
 public class RecordClass<R extends Record> {
 
   Class<R> clazz;
-  List<Method> accessors;
+  List<RecordComponent> components;
 
   private RecordClass(@NotNull Class<R> clazz) {
     this.clazz = clazz;
-    accessors = Arrays.stream(clazz.getRecordComponents())
-      .map(RecordComponent::getAccessor)
-      .toList();
+    components = Arrays.asList(clazz.getRecordComponents());
   }
 
   @Contract("_ -> new")
@@ -38,17 +34,17 @@ public class RecordClass<R extends Record> {
   }
 
   public @NotNull List<Object> destructure(@NotNull R instance) {
-    return accessors.stream()
-      .map(m -> {
+    return ListsX.map(
+      components, component -> {
         try {
-          return m.invoke(instance);
-        } catch (IllegalAccessException | InvocationTargetException e) {
-          return new IllegalStateException(
-            "Field values could not be retrieved for %s instance".formatted(clazz.getSimpleName())
+          return component.getAccessor().invoke(instance);
+        } catch (ReflectiveOperationException e) {
+          throw new IllegalStateException(
+            "Field values could not be retrieved for %s instance".formatted(getSimpleName())
           );
         }
-      })
-      .toList();
+      }
+    );
   }
 
 }

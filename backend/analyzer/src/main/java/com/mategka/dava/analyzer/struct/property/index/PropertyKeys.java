@@ -9,11 +9,11 @@ import org.jetbrains.annotations.NotNull;
 public class PropertyKeys {
 
   public @NotNull String get(Class<? extends Property> propertyClass) {
-    return propertyClass.getAnnotation(PropertyKey.class).value();
-  }
-
-  public boolean isUndefined(final String key) {
-    return PropertyKey.UNDEFINED.equals(key);
+    var keyAnnotation = propertyClass.getAnnotation(PropertyKey.class);
+    if (keyAnnotation != null) {
+      return keyAnnotation.value();
+    }
+    throw new IllegalArgumentException(propertyClass.getSimpleName() + " does not have a @PropertyKey annotation");
   }
 
 }

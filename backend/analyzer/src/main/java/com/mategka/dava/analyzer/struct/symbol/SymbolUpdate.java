@@ -14,9 +14,7 @@ import java.util.stream.Collectors;
 @Value
 public class SymbolUpdate implements PropertyIndexable {
 
-  long id;
-
-  long strandId;
+  SymbolKey key;
 
   @NonNull
   String commitSha;
@@ -33,10 +31,11 @@ public class SymbolUpdate implements PropertyIndexable {
   }
 
   public boolean appliesTo(@NotNull Symbol symbol) {
-    return id == symbol.getId() && strandId == symbol.getStrandId();
+    return key.equals(symbol.getKey());
   }
 
   public enum Flag {
+    REPLACED,
     RENAMED,
     MOVED,
     MOVED_WITH_PARENT,

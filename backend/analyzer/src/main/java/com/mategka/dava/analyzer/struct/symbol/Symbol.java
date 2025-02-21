@@ -7,7 +7,7 @@ import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
-import com.mategka.dava.analyzer.struct.property.value.KnownType;
+import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -22,13 +22,17 @@ import java.util.*;
 public final class Symbol implements PropertyIndexable {
 
   public static final String ROOT_PACKAGE_NAME = "ROOT";
-  long id;
-  long strandId;
+
+  @NonNull
+  SymbolKey key;
+
   @NonNull
   String commitSha;
+
   @NonNull
   @Builder.Default
   List<Long> predecessors = new ArrayList<>();
+
   @NonNull
   @Builder.Default
   PropertyMap properties = new PropertyMap();
@@ -57,18 +61,14 @@ public final class Symbol implements PropertyIndexable {
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
   }
 
-  public @NotNull Key getKey() {
-    return new Key(id, strandId);
-  }
-
   private long getParentId() throws NoSuchElementException {
     return getPropertyValue(ParentProperty.class)
-      .map(KnownType::getId)
+      .map(KnownType::getSymbolId)
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
   }
 
-  public Key getParentKey() throws NoSuchElementException {
-    return new Key(getParentId(), strandId);
+  public SymbolKey getParentKey() throws NoSuchElementException {
+    return new SymbolKey(getParentId(), key.strandId());
   }
 
   public PropertyMap diff(@NotNull Collection<Property> newProperties) {
@@ -87,23 +87,12 @@ public final class Symbol implements PropertyIndexable {
   }
 
   public Symbol withUpdate(@NotNull SymbolUpdate update) {
-    if (!update.appliesTo(this)) {
-      throw new IllegalArgumentException(
-        "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(
-          update.getId(), update.getStrandId(), id, strandId)
-      );
-    }
+    assertUpdatesApply(List.of(update));
     return toBuilder().update(update).build();
   }
 
   public Symbol withUpdates(@NotNull Collection<? extends SymbolUpdate> updates) {
-    var violation = MyStream.from(updates).filter(u -> !u.appliesTo(this)).findFirstAsOption();
-    if (violation.isSome()) {
-      throw new IllegalArgumentException(
-        "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(
-          violation.getOrThrow().getId(), violation.getOrThrow().getStrandId(), id, strandId)
-      );
-    }
+    assertUpdatesApply(updates);
     var updatedProperties = updates.stream()
       .map(SymbolUpdate::getProperties)
       .map(Map::entrySet)
@@ -112,24 +101,33 @@ public final class Symbol implements PropertyIndexable {
     return toBuilder().properties(updatedProperties).build();
   }
 
+  private void assertUpdatesApply(@NotNull Collection<? extends SymbolUpdate> updates) {
+    var violation = MyStream.from(updates)
+      .filter(u -> !u.appliesTo(this))
+      .findFirstAsOption();
+    if (violation.isSome()) {
+      var key = violation.getOrThrow().getKey();
+      throw new IllegalArgumentException(
+        "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(
+          key.symbolId(), key.strandId(), this.key.symbolId(), this.key.strandId())
+      );
+    }
+  }
+
   @Override
   public boolean equals(Object o) {
     if (!(o instanceof Symbol symbol)) return false;
-    return id == symbol.id && strandId == symbol.strandId;
+    return key.equals(symbol.key);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, strandId);
+    return key.hashCode();
   }
 
   @Override
   public String toString() {
-    return "[%d] %s".formatted(id, getDisplayName());
-  }
-
-  public record Key(long symbolId, long strandId) {
-
+    return "[%d] %s".formatted(key.symbolId(), getDisplayName());
   }
 
   public static class SymbolBuilder {
@@ -141,6 +139,10 @@ public final class Symbol implements PropertyIndexable {
       }
       predecessors$value.add(id);
       return this;
+    }
+
+    public SymbolBuilder property(@NonNull Option<? extends Property> property) {
+      return property.fold(this::property, () -> this);
     }
 
     public SymbolBuilder property(@NonNull Property property) {

@@ -6,16 +6,21 @@ import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.value.*;
+import com.mategka.dava.analyzer.struct.property.value.argument.ConcreteTypeArgument;
+import com.mategka.dava.analyzer.struct.property.value.argument.TypeArgument;
+import com.mategka.dava.analyzer.struct.property.value.argument.WildcardTypeArgument;
+import com.mategka.dava.analyzer.struct.property.value.bound.TypeBound;
+import com.mategka.dava.analyzer.struct.property.value.bound.UpperTypeBound;
+import com.mategka.dava.analyzer.struct.property.value.type.Type;
+import com.mategka.dava.analyzer.struct.property.value.type.UnknownType;
 
 import lombok.Value;
-import spoon.reflect.code.CtAbstractInvocation;
-import spoon.reflect.code.CtConstructorCall;
-import spoon.reflect.code.CtLocalVariable;
+import spoon.reflect.code.*;
 import spoon.reflect.declaration.*;
+import spoon.reflect.reference.CtTypeReference;
+import spoon.reflect.reference.CtWildcardReference;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 @Value
@@ -39,11 +44,38 @@ public class Symbolizer {
       builder.property(ModifiersProperty.fromModifiable(modifiable));
     }
     if (element instanceof CtTypedElement<?> typedElement) {
-      // TODO: Replace with known type where applicable (may be generic type parameter!)
-      builder.property(TypeProperty.unknownFromTypedElement(typedElement));
+      // TODO: Replace with known type where applicable (may be generic type parameter)
+      builder.property(new TypeProperty(parseUnknownType(typedElement.getType())));
     }
-    // TODO: Add type parameters (declarations) if applicable
+    if (element instanceof CtFormalTypeDeclarer formalTypeDeclarer) {
+      var typeParameters = ListsX.map(formalTypeDeclarer.getFormalCtTypeParameters(), Symbolizer::parseTypeParameter);
+      builder.property(new TypeParametersProperty(typeParameters));
+    }
     return builder;
+  }
+
+  private static TypeParameter parseTypeParameter(CtTypeParameter typeParameter) {
+    var name = typeParameter.getSimpleName();
+    var bound = Option.fromNullable(typeParameter.getSuperclass())
+      .map(Object::toString)
+      .map(UnknownType::of)
+      .map(UpperTypeBound::new);
+    return bound.fold(b -> TypeParameter.of(name, b), () -> TypeParameter.of(name));
+  }
+
+  private static TypeArgument parseTypeArgument(CtTypeReference<?> typeReference) {
+    if (typeReference instanceof CtWildcardReference wildcardReference) {
+      Function<Type, TypeBound> constructor = wildcardReference.isUpper() ? TypeBound::upper : TypeBound::lower;
+      var type = parseUnknownType(wildcardReference.getBoundingType());
+      return new WildcardTypeArgument(constructor.apply(type));
+    } else {
+      return new ConcreteTypeArgument(parseUnknownType(typeReference));
+    }
+  }
+
+  public static Type parseUnknownType(CtTypeReference<?> typeReference) {
+    var typeArguments = ListsX.map(typeReference.getActualTypeArguments(), Symbolizer::parseTypeArgument);
+    return UnknownType.of(typeReference.getQualifiedName(), typeArguments);
   }
 
   public MyStream<Symbol> symbolizeType(CtType<?> typeDeclaration, Symbol packageSymbol) {
@@ -85,9 +117,19 @@ public class Symbolizer {
 
   private Symbol parseTypeDeclaration(CtType<?> typeDeclaration) {
     var visibility = Visibility.fromModifiable(typeDeclaration);
+    var ctSupertypes = typeDeclaration.isInterface()
+      ? typeDeclaration.getSuperInterfaces()
+      : Set.of(typeDeclaration.getSuperclass());
+    var supertypes = ListsX.map(ctSupertypes, Symbolizer::parseUnknownType);
+    Set<CtTypeReference<?>> ctRealizations = typeDeclaration.isInterface()
+      ? Collections.emptySet()
+      : typeDeclaration.getSuperInterfaces();
+    var realizations = ListsX.map(ctRealizations, Symbolizer::parseUnknownType);
     return commonSymbolBuilder(context, typeDeclaration)
       .property(KindProperty.fromType(typeDeclaration))
       .property(visibility.toProperty())
+      .property(new SupertypesProperty(supertypes))
+      .property(new RealizationsProperty(realizations))
       .build();
   }
 
@@ -124,32 +166,46 @@ public class Symbolizer {
     var arguments = Option.fromNullable(enumConstant.getDefaultExpression())
       .map(i -> (CtConstructorCall<?>) i)
       .map(CtAbstractInvocation::getArguments)
-      .getOrCompute(Collections::emptyList);
+      .getOrElse(Collections.emptyList())
+      .stream()
+      .map(this::parseExpression)
+      .toList();
     return commonSymbolBuilder(context, enumConstant)
       .property(Kind.ENUM_CONSTANT.toProperty())
+      .property(new EnumArgumentsProperty(arguments))
       .build();
   }
 
   private Symbol parseField(CtField<?> field) {
     var modifiers = ModifiersProperty.getModifiers(field);
     var kind = modifiers.containsAll(Modifier.CONSTANT_FIELD_MODIFIERS)
-      ? Kind.CONSTANT
+      ? Kind.CONSTANT_FIELD
       : Kind.FIELD;
-    var initialValue = Option.fromNullable(field.getDefaultExpression());
+    var initialValue = parseNullableExpression(field.getDefaultExpression()).map(InitialValueProperty::new);
     return commonSymbolBuilder(context, field)
       .property(kind.toProperty())
+      .property(initialValue)
       .build();
   }
 
   private Symbol parseVariable(CtLocalVariable<?> variable) {
     var modifiers = ModifiersProperty.getModifiers(variable);
     var kind = modifiers.containsAll(Modifier.CONSTANT_VARIABLE_MODIFIERS)
-      ? Kind.CONSTANT
+      ? Kind.CONSTANT_VARIABLE
       : Kind.VARIABLE;
-    var initialValue = Option.fromNullable(variable.getDefaultExpression());
+    var initialValue = parseNullableExpression(variable.getDefaultExpression()).map(InitialValueProperty::new);
     return commonSymbolBuilder(context, variable)
       .property(kind.toProperty())
+      .property(initialValue)
       .build();
+  }
+
+  private Option<Expression> parseNullableExpression(CtExpression<?> expression) {
+    return Option.fromNullable(expression).map(this::parseExpression);
+  }
+
+  private Expression parseExpression(CtExpression<?> expression) {
+    return new Expression(expression.toString());
   }
 
 }

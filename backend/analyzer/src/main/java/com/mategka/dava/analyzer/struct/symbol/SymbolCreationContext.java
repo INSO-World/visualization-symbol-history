@@ -6,8 +6,7 @@ public record SymbolCreationContext(AtomicLong symbolIdCounter, long strandId, S
 
   public Symbol.SymbolBuilder symbolBuilder() {
     return Symbol.builder()
-      .id(symbolIdCounter.getAndIncrement())
-      .strandId(strandId)
+      .key(new SymbolKey(symbolIdCounter.getAndIncrement(), strandId))
       .commitSha(commitSha);
   }
 

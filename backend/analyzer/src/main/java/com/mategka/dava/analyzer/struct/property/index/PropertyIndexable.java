@@ -1,7 +1,9 @@
 package com.mategka.dava.analyzer.struct.property.index;
 
 import com.mategka.dava.analyzer.extension.option.Option;
-import com.mategka.dava.analyzer.struct.property.*;
+import com.mategka.dava.analyzer.struct.property.NullableProperty;
+import com.mategka.dava.analyzer.struct.property.Property;
+import com.mategka.dava.analyzer.struct.property.TypedProperty;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -20,12 +22,10 @@ public interface PropertyIndexable {
     return propertyClass.cast(getProperties().get(PropertyKeys.get(propertyClass)));
   }
 
-  @SuppressWarnings("unchecked")
   default <T> Option<T> getPropertyValue(@NotNull Class<? extends TypedProperty<T>> propertyClass) {
     var property = getProperty(propertyClass);
     return switch (property) {
       case null -> Option.None();
-      case OptionalProperty<?> optionalProperty -> (Option<T>) optionalProperty.value();
       case NullableProperty<T> nullableProperty -> nullableProperty.asOption();
       default -> Option.fromNullable(property.value());
     };

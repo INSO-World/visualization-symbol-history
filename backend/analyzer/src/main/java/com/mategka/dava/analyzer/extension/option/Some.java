@@ -16,18 +16,19 @@ public final class Some<T> implements Option<T> {
   @NonNull
   T value;
 
-  public @NotNull T value() {
-    return value;
+  @Override
+  public boolean contains(@Nullable T value) {
+    return this.value.equals(value);
   }
 
   @Override
-  public boolean isSome() {
-    return true;
+  public @NotNull Option<T> filter(@NotNull Predicate<T> predicate) {
+    return predicate.test(value) ? this : None.instance();
   }
 
   @Override
-  public boolean isNone() {
-    return false;
+  public <U> U fold(@NotNull Function<T, U> ifSome, @NotNull Supplier<U> _ifNone) {
+    return ifSome.apply(value);
   }
 
   @Override
@@ -36,23 +37,23 @@ public final class Some<T> implements Option<T> {
   }
 
   @Override
-  public void ifSome(@NotNull Consumer<T> consumer) {
-    consumer.accept(value);
-  }
-
-  @Override
   public void ifNone(@NotNull Runnable _runnable) {
     // Do nothing
   }
 
   @Override
-  public boolean contains(@Nullable T value) {
-    return this.value.equals(value);
+  public void ifSome(@NotNull Consumer<T> consumer) {
+    consumer.accept(value);
   }
 
   @Override
-  public <U> U fold(@NotNull Function<T, U> ifSome, @NotNull Supplier<U> _ifNone) {
-    return ifSome.apply(value);
+  public boolean isNone() {
+    return false;
+  }
+
+  @Override
+  public boolean isSome() {
+    return true;
   }
 
   @Override
@@ -65,9 +66,8 @@ public final class Some<T> implements Option<T> {
     return this;
   }
 
-  @Override
-  public @NotNull Option<T> filter(@NotNull Predicate<T> predicate) {
-    return predicate.test(value) ? this : None.instance();
+  public @NotNull T value() {
+    return value;
   }
 
   @Override

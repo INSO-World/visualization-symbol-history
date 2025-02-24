@@ -10,6 +10,16 @@ import java.util.stream.Collectors;
 @UtilityClass
 public class SetsX {
 
+  public <E> Set<E> difference(Set<E> minuend, Set<?> @NotNull ... subtrahends) {
+    if (subtrahends.length == 0) {
+      return minuend;
+    }
+    var subtrahend = union(subtrahends);
+    return minuend.stream()
+      .filter(e -> !subtrahend.contains(e))
+      .collect(Collectors.toSet());
+  }
+
   public <E, T> Set<T> keysOf(Collection<E> collection, Function<E, T> keyMapper) {
     return collection.stream().map(keyMapper).collect(Collectors.toSet());
   }
@@ -24,16 +34,6 @@ public class SetsX {
     }
     return Arrays.stream(sets)
       .flatMap(Collection::stream)
-      .collect(Collectors.toSet());
-  }
-
-  public <E> Set<E> difference(Set<E> minuend, Set<?> @NotNull ... subtrahends) {
-    if (subtrahends.length == 0) {
-      return minuend;
-    }
-    var subtrahend = union(subtrahends);
-    return minuend.stream()
-      .filter(e -> !subtrahend.contains(e))
       .collect(Collectors.toSet());
   }
 

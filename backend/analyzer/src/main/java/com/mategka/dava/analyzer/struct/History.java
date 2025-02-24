@@ -1,18 +1,14 @@
 package com.mategka.dava.analyzer.struct;
 
-import com.mategka.dava.analyzer.git.CommitOrder;
-import com.mategka.dava.analyzer.git.RepositoryWrapper;
+import com.mategka.dava.analyzer.extension.ListsX;
+import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
 import lombok.*;
-import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.Ref;
-import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevObject;
-import org.eclipse.jgit.revwalk.RevWalk;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -70,33 +66,28 @@ public class History {
     Map<String, Strand> strandMapping = new HashMap<>();
     Set<String> parentCommits = new HashSet<>();
     Set<String> multiChildCommits = new HashSet<>();
-    try (RevWalk revWalk = repository.commitsUpTo(head, CommitOrder.TOPOLOGICAL)) {
-      for (RevCommit commit : revWalk) {
+    try (CommitWalk commitWalk = repository.commitsUpTo(head, CommitOrder.TOPOLOGICAL)) {
+      for (Commit commit : commitWalk) {
         commit.disposeBody();
-        var parentShas = Arrays.stream(commit.getParents())
-          .map(RevObject::getId)
-          .map(AnyObjectId::getName)
-          .toList();
-        for (var parentSha : parentShas) {
-          if (parentCommits.contains(parentSha)) {
-            multiChildCommits.add(parentSha);
-          } else {
-            parentCommits.add(parentSha);
-          }
-        }
+        commit.parents().stream()
+          .map(Commit::sha)
+          .forEach((parentSha) -> {
+            if (parentCommits.contains(parentSha)) {
+              multiChildCommits.add(parentSha);
+            } else {
+              parentCommits.add(parentSha);
+            }
+          });
       }
     }
-    try (RevWalk revWalk = repository.commitsUpTo(head, CommitOrder.REVERSE_TOPOLOGICAL)) {
-      for (RevCommit commit : revWalk) {
-        String commitMessage = commit.getShortMessage();
-        var sha = commit.getId().getName();
+    try (CommitWalk commitWalk = repository.commitsUpTo(head, CommitOrder.REVERSE_TOPOLOGICAL)) {
+      for (Commit commit : commitWalk) {
+        String commitMessage = commit.summary();
+        var sha = commit.sha();
         commit.disposeBody();
-        var parentShas = Arrays.stream(commit.getParents())
-          .map(RevObject::getId)
-          .map(AnyObjectId::getName)
-          .toList();
+        var parentShas = ListsX.map(commit.parents(), Commit::sha);
         var hasMultiChildParent = parentShas.stream().anyMatch(multiChildCommits::contains);
-        var parentStrands = parentShas.stream().map(strandMapping::get).toList();
+        var parentStrands = ListsX.map(parentShas, strandMapping::get);
         if (hasMultiChildParent || parentShas.size() != 1) {
           var strand = Strand.builder().id(strandDag.nodes().size()).name(commitMessage).build();
           strandDag.addNode(strand);

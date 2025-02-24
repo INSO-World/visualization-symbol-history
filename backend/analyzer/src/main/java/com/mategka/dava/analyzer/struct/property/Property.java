@@ -6,10 +6,6 @@ import org.jetbrains.annotations.NotNull;
 
 public sealed interface Property permits TypedProperty {
 
-  default @NotNull String getKey() {
-    return PropertyKeys.get(getClass());
-  }
-
   default <T extends Property> T as(Class<T> propertyClass) {
     if (propertyClass.isInstance(this)) {
       return propertyClass.cast(this);
@@ -17,6 +13,10 @@ public sealed interface Property permits TypedProperty {
     throw new IllegalArgumentException(
       "Property %s is no %s".formatted(getClass().getSimpleName(), propertyClass.getSimpleName())
     );
+  }
+
+  default @NotNull String getKey() {
+    return PropertyKeys.get(getClass());
   }
 
   Object value();

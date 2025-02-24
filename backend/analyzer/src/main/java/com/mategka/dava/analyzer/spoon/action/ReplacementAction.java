@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.spoon.action;
 
-import com.mategka.dava.analyzer.extension.MyStream;
+import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.Pair;
 import com.mategka.dava.analyzer.struct.symbol.Subject;
 
@@ -24,7 +24,7 @@ public class ReplacementAction implements EditAction {
 
   @Override
   public String toString() {
-    return MyStream.from(Pair.of(oldSubject, newSubject))
+    return AnStream.from(Pair.of(oldSubject, newSubject))
       .map(Pair.mapping(Subject::toDescriptor))
       .map(Pair.folding("R %s -> %s"::formatted))
       .findFirst()

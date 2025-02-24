@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.struct.property.value;
 
+import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.ComparatorsX;
-import com.mategka.dava.analyzer.extension.MyStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.struct.property.VisibilityProperty;
 
@@ -28,14 +28,8 @@ public enum Visibility {
 
   private ModifierKind spoonKind;
 
-  public static Option<Visibility> fromModifierKind(ModifierKind modifier) {
-    return MyStream.from(values())
-      .filter(v -> v.spoonKind == modifier)
-      .findFirstAsOption();
-  }
-
   public static Visibility fromModifiable(CtModifiable modifiable) {
-    return MyStream.from(modifiable.getExtendedModifiers())
+    return AnStream.from(modifiable.getExtendedModifiers())
       .sorted(ComparatorsX.falseFirst(CtExtendedModifier::isImplicit))
       .map(CtExtendedModifier::getKind)
       .filter(Objects::nonNull)
@@ -43,6 +37,12 @@ public enum Visibility {
       .mapMulti(Option.yieldIfSome())
       .findFirstAsOption()
       .getOrElse(PACKAGE_PRIVATE);
+  }
+
+  public static Option<Visibility> fromModifierKind(ModifierKind modifier) {
+    return AnStream.from(values())
+      .filter(v -> v.spoonKind == modifier)
+      .findFirstAsOption();
   }
 
   public VisibilityProperty toProperty() {

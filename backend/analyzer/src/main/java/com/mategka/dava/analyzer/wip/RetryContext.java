@@ -24,6 +24,19 @@ public class RetryContext {
   @Builder.Default
   Duration delay = Duration.ZERO;
 
+  public <S, F extends Exception> S applyToCallable(FailableCallable<S, F> callable)
+    throws F, TimeoutException, InterruptedException {
+    return applyToSupplier(() -> {
+      try {
+        return Results.success(callable.call());
+      } catch (Exception e) {
+        //noinspection unchecked
+        return Results.failure((F) e);
+      }
+    });
+  }
+
+  @SuppressWarnings("RedundantThrows")
   @SneakyThrows
   public <S, F extends Exception> S applyToSupplier(Supplier<Result<? extends S, ? extends F>> callable)
     throws F, TimeoutException, InterruptedException {
@@ -76,18 +89,6 @@ public class RetryContext {
     }
     assert lastException != null;
     throw lastException;
-  }
-
-  public <S, F extends Exception> S applyToCallable(FailableCallable<S, F> callable)
-    throws F, TimeoutException, InterruptedException {
-    return applyToSupplier(() -> {
-      try {
-        return Results.success(callable.call());
-      } catch (Exception e) {
-        //noinspection unchecked
-        return Results.failure((F) e);
-      }
-    });
   }
 
 }

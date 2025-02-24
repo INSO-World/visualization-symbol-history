@@ -12,17 +12,17 @@ public class DeletionAction implements SimpleEditAction {
   @NonNull
   Subject oldSubject;
 
-  @Override
-  public Subject getReferenceSubject() {
-    return oldSubject;
-  }
-
   public CtElement getOldElement() {
     return oldSubject.getElement();
   }
 
   public CtElement getOldParent() {
     return oldSubject.getParent();
+  }
+
+  @Override
+  public Subject getReferenceSubject() {
+    return oldSubject;
   }
 
   @Override

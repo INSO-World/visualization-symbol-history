@@ -6,8 +6,6 @@ import spoon.reflect.declaration.CtElement;
 
 public sealed interface SimpleEditAction extends EditAction permits AdditionAction, DeletionAction {
 
-  Subject getReferenceSubject();
-
   default CtElement getReferenceElement() {
     return getReferenceSubject().getElement();
   }
@@ -15,5 +13,7 @@ public sealed interface SimpleEditAction extends EditAction permits AdditionActi
   default CtElement getReferenceParent() {
     return getReferenceSubject().getParent();
   }
+
+  Subject getReferenceSubject();
 
 }

@@ -14,16 +14,16 @@ public class Covariant {
     return (List<T>) list;
   }
 
+  public <L, R> Pair<L, R> pair(Pair<? extends L, ? extends R> pair) {
+    return (Pair<L, R>) pair;
+  }
+
   public <T> Set<T> set(Set<? extends T> set) {
     return (Set<T>) set;
   }
 
   public <T> Stream<T> stream(Stream<? extends T> stream) {
     return (Stream<T>) stream;
-  }
-
-  public <L, R> Pair<L, R> pair(Pair<? extends L, ? extends R> pair) {
-    return (Pair<L, R>) pair;
   }
 
 }

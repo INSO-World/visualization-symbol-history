@@ -25,26 +25,19 @@ public class Stack<T> implements Collection<T> {
     this(dequeSupplier.get());
   }
 
-  public void push(T e) {
-    deque.addFirst(e);
-  }
-
-  public T pop() {
-    return deque.removeFirst();
-  }
-
-  public T peek() {
-    return deque.getFirst();
+  @Override
+  public boolean add(T t) {
+    return deque.offerFirst(t);
   }
 
   @Override
-  public int size() {
-    return deque.size();
+  public boolean addAll(@NotNull Collection<? extends T> c) {
+    return c.stream().anyMatch(this::add);
   }
 
   @Override
-  public boolean isEmpty() {
-    return deque.isEmpty();
+  public void clear() {
+    deque.clear();
   }
 
   @Override
@@ -53,8 +46,50 @@ public class Stack<T> implements Collection<T> {
   }
 
   @Override
+  public boolean containsAll(@NotNull Collection<?> c) {
+    return deque.containsAll(c);
+  }
+
+  @Override
+  public boolean isEmpty() {
+    return deque.isEmpty();
+  }
+
+  @Override
   public @NotNull Iterator<T> iterator() {
     return deque.descendingIterator();
+  }
+
+  public T peek() {
+    return deque.getFirst();
+  }
+
+  public T pop() {
+    return deque.removeFirst();
+  }
+
+  public void push(T e) {
+    deque.addFirst(e);
+  }
+
+  @Override
+  public boolean remove(Object o) {
+    return deque.remove(o);
+  }
+
+  @Override
+  public boolean removeAll(@NotNull Collection<?> c) {
+    return deque.removeAll(c);
+  }
+
+  @Override
+  public boolean retainAll(@NotNull Collection<?> c) {
+    return deque.retainAll(c);
+  }
+
+  @Override
+  public int size() {
+    return deque.size();
   }
 
   @Override
@@ -69,41 +104,6 @@ public class Stack<T> implements Collection<T> {
     var result = deque.toArray(a);
     ArrayUtils.reverse(result);
     return result;
-  }
-
-  @Override
-  public boolean add(T t) {
-    return deque.offerFirst(t);
-  }
-
-  @Override
-  public boolean remove(Object o) {
-    return deque.remove(o);
-  }
-
-  @Override
-  public boolean containsAll(@NotNull Collection<?> c) {
-    return deque.containsAll(c);
-  }
-
-  @Override
-  public boolean addAll(@NotNull Collection<? extends T> c) {
-    return c.stream().anyMatch(this::add);
-  }
-
-  @Override
-  public boolean removeAll(@NotNull Collection<?> c) {
-    return deque.removeAll(c);
-  }
-
-  @Override
-  public boolean retainAll(@NotNull Collection<?> c) {
-    return deque.retainAll(c);
-  }
-
-  @Override
-  public void clear() {
-    deque.clear();
   }
 
   @Override

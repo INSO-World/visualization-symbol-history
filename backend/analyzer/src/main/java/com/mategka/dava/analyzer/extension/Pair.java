@@ -20,30 +20,13 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
   L left;
   R right;
 
-  public static <L, R> Pair<L, R> fromEntry(Map.Entry<L, R> entry) {
-    return Pair.of(entry.getKey(), entry.getValue());
-  }
-
-  public static <T, U> Pair<U, U> map(Pair<? extends T, ? extends T> pair, Function<? super T, ? extends U> mapper) {
-    return new Pair<>(mapper.apply(pair.left), mapper.apply(pair.right));
-  }
-
-  public static <L, R> Function<L, Pair<L, R>> fromLeft(Function<? super L, ? extends R> mapper) {
-    return l -> Pair.of(l, mapper.apply(l));
-  }
-
-  public static <L, R> Function<R, Pair<L, R>> fromRight(Function<? super R, ? extends L> mapper) {
-    return r -> Pair.of(mapper.apply(r), r);
-  }
-
-  public static <L, R, T> Function<Pair<? extends L, ? extends R>, T> folding(
-    BiFunction<? super L, ? super R, ? extends T> reducer) {
-    return pair -> pair.fold(reducer);
-  }
-
   public static <L, R> Predicate<Pair<? extends L, ? extends R>> filtering(
     Predicate<? super L> filter1, Predicate<? super R> filter2) {
     return pair -> filter1.test(pair.left()) && filter2.test(pair.right());
+  }
+
+  public static <T> Predicate<Pair<? extends T, ? extends T>> filtering(Predicate<? super T> filter) {
+    return filtering(filter, filter);
   }
 
   public static <L, R> Predicate<Pair<? extends L, ? extends R>> filteringLeft(Predicate<? super L> filter1) {
@@ -54,13 +37,35 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
     return pair -> filter2.test(pair.right());
   }
 
-  public static <T> Predicate<Pair<? extends T, ? extends T>> filtering(Predicate<? super T> filter) {
-    return filtering(filter, filter);
+  public static <L, R, T> Function<Pair<? extends L, ? extends R>, T> folding(
+    BiFunction<? super L, ? super R, ? extends T> reducer) {
+    return pair -> pair.fold(reducer);
+  }
+
+  public static <L, R> Pair<L, R> fromEntry(Map.Entry<L, R> entry) {
+    return Pair.of(entry.getKey(), entry.getValue());
+  }
+
+  public static <L, R> Function<L, Pair<L, R>> fromLeft(Function<? super L, ? extends R> mapper) {
+    return l -> Pair.of(l, mapper.apply(l));
+  }
+
+  public static <L, R> Function<R, Pair<L, R>> fromRight(Function<? super R, ? extends L> mapper) {
+    return r -> Pair.of(mapper.apply(r), r);
+  }
+
+  public static <T, U> Pair<U, U> map(Pair<? extends T, ? extends T> pair, Function<? super T, ? extends U> mapper) {
+    return new Pair<>(mapper.apply(pair.left), mapper.apply(pair.right));
   }
 
   public static <L, R, L2, R2> Function<Pair<? extends L, ? extends R>, Pair<L2, R2>> mapping(
     Function<? super L, ? extends L2> mapper1, Function<? super R, ? extends R2> mapper2) {
     return pair -> pair.map(mapper1, mapper2);
+  }
+
+  public static <T, U> Function<Pair<? extends T, ? extends T>, Pair<U, U>> mapping(
+    Function<? super T, ? extends U> mapper) {
+    return mapping(mapper, mapper);
   }
 
   public static <L, R, L2> Function<Pair<? extends L, R>, Pair<L2, R>> mappingLeft(
@@ -73,25 +78,25 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
     return pair -> pair.mapRight(mapper2);
   }
 
-  public static <T, U> Function<Pair<? extends T, ? extends T>, Pair<U, U>> mapping(
-    Function<? super T, ? extends U> mapper) {
-    return mapping(mapper, mapper);
+  public Map.Entry<L, R> asEntry() {
+    return MapEntry.of(left, right);
+  }
+
+  public <T> T fold(BiFunction<? super L, ? super R, ? extends T> mapper) {
+    return mapper.apply(left, right);
+  }
+
+  public Pair<R, L> inverse() {
+    return new Pair<>(right, left);
   }
 
   public L left() {
     return left;
   }
 
-  public R right() {
-    return right;
-  }
-
-  public Map.Entry<L, R> asEntry() {
-    return MapEntry.of(left, right);
-  }
-
-  public Pair<R, L> inverse() {
-    return new Pair<>(right, left);
+  public <L2, R2> Pair<L2, R2> map(Function<? super L, ? extends L2> mapper1,
+                                   Function<? super R, ? extends R2> mapper2) {
+    return new Pair<>(mapper1.apply(left), mapper2.apply(right));
   }
 
   public <L2> Pair<L2, R> mapLeft(Function<? super L, ? extends L2> mapper1) {
@@ -102,13 +107,8 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
     return map(Function.identity(), mapper2);
   }
 
-  public <L2, R2> Pair<L2, R2> map(Function<? super L, ? extends L2> mapper1,
-                                   Function<? super R, ? extends R2> mapper2) {
-    return new Pair<>(mapper1.apply(left), mapper2.apply(right));
-  }
-
-  public <T> T fold(BiFunction<? super L, ? super R, ? extends T> mapper) {
-    return mapper.apply(left, right);
+  public R right() {
+    return right;
   }
 
   @Override

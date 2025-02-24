@@ -25,14 +25,6 @@ public class RecordClass<R extends Record> {
     return new RecordClass<>(clazz);
   }
 
-  public String getSimpleName() {
-    return clazz.getSimpleName();
-  }
-
-  public boolean isInstance(Object obj) {
-    return clazz.isInstance(obj);
-  }
-
   public @NotNull List<Object> destructure(@NotNull R instance) {
     return ListsX.map(
       components, component -> {
@@ -45,6 +37,14 @@ public class RecordClass<R extends Record> {
         }
       }
     );
+  }
+
+  public String getSimpleName() {
+    return clazz.getSimpleName();
+  }
+
+  public boolean isInstance(Object obj) {
+    return clazz.isInstance(obj);
   }
 
 }

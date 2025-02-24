@@ -15,53 +15,6 @@ public class IntervalLongSet implements Set<Long> {
   private final NavigableSet<Entry> internalSet = new TreeSet<>(Comparator.comparingLong(Entry::start));
 
   @Override
-  public int size() {
-    return (int) Math.min(sizeLong(), Integer.MAX_VALUE);
-  }
-
-  public long sizeLong() {
-    return internalSet.stream().mapToLong(Entry::length).sum();
-  }
-
-  @Override
-  public boolean isEmpty() {
-    return internalSet.isEmpty();
-  }
-
-  @Override
-  public boolean contains(Object o) {
-    if (!(o instanceof Number n)) {
-      return false;
-    }
-    final long value = n.longValue();
-    return internalFloor(value)
-      .map(e -> e.containsBeforeEnding(value))
-      .getOrElse(false);
-  }
-
-  @Override
-  public @NotNull Iterator<Long> iterator() {
-    return internalSet.stream()
-      .flatMapToLong(e -> LongStream.rangeClosed(e.start, e.end))
-      .iterator();
-  }
-
-  @Override
-  public Long @NotNull [] toArray() {
-    var result = new Long[size()];
-    var iterator = iterator();
-    for (int i = 0; iterator.hasNext(); i++) {
-      result[i] = iterator.next();
-    }
-    return result;
-  }
-
-  @Override
-  public <T> T @NotNull [] toArray(T @NotNull [] a) {
-    return null;
-  }
-
-  @Override
   public boolean add(Long aLong) {
     Objects.requireNonNull(aLong);
     var unitEntry = new Entry(aLong, 1);
@@ -103,6 +56,52 @@ public class IntervalLongSet implements Set<Long> {
   }
 
   @Override
+  public boolean addAll(Collection<? extends Long> c) {
+    return false;
+  }
+
+  @Override
+  public void clear() {
+    internalSet.clear();
+  }
+
+  @Override
+  public boolean contains(Object o) {
+    if (!(o instanceof Number n)) {
+      return false;
+    }
+    final long value = n.longValue();
+    return internalFloor(value)
+      .map(e -> e.containsBeforeEnding(value))
+      .getOrElse(false);
+  }
+
+  @Override
+  public boolean containsAll(Collection<?> c) {
+    return false;
+  }
+
+  @Override
+  public boolean isEmpty() {
+    return internalSet.isEmpty();
+  }
+
+  @Override
+  public @NotNull Iterator<Long> iterator() {
+    return internalSet.stream()
+      .flatMapToLong(e -> LongStream.rangeClosed(e.start, e.end))
+      .iterator();
+  }
+
+  public LongStream longStream() {
+    return StreamSupport.longStream(spliterator(), false);
+  }
+
+  public LongStream parallelLongStream() {
+    return StreamSupport.longStream(spliterator(), true);
+  }
+
+  @Override
   public boolean remove(Object o) {
     if (isEmpty()) {
       return false;
@@ -128,21 +127,6 @@ public class IntervalLongSet implements Set<Long> {
   }
 
   @Override
-  public boolean containsAll(Collection<?> c) {
-    return false;
-  }
-
-  @Override
-  public boolean addAll(Collection<? extends Long> c) {
-    return false;
-  }
-
-  @Override
-  public boolean retainAll(Collection<?> c) {
-    return false;
-  }
-
-  @Override
   public boolean removeAll(Collection<?> c) {
     return false;
   }
@@ -153,8 +137,17 @@ public class IntervalLongSet implements Set<Long> {
   }
 
   @Override
-  public void clear() {
-    internalSet.clear();
+  public boolean retainAll(Collection<?> c) {
+    return false;
+  }
+
+  @Override
+  public int size() {
+    return (int) Math.min(sizeLong(), Integer.MAX_VALUE);
+  }
+
+  public long sizeLong() {
+    return internalSet.stream().mapToLong(Entry::length).sum();
   }
 
   @Override
@@ -162,12 +155,19 @@ public class IntervalLongSet implements Set<Long> {
     return new IntervalLongSetSpliterator(internalSet.spliterator());
   }
 
-  public LongStream longStream() {
-    return StreamSupport.longStream(spliterator(), false);
+  @Override
+  public Long @NotNull [] toArray() {
+    var result = new Long[size()];
+    var iterator = iterator();
+    for (int i = 0; iterator.hasNext(); i++) {
+      result[i] = iterator.next();
+    }
+    return result;
   }
 
-  public LongStream parallelLongStream() {
-    return StreamSupport.longStream(spliterator(), true);
+  @Override
+  public <T> T @NotNull [] toArray(T @NotNull [] a) {
+    return null;
   }
 
   private Option<Entry> internalFloor(Long value) {
@@ -201,6 +201,21 @@ public class IntervalLongSet implements Set<Long> {
     }
 
     @Override
+    public int characteristics() {
+      return Spliterator.DISTINCT | Spliterator.SORTED | Spliterator.ORDERED | Spliterator.NONNULL;
+    }
+
+    @Override
+    public long estimateSize() {
+      return internalSpliterator.estimateSize() * sizeLong() / internalSet.size();
+    }
+
+    @Override
+    public Comparator<? super Long> getComparator() {
+      return OfLong.super.getComparator();
+    }
+
+    @Override
     public boolean tryAdvance(LongConsumer action) {
       while (true) {
         if (current <= end) {
@@ -219,21 +234,6 @@ public class IntervalLongSet implements Set<Long> {
     public OfLong trySplit() {
       var split = internalSpliterator.trySplit();
       return (split == null) ? null : new IntervalLongSetSpliterator(split);
-    }
-
-    @Override
-    public long estimateSize() {
-      return internalSpliterator.estimateSize() * sizeLong() / internalSet.size();
-    }
-
-    @Override
-    public int characteristics() {
-      return Spliterator.DISTINCT | Spliterator.SORTED | Spliterator.ORDERED | Spliterator.NONNULL;
-    }
-
-    @Override
-    public Comparator<? super Long> getComparator() {
-      return OfLong.super.getComparator();
     }
 
   }

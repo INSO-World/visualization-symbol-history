@@ -24,14 +24,14 @@ public class SymbolUpdate implements PropertyIndexable {
 
   int flags;
 
+  public boolean appliesTo(@NotNull Symbol symbol) {
+    return key.equals(symbol.getKey());
+  }
+
   public EnumSet<Flag> getFlagSet() {
     return Arrays.stream(Flag.values())
       .filter(f -> f.isSet(flags))
       .collect(Collectors.toCollection(() -> EnumSet.noneOf(Flag.class)));
-  }
-
-  public boolean appliesTo(@NotNull Symbol symbol) {
-    return key.equals(symbol.getKey());
   }
 
   public enum Flag {
@@ -42,12 +42,12 @@ public class SymbolUpdate implements PropertyIndexable {
     REORDERED,
     ;
 
-    public int value() {
-      return 1 << ordinal();
-    }
-
     public boolean isSet(int flags) {
       return (flags & value()) != 0;
+    }
+
+    public int value() {
+      return 1 << ordinal();
     }
   }
 

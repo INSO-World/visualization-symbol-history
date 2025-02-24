@@ -29,8 +29,26 @@ public class Box<T> implements Iterable<T>, Comparable<Object> {
     return new Box<>(null);
   }
 
-  public boolean isNull() {
-    return value == null;
+  public void clear() {
+    value = null;
+  }
+
+  public T compute(@NotNull Function<? super @Nullable T, ? extends T> remappingFunction) {
+    return internalSet(remappingFunction.apply(value));
+  }
+
+  public T computeIfAbsent(@NotNull Supplier<? extends T> supplier) {
+    if (value == null) {
+      internalSet(supplier.get());
+    }
+    return value;
+  }
+
+  public T computeIfPresent(@NotNull Function<? super T, ? extends T> remappingFunction) {
+    if (value == null) {
+      return null;
+    }
+    return internalSet(remappingFunction.apply(value));
   }
 
   public boolean contains(Object o) {
@@ -38,34 +56,32 @@ public class Box<T> implements Iterable<T>, Comparable<Object> {
   }
 
   @Override
-  public @NotNull Iterator<T> iterator() {
-    return toList().iterator();
-  }
-
-  public List<T> toList() {
-    return List.of(value);
-  }
-
-  @Override
   public void forEach(Consumer<? super T> action) {
     action.accept(value);
   }
 
-  public T set(@NotNull T t) {
-    var result = value;
-    internalSet(t);
-    return result;
-  }
-
-  private T internalSet(T value) {
-    if (value instanceof Box<?> box) {
-      throw new IllegalArgumentException("Boxes cannot contain other boxes");
-    }
-    return this.value = value;
-  }
-
   public T get() {
     return value;
+  }
+
+  public T getOrDefault(T defaultValue) {
+    return toOption().getOrElse(defaultValue);
+  }
+
+  public boolean isNull() {
+    return value == null;
+  }
+
+  @Override
+  public @NotNull Iterator<T> iterator() {
+    return toList().iterator();
+  }
+
+  public T merge(@NotNull T value, @NotNull BiFunction<? super T, ? super T, ? extends T> remappingFunction) {
+    if (this.value == null) {
+      return internalSet(value);
+    }
+    return internalSet(remappingFunction.apply(this.value, value));
   }
 
   public boolean removeIf(Object value) {
@@ -84,16 +100,18 @@ public class Box<T> implements Iterable<T>, Comparable<Object> {
     return false;
   }
 
-  public void clear() {
-    value = null;
+  public boolean replace(T oldValue, T newValue) {
+    if (contains(oldValue)) {
+      internalSet(newValue);
+      return true;
+    }
+    return false;
   }
 
-  public Option<T> toOption() {
-    return Option.fromNullable(value);
-  }
-
-  public T getOrDefault(T defaultValue) {
-    return toOption().getOrElse(defaultValue);
+  public T set(@NotNull T t) {
+    var result = value;
+    internalSet(t);
+    return result;
   }
 
   public @Nullable T setIfAbsent(T value) {
@@ -104,43 +122,25 @@ public class Box<T> implements Iterable<T>, Comparable<Object> {
     return this.value;
   }
 
-  public boolean replace(T oldValue, T newValue) {
-    if (contains(oldValue)) {
-      internalSet(newValue);
-      return true;
-    }
-    return false;
+  public List<T> toList() {
+    return List.of(value);
   }
 
-  public T computeIfAbsent(@NotNull Supplier<? extends T> supplier) {
-    if (value == null) {
-      internalSet(supplier.get());
-    }
-    return value;
-  }
-
-  public T computeIfPresent(@NotNull Function<? super T, ? extends T> remappingFunction) {
-    if (value == null) {
-      return null;
-    }
-    return internalSet(remappingFunction.apply(value));
-  }
-
-  public T compute(@NotNull Function<? super @Nullable T, ? extends T> remappingFunction) {
-    return internalSet(remappingFunction.apply(value));
-  }
-
-  public T merge(@NotNull T value, @NotNull BiFunction<? super T, ? super T, ? extends T> remappingFunction) {
-    if (this.value == null) {
-      return internalSet(value);
-    }
-    return internalSet(remappingFunction.apply(this.value, value));
+  public Option<T> toOption() {
+    return Option.fromNullable(value);
   }
 
   @Override
   public int compareTo(@NotNull Object o) {
     var otherValue = (o instanceof Box<?> box) ? box.value : o;
     return ComparatorsX.nullsFirstComparator().compare(value, otherValue);
+  }
+
+  private T internalSet(T value) {
+    if (value instanceof Box<?> box) {
+      throw new IllegalArgumentException("Boxes cannot contain other boxes");
+    }
+    return this.value = value;
   }
 
 }

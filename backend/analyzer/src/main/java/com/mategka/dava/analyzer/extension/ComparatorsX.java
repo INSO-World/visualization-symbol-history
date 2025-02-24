@@ -10,10 +10,6 @@ import java.util.function.Predicate;
 @UtilityClass
 public class ComparatorsX {
 
-  public Comparator<Object> nullsFirstComparator() {
-    return Comparator.nullsFirst(ComparatorsX::compare);
-  }
-
   public int compare(@NotNull Object left, @NotNull Object right) {
     if (left instanceof Comparable<?>) {
       //noinspection unchecked
@@ -24,6 +20,10 @@ public class ComparatorsX {
 
   public <T> Comparator<T> falseFirst(Predicate<T> keyMapper) {
     return Comparator.comparingInt(t -> keyMapper.test(t) ? 0 : -1);
+  }
+
+  public Comparator<Object> nullsFirstComparator() {
+    return Comparator.nullsFirst(ComparatorsX::compare);
   }
 
   public <T> Comparator<T> trueFirst(Predicate<T> keyMapper) {

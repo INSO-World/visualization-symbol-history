@@ -12,17 +12,17 @@ public class AdditionAction implements SimpleEditAction {
   @NonNull
   Subject newSubject;
 
-  @Override
-  public Subject getReferenceSubject() {
-    return newSubject;
-  }
-
   public CtElement getNewElement() {
     return newSubject.getElement();
   }
 
   public CtElement getNewParent() {
     return newSubject.getParent();
+  }
+
+  @Override
+  public Subject getReferenceSubject() {
+    return newSubject;
   }
 
   @Override

@@ -52,13 +52,13 @@ public class CtEqPath implements CtPath, Comparable<CtPath> {
   }
 
   @Override
-  public String toString() {
-    return cachedStringRepresentation.computeIfAbsent(path::toString);
+  public int compareTo(@NotNull CtPath o) {
+    return toString().compareTo(o.toString());
   }
 
   @Override
-  public int compareTo(@NotNull CtPath o) {
-    return toString().compareTo(o.toString());
+  public String toString() {
+    return cachedStringRepresentation.computeIfAbsent(path::toString);
   }
 
 }

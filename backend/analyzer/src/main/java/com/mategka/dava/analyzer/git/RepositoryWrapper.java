@@ -11,7 +11,6 @@ import org.eclipse.jgit.diff.DiffAlgorithm;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.lib.*;
-import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.io.NullOutputStream;
@@ -53,23 +52,12 @@ public class RepositoryWrapper implements AutoCloseable {
     throw new FileNotFoundException(folder.getPath());
   }
 
-  public Option<Ref> resolveRef(@NotNull String name) {
-    return Option.fromCallable(() -> repository.findRef(name));
-  }
-
-  public RevWalk commitsUpTo(@NotNull Ref head, CommitOrder order) throws IOException {
-    RevWalk revWalk = new RevWalk(repository);
-    RevCommit startCommit = revWalk.parseCommit(head.getObjectId());
+  public CommitWalk commitsUpTo(@NotNull Ref head, CommitOrder order) throws IOException {
+    var revWalk = new RevWalk(repository);
+    var startCommit = revWalk.parseCommit(head.getObjectId());
     revWalk.markStart(startCommit);
     order.applyTo(revWalk);
-    return revWalk;
-  }
-
-  public TreeWalk newTreeWalk(@NotNull Commit commit) throws IOException {
-    var walk = new TreeWalk(repository);
-    walk.addTree(commit.tree());
-    walk.setRecursive(true);
-    return walk;
+    return new CommitWalk(revWalk);
   }
 
   public List<DiffEntry> initialCommitFilesOf(@NotNull Commit commit) throws IOException {
@@ -93,6 +81,17 @@ public class RepositoryWrapper implements AutoCloseable {
     return formatter;
   }
 
+  public TreeWalk newTreeWalk(@NotNull Commit commit) throws IOException {
+    var walk = new TreeWalk(repository);
+    walk.addTree(commit.tree());
+    walk.setRecursive(true);
+    return walk;
+  }
+
+  public Result<String, IOException> readFile(DiffEntry diff, DiffEntry.Side side) {
+    return readFile(diff.getId(side).toObjectId());
+  }
+
   public Result<String, IOException> readFile(ObjectId objectId) {
     try (
       ObjectReader reader = repository.newObjectReader();
@@ -105,8 +104,8 @@ public class RepositoryWrapper implements AutoCloseable {
     }
   }
 
-  public Result<String, IOException> readFile(DiffEntry diff, DiffEntry.Side side) {
-    return readFile(diff.getId(side).toObjectId());
+  public Option<Ref> resolveRef(@NotNull String name) {
+    return Option.fromCallable(() -> repository.findRef(name));
   }
 
   @Override

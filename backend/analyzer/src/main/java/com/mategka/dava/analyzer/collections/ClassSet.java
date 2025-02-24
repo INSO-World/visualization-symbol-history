@@ -36,6 +36,22 @@ public class ClassSet implements Set<Class<?>> {
   }
 
   @Override
+  public boolean contains(@NotNull Object object) {
+    if (object instanceof Class<?> c) {
+      return containsClass(c);
+    }
+    return false;
+  }
+
+  public boolean containsClass(@NotNull Class<?> clazz) {
+    return set.stream().anyMatch(c -> c.isAssignableFrom(clazz));
+  }
+
+  public boolean containsClassOf(@NotNull Object object) {
+    return containsClass(object.getClass());
+  }
+
+  @Override
   public boolean remove(Object o) {
     if (!(o instanceof Class<?> clazz)) {
       return false;
@@ -43,22 +59,6 @@ public class ClassSet implements Set<Class<?>> {
     var subtypes = set.stream().filter(clazz::isAssignableFrom).toList();
     //noinspection SlowAbstractSetRemoveAll
     return set.removeAll(subtypes);
-  }
-
-  public boolean containsClassOf(@NotNull Object object) {
-    return containsClass(object.getClass());
-  }
-
-  public boolean containsClass(@NotNull Class<?> clazz) {
-    return set.stream().anyMatch(c -> c.isAssignableFrom(clazz));
-  }
-
-  @Override
-  public boolean contains(@NotNull Object object) {
-    if (object instanceof Class<?> c) {
-      return containsClass(c);
-    }
-    return false;
   }
 
 }

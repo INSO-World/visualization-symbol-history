@@ -2,16 +2,15 @@ package com.mategka.dava.analyzer.struct;
 
 import com.mategka.dava.analyzer.collections.FastRecordCollection;
 import com.mategka.dava.analyzer.collections.IndexMap;
-import com.mategka.dava.analyzer.extension.MyStream;
+import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.PathProperty;
 import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
+import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
-import com.mategka.dava.analyzer.struct.symbol.Symbol;
-import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
-import com.mategka.dava.analyzer.struct.symbol.SymbolKey;
+import com.mategka.dava.analyzer.struct.symbol.*;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -65,25 +64,40 @@ public class StrandWorkspace {
       return existingSymbol;
     }
     if (pakkage instanceof CtModelImpl.CtRootPackage) {
-      var rootPackage = context.symbolBuilder()
+      var properties = PropertyMap.builder()
         .property(SimpleNameProperty.forRootPackage())
         .property(Kind.PACKAGE.toProperty())
         .property(childPackagePathProperty)
         .build();
+      var rootPackage = new BareSymbol(properties).complete(context);
       keysToSymbols.put(rootPackage);
       pathsToSymbols.put(childPackageEqPath, rootPackage);
       return rootPackage;
     }
     var parentSymbol = getPackage(pakkage.getDeclaringPackage(), context);
-    var childSymbol = context.symbolBuilder()
+    var properties = PropertyMap.builder()
       .property(Kind.PACKAGE.toProperty())
       .property(SimpleNameProperty.fromElement(pakkage))
       .property(ParentProperty.fromSymbol(parentSymbol))
       .property(childPackagePathProperty)
       .build();
+    var childSymbol = new BareSymbol(properties).complete(context);
     putSymbol(childSymbol);
     innerPackageSymbols.add(childSymbol);
     return childSymbol;
+  }
+
+  public Map<String, VirtualFile> getSpoonFiles() {
+    return fileEntries.getMap(FileEntry::gitPath, FileEntry::spoonFile);
+  }
+
+  public AnStream<Symbol> getSymbolsFromFilePath(String filePath) {
+    var typeSymbol = fileEntries.getWhere(FileEntry::gitPath, filePath).rootSymbol();
+    return AnStream.cons(typeSymbol, getDescendantSymbols(typeSymbol));
+  }
+
+  public CtCompilationUnit getUnit(String filePath) {
+    return fileEntries.getWhere(FileEntry::gitPath, filePath).spoonUnit();
   }
 
   public List<Symbol> purgeEmptyPackages() {
@@ -105,12 +119,9 @@ public class StrandWorkspace {
     return result;
   }
 
-  public void replaceFileEntry(String gitPath, VirtualFile spoonFile, CtCompilationUnit spoonUnit) {
-    fileEntries.computeWhere(
-      FileEntry::gitPath,
-      gitPath,
-      r -> new FileEntry(r.gitPath(), spoonFile, spoonUnit, r.rootSymbol())
-    );
+  public void putClassSymbol(FileEntry entry) {
+    putSymbol(entry.rootSymbol());
+    fileEntries.add(entry);
   }
 
   public void putSymbol(Symbol symbol) {
@@ -119,39 +130,29 @@ public class StrandWorkspace {
     parentsToChildren.put(symbol.getParentKey(), symbol);
   }
 
-  public void putClassSymbol(FileEntry entry) {
-    putSymbol(entry.rootSymbol());
-    fileEntries.add(entry);
-  }
-
-  private void removeSymbol(Symbol symbol) {
-    keysToSymbols.removeByValue(symbol);
-    pathsToSymbols.remove(symbol.getPath());
-    parentsToChildren.removeAll(symbol.getKey());
-  }
-
   public void removeClassSymbolHierarchy(Symbol symbol) {
     removeSymbol(symbol);
     fileEntries.removeWhere(FileEntry::rootSymbol, symbol);
     getDescendantSymbols(symbol).forEach(this::removeSymbol);
   }
 
-  public Map<String, VirtualFile> getSpoonFiles() {
-    return fileEntries.getMap(FileEntry::gitPath, FileEntry::spoonFile);
+  public void replaceFileEntry(String gitPath, VirtualFile spoonFile, CtCompilationUnit spoonUnit) {
+    fileEntries.computeWhere(
+      FileEntry::gitPath,
+      gitPath,
+      r -> new FileEntry(r.gitPath(), spoonFile, spoonUnit, r.rootSymbol())
+    );
   }
 
-  public CtCompilationUnit getUnit(String filePath) {
-    return fileEntries.getWhere(FileEntry::gitPath, filePath).spoonUnit();
-  }
-
-  public MyStream<Symbol> getSymbolsFromFilePath(String filePath) {
-    var typeSymbol = fileEntries.getWhere(FileEntry::gitPath, filePath).rootSymbol();
-    return MyStream.cons(typeSymbol, getDescendantSymbols(typeSymbol));
-  }
-
-  private MyStream<Symbol> getDescendantSymbols(Symbol symbol) {
+  private AnStream<Symbol> getDescendantSymbols(Symbol symbol) {
     var children = parentsToChildren.get(symbol.getKey());
-    return MyStream.from(children).concat(children.stream().flatMap(this::getDescendantSymbols));
+    return AnStream.from(children).concat(children.stream().flatMap(this::getDescendantSymbols));
+  }
+
+  private void removeSymbol(Symbol symbol) {
+    keysToSymbols.removeByValue(symbol);
+    pathsToSymbols.remove(symbol.getPath());
+    parentsToChildren.removeAll(symbol.getKey());
   }
 
   private void updateModel(CtModel model) {

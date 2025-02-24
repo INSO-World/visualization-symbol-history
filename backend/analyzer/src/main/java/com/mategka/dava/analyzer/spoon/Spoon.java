@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.spoon;
 
-import com.mategka.dava.analyzer.extension.MyStream;
+import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.util.JavaSyntax;
 
@@ -22,6 +22,38 @@ public class Spoon {
 
   public final CtModel EMPTY_MODEL = newLauncher().getModel();
 
+  public String descriptorOf(CtElement element) {
+    return "%s %s".formatted(
+      simpleNameOf(element.getClass()),
+      Option.cast(element, CtNamedElement.class)
+        .map(CtNamedElement::getSimpleName)
+        .getOrElse("(unnamed)")
+    );
+  }
+
+  public String filePathOf(CtCompilationUnit unit) {
+    return FileSystem.LINUX.normalizeSeparators(unit.getFile().getPath());
+  }
+
+  public List<? extends CtCompilationUnit> getCompilationUnits(CtModel model) {
+    return AnStream.from(model.getAllModules())
+      .flatMap(module -> module.getFactory().CompilationUnit().getMap().values().stream())
+      .filter(unit -> unit.getUnitType() == CtCompilationUnit.UNIT_TYPE.TYPE_DECLARATION)
+      .toList();
+  }
+
+  public CtElement getMetaElement(@NotNull Tree tree) {
+    return (CtElement) tree.getMetadata(METADATA_KEY);
+  }
+
+  public boolean isDefaultConstructor(CtConstructor<?> constructor) {
+    return !constructor.isCompactConstructor() && constructor.isImplicit() && constructor.getParameters().isEmpty();
+  }
+
+  public boolean isRegularConstructor(CtConstructor<?> constructor) {
+    return !isDefaultConstructor(constructor) && !constructor.isCompactConstructor();
+  }
+
   public Launcher newLauncher() {
     return newLauncher(JavaSyntax.LTS17);
   }
@@ -31,14 +63,6 @@ public class Spoon {
     launcher.getEnvironment().setNoClasspath(true);
     launcher.getEnvironment().setComplianceLevel(syntax.getToVersion());
     return launcher;
-  }
-
-  public List<CtCompilationUnit> getCompilationUnits(CtModel model) {
-    return MyStream.from(model.getAllModules())
-      .flatMap(module -> module.getFactory().CompilationUnit().getMap().values().stream())
-      .filter(unit -> unit.getUnitType() == CtCompilationUnit.UNIT_TYPE.TYPE_DECLARATION)
-      .map(element -> (CtCompilationUnit) element)
-      .toList();
   }
 
   public CtCompilationUnit parse(VirtualFile virtualFile) {
@@ -55,18 +79,6 @@ public class Spoon {
     return units.getFirst();
   }
 
-  public String filePathOf(CtCompilationUnit unit) {
-    return FileSystem.LINUX.normalizeSeparators(unit.getFile().getPath());
-  }
-
-  public boolean isDefaultConstructor(CtConstructor<?> constructor) {
-    return !constructor.isCompactConstructor() && constructor.isImplicit() && constructor.getParameters().isEmpty();
-  }
-
-  public boolean isRegularConstructor(CtConstructor<?> constructor) {
-    return !isDefaultConstructor(constructor) && !constructor.isCompactConstructor();
-  }
-
   public String simpleNameOf(Class<? extends CtElement> clazz) {
     var name = clazz.getSimpleName();
     if (name.startsWith("Ct")) {
@@ -76,19 +88,6 @@ public class Spoon {
       name = name.substring(0, name.length() - 4);
     }
     return name;
-  }
-
-  public String descriptorOf(CtElement element) {
-    return "%s %s".formatted(
-      simpleNameOf(element.getClass()),
-      Option.cast(element, CtNamedElement.class)
-        .map(CtNamedElement::getSimpleName)
-        .getOrElse("(unnamed)")
-    );
-  }
-
-  public CtElement getMetaElement(@NotNull Tree tree) {
-    return (CtElement) tree.getMetadata(METADATA_KEY);
   }
 
 }

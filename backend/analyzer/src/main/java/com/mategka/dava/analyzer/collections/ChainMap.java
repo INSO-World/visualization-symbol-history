@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.collections;
 
-import com.mategka.dava.analyzer.extension.MyStream;
+import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 
 import org.jetbrains.annotations.NotNull;
@@ -43,13 +43,23 @@ public class ChainMap<K, V> implements Map<K, V> {
   }
 
   @Override
-  public int size() {
-    return keySet().size();
+  public void clear() {
+    throw new UnsupportedOperationException("ChainMap is immutable");
   }
 
   @Override
-  public boolean isEmpty() {
-    return maps.stream().allMatch(Map::isEmpty);
+  public V compute(K key, @NotNull BiFunction<? super K, ? super @Nullable V, ? extends V> remappingFunction) {
+    throw new UnsupportedOperationException("ChainMap is immutable");
+  }
+
+  @Override
+  public V computeIfAbsent(K key, @NotNull Function<? super K, ? extends V> mappingFunction) {
+    throw new UnsupportedOperationException("ChainMap is immutable");
+  }
+
+  @Override
+  public V computeIfPresent(K key, @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+    throw new UnsupportedOperationException("ChainMap is immutable");
   }
 
   @Override
@@ -71,6 +81,13 @@ public class ChainMap<K, V> implements Map<K, V> {
   }
 
   @Override
+  public @NotNull Set<Map.Entry<K, V>> entrySet() {
+    return keySet().stream()
+      .map(key -> MapEntry.of(key, get(key)))
+      .collect(Collectors.toSet());
+  }
+
+  @Override
   public V get(Object key) {
     return getInternal(key).getOrNull();
   }
@@ -79,32 +96,9 @@ public class ChainMap<K, V> implements Map<K, V> {
     return getInternal(key);
   }
 
-  private Option<V> getInternal(Object key) {
-    //noinspection SuspiciousMethodCalls
-    return MyStream.from(maps)
-      .filter(map -> map.containsKey(key))
-      .findFirstAsOption()
-      .map(map -> map.get(key));
-  }
-
   @Override
-  public @Nullable V put(K key, V value) {
-    throw new UnsupportedOperationException("ChainMap is immutable");
-  }
-
-  @Override
-  public V remove(Object key) {
-    throw new UnsupportedOperationException("ChainMap is immutable");
-  }
-
-  @Override
-  public void putAll(@NotNull Map<? extends K, ? extends V> m) {
-    throw new UnsupportedOperationException("ChainMap is immutable");
-  }
-
-  @Override
-  public void clear() {
-    throw new UnsupportedOperationException("ChainMap is immutable");
+  public boolean isEmpty() {
+    return maps.stream().allMatch(Map::isEmpty);
   }
 
   @Override
@@ -116,26 +110,27 @@ public class ChainMap<K, V> implements Map<K, V> {
   }
 
   @Override
-  public @NotNull Collection<V> values() {
-    return keySet().stream()
-      .map(this::get)
-      .collect(Collectors.toList());
+  public V merge(K key, @NotNull V value, @NotNull BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+    throw new UnsupportedOperationException("ChainMap is immutable");
   }
 
   @Override
-  public @NotNull Set<Map.Entry<K, V>> entrySet() {
-    return keySet().stream()
-      .map(key -> MapEntry.of(key, get(key)))
-      .collect(Collectors.toSet());
+  public @Nullable V put(K key, V value) {
+    throw new UnsupportedOperationException("ChainMap is immutable");
   }
 
   @Override
-  public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
+  public void putAll(@NotNull Map<? extends K, ? extends V> m) {
     throw new UnsupportedOperationException("ChainMap is immutable");
   }
 
   @Override
   public @Nullable V putIfAbsent(K key, V value) {
+    throw new UnsupportedOperationException("ChainMap is immutable");
+  }
+
+  @Override
+  public V remove(Object key) {
     throw new UnsupportedOperationException("ChainMap is immutable");
   }
 
@@ -155,23 +150,20 @@ public class ChainMap<K, V> implements Map<K, V> {
   }
 
   @Override
-  public V computeIfAbsent(K key, @NotNull Function<? super K, ? extends V> mappingFunction) {
+  public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
     throw new UnsupportedOperationException("ChainMap is immutable");
   }
 
   @Override
-  public V computeIfPresent(K key, @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-    throw new UnsupportedOperationException("ChainMap is immutable");
+  public int size() {
+    return keySet().size();
   }
 
   @Override
-  public V compute(K key, @NotNull BiFunction<? super K, ? super @Nullable V, ? extends V> remappingFunction) {
-    throw new UnsupportedOperationException("ChainMap is immutable");
-  }
-
-  @Override
-  public V merge(K key, @NotNull V value, @NotNull BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
-    throw new UnsupportedOperationException("ChainMap is immutable");
+  public @NotNull Collection<V> values() {
+    return keySet().stream()
+      .map(this::get)
+      .collect(Collectors.toList());
   }
 
   @Override
@@ -185,6 +177,14 @@ public class ChainMap<K, V> implements Map<K, V> {
   @Override
   public int hashCode() {
     return Objects.hashCode(maps);
+  }
+
+  private Option<V> getInternal(Object key) {
+    //noinspection SuspiciousMethodCalls
+    return AnStream.from(maps)
+      .filter(map -> map.containsKey(key))
+      .findFirstAsOption()
+      .map(map -> map.get(key));
   }
 
 }

@@ -31,6 +31,30 @@ public class ReflectionContext {
     return estimateSize(object, Collections.newSetFromMap(new IdentityHashMap<>()));
   }
 
+  public Set<Object> getReferences(Object object) {
+    if (object == null || object.getClass().isPrimitive() || BOXED_TYPES.contains(object.getClass().getSimpleName())) {
+      return Collections.emptySet();
+    }
+    var references = Collections.newSetFromMap(new IdentityHashMap<>());
+    getReferences(object, references);
+    references.remove(object);
+    return references;
+  }
+
+  private long estimateArraySize(Object array, Set<Object> visitedReferences) {
+    long result = HEADER_SIZE;
+    var innerType = array.getClass().getComponentType();
+    var length = Array.getLength(array);
+    if (innerType.isPrimitive() || BOXED_TYPES.contains(innerType.getSimpleName())) {
+      return ALIGNMENT_SIZE * length;
+    }
+    result += REFERENCE_SIZE * Array.getLength(array);
+    for (int i = 0; i < length; i++) {
+      result += estimateSize(Array.get(array, i), visitedReferences);
+    }
+    return result;
+  }
+
   private long estimateSize(Object object, Set<Object> visitedReferences) {
     if (object == null) {
       return 0;
@@ -76,28 +100,14 @@ public class ReflectionContext {
     return result;
   }
 
-  private long estimateArraySize(Object array, Set<Object> visitedReferences) {
-    long result = HEADER_SIZE;
+  private void getArrayReferences(Object array, Set<Object> references) {
     var innerType = array.getClass().getComponentType();
-    var length = Array.getLength(array);
     if (innerType.isPrimitive() || BOXED_TYPES.contains(innerType.getSimpleName())) {
-      return ALIGNMENT_SIZE * length;
+      return;
     }
-    result += REFERENCE_SIZE * Array.getLength(array);
-    for (int i = 0; i < length; i++) {
-      result += estimateSize(Array.get(array, i), visitedReferences);
+    for (Object component : (Object[]) array) {
+      getReferences(component, references);
     }
-    return result;
-  }
-
-  public Set<Object> getReferences(Object object) {
-    if (object == null || object.getClass().isPrimitive() || BOXED_TYPES.contains(object.getClass().getSimpleName())) {
-      return Collections.emptySet();
-    }
-    var references = Collections.newSetFromMap(new IdentityHashMap<>());
-    getReferences(object, references);
-    references.remove(object);
-    return references;
   }
 
   private void getReferences(Object object, Set<Object> references) {
@@ -131,16 +141,6 @@ public class ReflectionContext {
         }
       }
       clazz = clazz.getSuperclass();
-    }
-  }
-
-  private void getArrayReferences(Object array, Set<Object> references) {
-    var innerType = array.getClass().getComponentType();
-    if (innerType.isPrimitive() || BOXED_TYPES.contains(innerType.getSimpleName())) {
-      return;
-    }
-    for (Object component : (Object[]) array) {
-      getReferences(component, references);
     }
   }
 

@@ -15,20 +15,33 @@ import java.util.function.*;
 
 public sealed interface Option<T> extends Comparable<Option<T>> permits None, Some {
 
-  static <T> @NotNull Option<T> Some(@NonNull T value) {
-    return Some.of(value);
-  }
-
   static <T> @NotNull Option<T> None() {
     return None.instance();
+  }
+
+  static <T> @NotNull Option<T> Some(@NonNull T value) {
+    return Some.of(value);
   }
 
   static <T, U extends T> @NotNull Option<U> cast(@Nullable T value, @NotNull Class<U> clazz) {
     return fromNullable(value).narrow(clazz);
   }
 
-  static <T> @NotNull Option<T> when(boolean condition, @NotNull Supplier<T> supplier) {
-    return condition ? fromNullable(supplier.get()) : None();
+  static <T> @NotNull Option<T> fromCallable(@NotNull Callable<T> callable) {
+    try {
+      return fromNullable(callable.call());
+    } catch (Exception _e) {
+      return None();
+    }
+  }
+
+  static <T> @NotNull Option<T> fromNullable(@Nullable T value) {
+    return (value != null) ? Some(value) : None();
+  }
+
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  static <T> @NotNull Option<T> fromOptional(@NotNull Optional<T> optional) {
+    return optional.map(Option::Some).orElseGet(Option::None);
   }
 
   static <T> @NotNull Option<T> getFirst(@NotNull SequencedCollection<? extends T> collection) {
@@ -55,30 +68,35 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
     return pair(optionPair.left(), optionPair.right());
   }
 
+  static <T> @NotNull Option<T> when(boolean condition, @NotNull Supplier<T> supplier) {
+    return condition ? fromNullable(supplier.get()) : None();
+  }
+
   static <T> BiConsumer<Option<T>, Consumer<T>> yieldIfSome() {
     return Option::ifSome;
   }
 
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  static <T> @NotNull Option<T> fromOptional(@NotNull Optional<T> optional) {
-    return optional.map(Option::Some).orElseGet(Option::None);
+  boolean contains(@Nullable T value);
+
+  @NotNull Option<T> filter(@NotNull Predicate<T> predicate);
+
+  default <U> @NotNull Option<U> flatMap(@NotNull Function<T, Option<U>> mapper) {
+    return fold(mapper, Option::None);
   }
 
-  static <T> @NotNull Option<T> fromNullable(@Nullable T value) {
-    return (value != null) ? Some(value) : None();
+  <U> U fold(@NotNull Function<T, U> ifSome, @NotNull Supplier<U> ifNone);
+
+  default T getOrCompute(@NotNull Supplier<T> supplier) {
+    return fold(Function.identity(), supplier);
   }
 
-  static <T> @NotNull Option<T> fromCallable(@NotNull Callable<T> callable) {
-    try {
-      return fromNullable(callable.call());
-    } catch (Exception _e) {
-      return None();
-    }
+  default T getOrElse(T defaultValue) {
+    return fold(Function.identity(), () -> defaultValue);
   }
 
-  boolean isSome();
-
-  boolean isNone();
+  default T getOrNull() {
+    return getOrElse(null);
+  }
 
   default @NotNull T getOrThrow() {
     return getOrThrow(() -> new NoSuchElementException("Option was None"));
@@ -86,29 +104,13 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
 
   @NotNull T getOrThrow(@NotNull Supplier<? extends RuntimeException> exceptionSupplier);
 
-  default T getOrElse(T defaultValue) {
-    return fold(Function.identity(), () -> defaultValue);
-  }
-
-  default T getOrCompute(@NotNull Supplier<T> supplier) {
-    return fold(Function.identity(), supplier);
-  }
-
-  default T getOrNull() {
-    return getOrElse(null);
-  }
+  void ifNone(@NotNull Runnable runnable);
 
   void ifSome(@NotNull Consumer<T> consumer);
 
-  void ifNone(@NotNull Runnable runnable);
+  boolean isNone();
 
-  default @NotNull Optional<T> toOptional() {
-    return fold(Optional::of, Optional::empty);
-  }
-
-  boolean contains(@Nullable T value);
-
-  <U> U fold(@NotNull Function<T, U> ifSome, @NotNull Supplier<U> ifNone);
+  boolean isSome();
 
   default <U> @NotNull Option<U> map(@NotNull Function<T, U> mapper) {
     return fold(t -> fromNullable(mapper.apply(t)), Option::None);
@@ -118,10 +120,8 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
 
   @NotNull Option<T> or(@NotNull Supplier<Option<T>> alternative);
 
-  @NotNull Option<T> filter(@NotNull Predicate<T> predicate);
-
-  default <U> @NotNull Option<U> flatMap(@NotNull Function<T, Option<U>> mapper) {
-    return fold(mapper, Option::None);
+  default @NotNull Optional<T> toOptional() {
+    return fold(Optional::of, Optional::empty);
   }
 
   @Override

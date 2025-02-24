@@ -1,15 +1,12 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
-import com.mategka.dava.analyzer.extension.MyStream;
-import com.mategka.dava.analyzer.extension.option.Option;
-import com.mategka.dava.analyzer.spoon.CtEqPath;
-import com.mategka.dava.analyzer.struct.property.*;
+import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
-import com.mategka.dava.analyzer.struct.property.value.Kind;
-import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,11 +14,7 @@ import java.util.*;
 
 @Getter
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@AllArgsConstructor
-@Builder(toBuilder = true)
-public final class Symbol implements PropertyIndexable {
-
-  public static final String ROOT_PACKAGE_NAME = "ROOT";
+public final class Symbol extends BareSymbol implements PropertyIndexable {
 
   @NonNull
   SymbolKey key;
@@ -30,65 +23,34 @@ public final class Symbol implements PropertyIndexable {
   String commitSha;
 
   @NonNull
-  @Builder.Default
-  List<Long> predecessors = new ArrayList<>();
+  List<Long> predecessors;
 
-  @NonNull
-  @Builder.Default
-  PropertyMap properties = new PropertyMap();
-
-  public static boolean isRootPackage(Symbol symbol) {
-    var name = symbol.getPropertyValue(SimpleNameProperty.class);
-    var kind = symbol.getPropertyValue(KindProperty.class);
-    var parent = symbol.getPropertyValue(ParentProperty.class);
-    if (name.isNone() || kind.isNone() || parent.isSome()) {
-      return false;
-    }
-    return ROOT_PACKAGE_NAME.equals(name.getOrThrow()) && Kind.PACKAGE.equals(kind.getOrThrow());
+  public Symbol(@NonNull SymbolKey key, @NonNull String commitSha, @NonNull List<Long> predecessors,
+                @NonNull PropertyMap properties) {
+    super(properties);
+    this.key = key;
+    this.commitSha = commitSha;
+    this.predecessors = predecessors;
   }
 
-  public @NotNull String getDisplayName() {
-    return getPropertyValue(SimpleNameProperty.class)
-      .getOrCompute(() -> "(unnamed %s)".formatted(
-        getPropertyValue(KindProperty.class)
-          .map(Kind::toPseudoKeyword)
-          .getOrElse("symbol")
-      ));
-  }
-
-  public @NotNull CtEqPath getPath() throws NoSuchElementException {
-    return getPropertyValue(PathProperty.class)
-      .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
-  }
-
-  private long getParentId() throws NoSuchElementException {
-    return getPropertyValue(ParentProperty.class)
-      .map(KnownType::getSymbolId)
-      .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
+  public static SymbolBuilder builder() {
+    return new SymbolBuilder();
   }
 
   public SymbolKey getParentKey() throws NoSuchElementException {
     return new SymbolKey(getParentId(), key.strandId());
   }
 
-  public PropertyMap diff(@NotNull Collection<Property> newProperties) {
-    return newProperties.stream()
-      .filter(p -> Option.Some(p.getKey())
-        .map(properties::get)
-        .map(Property::value)
-        .map(v -> !v.equals(p.value()))
-        .getOrElse(false)
-      )
-      .collect(PropertyMap.collectProperties());
-  }
-
-  public Symbol withProperty(Property property) {
-    return toBuilder().property(property).build();
+  public SymbolBuilder toBuilder() {
+    return new SymbolBuilder().key(this.key)
+      .commitSha(this.commitSha)
+      .predecessors(this.predecessors)
+      .properties(this.properties);
   }
 
   public Symbol withUpdate(@NotNull SymbolUpdate update) {
     assertUpdatesApply(List.of(update));
-    return toBuilder().update(update).build();
+    return toBuilder().properties(update.getProperties()).build();
   }
 
   public Symbol withUpdates(@NotNull Collection<? extends SymbolUpdate> updates) {
@@ -101,8 +63,32 @@ public final class Symbol implements PropertyIndexable {
     return toBuilder().properties(updatedProperties).build();
   }
 
+  @SuppressWarnings("MethodDoesntCallSuperMethod")
+  @Override
+  public Symbol clone() {
+    return toBuilder().build();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof Symbol that)) return false;
+    if (!super.equals(o)) return false;
+    return Objects.equals(key, that.key) && Objects.equals(commitSha, that.commitSha)
+      && Objects.equals(predecessors, that.predecessors);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(super.hashCode(), key, commitSha, predecessors);
+  }
+
+  @Override
+  public String toString() {
+    return "[%d] %s".formatted(key.symbolId(), getDisplayName());
+  }
+
   private void assertUpdatesApply(@NotNull Collection<? extends SymbolUpdate> updates) {
-    var violation = MyStream.from(updates)
+    var violation = AnStream.from(updates)
       .filter(u -> !u.appliesTo(this))
       .findFirstAsOption();
     if (violation.isSome()) {
@@ -114,53 +100,48 @@ public final class Symbol implements PropertyIndexable {
     }
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (!(o instanceof Symbol symbol)) return false;
-    return key.equals(symbol.key);
-  }
-
-  @Override
-  public int hashCode() {
-    return key.hashCode();
-  }
-
-  @Override
-  public String toString() {
-    return "[%d] %s".formatted(key.symbolId(), getDisplayName());
-  }
-
   public static class SymbolBuilder {
 
+    private final List<Long> predecessors = new ArrayList<>();
+    private final PropertyMap properties = new PropertyMap();
+    private SymbolKey key;
+    private String commitSha;
+
+    private SymbolBuilder() {
+    }
+
+    public Symbol build() {
+      return new Symbol(this.key, this.commitSha, this.predecessors, this.properties);
+    }
+
+    public SymbolBuilder commitSha(@NonNull String commitSha) {
+      this.commitSha = commitSha;
+      return this;
+    }
+
+    public SymbolBuilder key(@NonNull SymbolKey key) {
+      this.key = key;
+      return this;
+    }
+
     public SymbolBuilder predecessor(long id) {
-      if (!this.predecessors$set) {
-        this.predecessors$set = true;
-        this.predecessors$value = new ArrayList<>();
-      }
-      predecessors$value.add(id);
+      predecessors.add(id);
       return this;
     }
 
-    public SymbolBuilder property(@NonNull Option<? extends Property> property) {
-      return property.fold(this::property, () -> this);
-    }
-
-    public SymbolBuilder property(@NonNull Property property) {
-      if (!this.properties$set) {
-        this.properties$set = true;
-        this.properties$value = new PropertyMap();
-      }
-      properties$value.put(property.getKey(), property);
+    public SymbolBuilder predecessors(@NonNull List<Long> predecessors) {
+      this.predecessors.addAll(predecessors);
       return this;
     }
 
-    public SymbolBuilder update(@NonNull SymbolUpdate update) {
-      if (!this.properties$set) {
-        this.properties$set = true;
-        this.properties$value = new PropertyMap();
-      }
-      properties$value.putAll(update.getProperties());
+    public SymbolBuilder properties(@NonNull PropertyMap properties) {
+      this.properties.putAll(properties);
       return this;
+    }
+
+    public String toString() {
+      return "Symbol.SymbolBuilder(key=" + this.key + ", commitSha=" + this.commitSha + ", predecessors="
+        + this.predecessors + ", properties=" + this.properties + ")";
     }
 
   }

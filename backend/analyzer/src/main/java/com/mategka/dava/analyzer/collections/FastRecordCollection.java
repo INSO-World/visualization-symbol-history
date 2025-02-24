@@ -23,50 +23,6 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
     this.recordClass = RecordClass.fromClass(recordClass);
   }
 
-  public <K, V> Map<K, V> getMap(Function<R, K> keyAccessor, Function<R, V> valueAccessor) {
-    return new CollectionMapView<>(recordMap.values(), keyAccessor, valueAccessor);
-  }
-
-  @SuppressWarnings("unused")
-  public synchronized <C> R getWhere(Function<R, C> _accessor, C value) {
-    return ChainMap.getOnce(componentMap, recordMap, value);
-  }
-
-  @Override
-  public int size() {
-    return recordMap.size();
-  }
-
-  @Override
-  public boolean isEmpty() {
-    return recordMap.isEmpty();
-  }
-
-  @Override
-  public boolean contains(Object o) {
-    //noinspection SuspiciousMethodCalls
-    return recordMap.inverse().containsKey(o);
-  }
-
-  public <C> boolean containsWhere(Function<R, C> _accessor, C c) {
-    return getWhere(_accessor, c) != null;
-  }
-
-  @Override
-  public @NotNull Iterator<R> iterator() {
-    return recordMap.values().iterator();
-  }
-
-  @Override
-  public @NotNull Object @NotNull [] toArray() {
-    return recordMap.values().toArray();
-  }
-
-  @Override
-  public @NotNull <T1> T1 @NotNull [] toArray(@NotNull T1 @NotNull [] a) {
-    return recordMap.values().toArray(a);
-  }
-
   @Override
   public synchronized boolean add(R r) {
     if (recordMap.inverse().containsKey(r)) {
@@ -80,45 +36,29 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
     return true;
   }
 
-  private synchronized void internalAdd(R r, Iterable<Object> components) {
-    var id = counter++;
-    components.forEach(c -> componentMap.put(c, id));
-    recordMap.put(id, r);
-  }
-
   @Override
-  public synchronized boolean remove(Object o) {
-    if (!recordClass.isInstance(o)) {
-      throw new IllegalArgumentException(
-        "Only record objects of type %s can be removed from this collection".formatted(recordClass.getSimpleName())
-      );
-    }
-    return internalRemove(o);
-  }
-
-  @SuppressWarnings({ "unused", "UnusedReturnValue" })
-  public synchronized <C> boolean removeWhere(Function<R, C> _accessor, C c) {
-    var id = componentMap.get(c);
-    if (id == null) {
+  public synchronized boolean addAll(@NotNull Collection<? extends R> c) {
+    var relevantElements = c.stream().filter(e -> !recordMap.inverse().containsKey(e)).toList();
+    if (relevantElements.isEmpty()) {
       return false;
     }
-    var recordInstance = recordMap.remove(id);
-    assert recordInstance != null;
-    recordClass.destructure(recordInstance).forEach(componentMap::remove);
+    Set<Object> componentValues = new HashSet<>(componentMap.keySet());
+    Map<R, Collection<Object>> collectionComponents = relevantElements.stream()
+      .collect(CollectorsX.mapToValue(recordClass::destructure));
+    var allValues = collectionComponents.values().stream().flatMap(Collection::stream).toList();
+    for (var value : allValues) {
+      if (!componentValues.add(value)) {
+        throw new IllegalArgumentException("Input objects contained duplicate field values");
+      }
+    }
+    collectionComponents.forEach(this::internalAdd);
     return true;
   }
 
-  public synchronized <C> boolean replaceWhere(Function<R, C> accessor, C c, R r) {
-    return replaceIf(v -> Objects.equals(accessor.apply(v), c), r);
-  }
-
-  public synchronized boolean replaceIf(Predicate<R> predicate, R r) {
-    return computeIf(predicate, _r -> r);
-  }
-
-  @SuppressWarnings("UnusedReturnValue")
-  public synchronized <C> boolean computeWhere(Function<R, C> accessor, C c, UnaryOperator<R> supplier) {
-    return computeIf(v -> Objects.equals(accessor.apply(v), c), supplier);
+  @Override
+  public synchronized void clear() {
+    recordMap.clear();
+    componentMap.clear();
   }
 
   public synchronized boolean computeIf(Predicate<R> predicate, UnaryOperator<R> supplier) {
@@ -148,16 +88,15 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
     return true;
   }
 
-  private synchronized boolean internalRemove(Object o) {
-    //noinspection unchecked
-    var record = (R) o;
-    var components = recordClass.destructure(record);
-    var removedRecordId = recordMap.inverse().remove(record);
-    if (removedRecordId == null) {
-      return false;
-    }
-    components.forEach(componentMap::remove);
-    return true;
+  @SuppressWarnings("UnusedReturnValue")
+  public synchronized <C> boolean computeWhere(Function<R, C> accessor, C c, UnaryOperator<R> supplier) {
+    return computeIf(v -> Objects.equals(accessor.apply(v), c), supplier);
+  }
+
+  @Override
+  public boolean contains(Object o) {
+    //noinspection SuspiciousMethodCalls
+    return recordMap.inverse().containsKey(o);
   }
 
   @Override
@@ -166,23 +105,37 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
     return c.stream().allMatch(recordMap.inverse()::containsKey);
   }
 
+  public <C> boolean containsWhere(Function<R, C> _accessor, C c) {
+    return getWhere(_accessor, c) != null;
+  }
+
+  public <K, V> Map<K, V> getMap(Function<R, K> keyAccessor, Function<R, V> valueAccessor) {
+    return new CollectionMapView<>(recordMap.values(), keyAccessor, valueAccessor);
+  }
+
+  @SuppressWarnings("unused")
+  public synchronized <C> R getWhere(Function<R, C> _accessor, C value) {
+    return ChainMap.getOnce(componentMap, recordMap, value);
+  }
+
   @Override
-  public synchronized boolean addAll(@NotNull Collection<? extends R> c) {
-    var relevantElements = c.stream().filter(e -> !recordMap.inverse().containsKey(e)).toList();
-    if (relevantElements.isEmpty()) {
-      return false;
+  public boolean isEmpty() {
+    return recordMap.isEmpty();
+  }
+
+  @Override
+  public @NotNull Iterator<R> iterator() {
+    return recordMap.values().iterator();
+  }
+
+  @Override
+  public synchronized boolean remove(Object o) {
+    if (!recordClass.isInstance(o)) {
+      throw new IllegalArgumentException(
+        "Only record objects of type %s can be removed from this collection".formatted(recordClass.getSimpleName())
+      );
     }
-    Set<Object> componentValues = new HashSet<>(componentMap.keySet());
-    Map<R, Collection<Object>> collectionComponents = relevantElements.stream()
-      .collect(CollectorsX.mapToValue(recordClass::destructure));
-    var allValues = collectionComponents.values().stream().flatMap(Collection::stream).toList();
-    for (var value : allValues) {
-      if (!componentValues.add(value)) {
-        throw new IllegalArgumentException("Input objects contained duplicate field values");
-      }
-    }
-    collectionComponents.forEach(this::internalAdd);
-    return true;
+    return internalRemove(o);
   }
 
   @Override
@@ -193,6 +146,26 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
       );
     }
     return c.stream().anyMatch(this::internalRemove);
+  }
+
+  @SuppressWarnings({ "unused", "UnusedReturnValue" })
+  public synchronized <C> boolean removeWhere(Function<R, C> _accessor, C c) {
+    var id = componentMap.get(c);
+    if (id == null) {
+      return false;
+    }
+    var recordInstance = recordMap.remove(id);
+    assert recordInstance != null;
+    recordClass.destructure(recordInstance).forEach(componentMap::remove);
+    return true;
+  }
+
+  public synchronized boolean replaceIf(Predicate<R> predicate, R r) {
+    return computeIf(predicate, _r -> r);
+  }
+
+  public synchronized <C> boolean replaceWhere(Function<R, C> accessor, C c, R r) {
+    return replaceIf(v -> Objects.equals(accessor.apply(v), c), r);
   }
 
   @Override
@@ -213,9 +186,18 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
   }
 
   @Override
-  public synchronized void clear() {
-    recordMap.clear();
-    componentMap.clear();
+  public int size() {
+    return recordMap.size();
+  }
+
+  @Override
+  public @NotNull Object @NotNull [] toArray() {
+    return recordMap.values().toArray();
+  }
+
+  @Override
+  public @NotNull <T1> T1 @NotNull [] toArray(@NotNull T1 @NotNull [] a) {
+    return recordMap.values().toArray(a);
   }
 
   @Override
@@ -229,6 +211,24 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
   @Override
   public int hashCode() {
     return Objects.hash(recordClass, recordMap.values(), componentMap.keySet());
+  }
+
+  private synchronized void internalAdd(R r, Iterable<Object> components) {
+    var id = counter++;
+    components.forEach(c -> componentMap.put(c, id));
+    recordMap.put(id, r);
+  }
+
+  private synchronized boolean internalRemove(Object o) {
+    //noinspection unchecked
+    var record = (R) o;
+    var components = recordClass.destructure(record);
+    var removedRecordId = recordMap.inverse().remove(record);
+    if (removedRecordId == null) {
+      return false;
+    }
+    components.forEach(componentMap::remove);
+    return true;
   }
 
 }

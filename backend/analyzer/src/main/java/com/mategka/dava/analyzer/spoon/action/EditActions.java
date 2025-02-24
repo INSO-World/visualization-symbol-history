@@ -29,14 +29,14 @@ public class EditActions {
       .flatMap(Collection::stream)
       .distinct()
       .toList();
-    var deletionsMap = MyStream.from(rawActions)
+    var deletionsMap = AnStream.from(rawActions)
       .narrow(DeletionAction.class)
       .map(Pair.fromRight(DeletionAction::getOldElement))
       .filter(p -> mappings.containsKey(p.left()))
       .collect(CollectorsX.pairsToMap());
     var replacement = ReplacementTuple.find(rawActions);
     var updatesStream = getUpdatesStream(mappings, deletionsMap.keySet());
-    return MyStream.fromIndexed(rawActions)
+    return AnStream.fromIndexed(rawActions)
       .<EditAction>mapMulti((pair, consumer) -> {
         var action = pair.left();
         var index = pair.right();
@@ -67,22 +67,15 @@ public class EditActions {
       .toList();
   }
 
-  private Stream<UpdateAction> getUpdatesStream(BiMap<CtElement, CtElement> mappings, Set<CtElement> deletions) {
-    var updateMappingKeys = SetsX.difference(mappings.keySet(), deletions);
-    return MyStream.from(mappings.entrySet())
-      .map(Pair::fromEntry)
-      .filter(Pair.filteringLeft(updateMappingKeys::contains))
-      .filter(Pair.filtering(ElementCapture.CLASSES_TO_CAPTURE::containsClassOf))
-      .map(elements -> {
-        var oldParent = ElementCapture.getNearestValidParent(elements.left());
-        var newParent = ElementCapture.getNearestValidParent(elements.right());
-        return Option.pair(oldParent, newParent).map(parents -> {
-          var oldSubject = Subject.of(elements.left(), parents.left());
-          var newSubject = Subject.of(elements.right(), parents.right());
-          return UpdateAction.of(oldSubject, newSubject);
-        });
-      })
-      .mapMulti(Option.yieldIfSome());
+  private List<BodyUpdateAction> bodyUpdateListOf(CtElement parent) {
+    return List.of(bodyUpdateOf(parent));
+  }
+
+  private BodyUpdateAction bodyUpdateOf(CtElement parent) {
+    return BodyUpdateAction.of(Subject.of(
+      parent,
+      ElementCapture.getNearestValidParent(parent).getOrThrow()
+    ));
   }
 
   private List<? extends EditAction> fromOperation(Operation<?> operation) {
@@ -116,15 +109,22 @@ public class EditActions {
       .getOrCompute(Collections::emptyList);
   }
 
-  private List<BodyUpdateAction> bodyUpdateListOf(CtElement parent) {
-    return List.of(bodyUpdateOf(parent));
-  }
-
-  private BodyUpdateAction bodyUpdateOf(CtElement parent) {
-    return BodyUpdateAction.of(Subject.of(
-      parent,
-      ElementCapture.getNearestValidParent(parent).getOrThrow()
-    ));
+  private Stream<UpdateAction> getUpdatesStream(BiMap<CtElement, CtElement> mappings, Set<CtElement> deletions) {
+    var updateMappingKeys = SetsX.difference(mappings.keySet(), deletions);
+    return AnStream.from(mappings.entrySet())
+      .map(Pair::fromEntry)
+      .filter(Pair.filteringLeft(updateMappingKeys::contains))
+      .filter(Pair.filtering(ElementCapture.CLASSES_TO_CAPTURE::containsClassOf))
+      .map(elements -> {
+        var oldParent = ElementCapture.getNearestValidParent(elements.left());
+        var newParent = ElementCapture.getNearestValidParent(elements.right());
+        return Option.pair(oldParent, newParent).map(parents -> {
+          var oldSubject = Subject.of(elements.left(), parents.left());
+          var newSubject = Subject.of(elements.right(), parents.right());
+          return UpdateAction.of(oldSubject, newSubject);
+        });
+      })
+      .mapMulti(Option.yieldIfSome());
   }
 
 }

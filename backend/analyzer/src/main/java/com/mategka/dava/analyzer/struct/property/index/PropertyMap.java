@@ -4,6 +4,7 @@ import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.SimpleProperty;
 
+import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
@@ -23,6 +24,18 @@ public class PropertyMap extends HashMap<String, Property> {
     return result;
   }
 
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  public static <T extends Map.Entry<String, Property>> Collector<T, ?, PropertyMap> collectEntries() {
+    return collector(Map.Entry::getKey, Map.Entry::getValue);
+  }
+
+  public static <T extends Property> Collector<T, ?, PropertyMap> collectProperties() {
+    return collector(Property::getKey, Function.identity());
+  }
+
   public static <T> Collector<T, ?, PropertyMap> collector(
     @NotNull Function<? super T, String> keyFunction,
     Function<? super T, ? extends Property> valueFunction
@@ -30,12 +43,15 @@ public class PropertyMap extends HashMap<String, Property> {
     return Collectors.toMap(keyFunction, valueFunction, (older, newer) -> newer, PropertyMap::new);
   }
 
-  public static <T extends Property> Collector<T, ?, PropertyMap> collectProperties() {
-    return collector(Property::getKey, Function.identity());
-  }
-
-  public static <T extends Map.Entry<String, Property>> Collector<T, ?, PropertyMap> collectEntries() {
-    return collector(Map.Entry::getKey, Map.Entry::getValue);
+  public PropertyMap diff(@NotNull Collection<Property> newProperties) {
+    return newProperties.stream()
+      .filter(p -> Option.Some(p.getKey())
+        .map(this::get)
+        .map(Property::value)
+        .map(v -> !v.equals(p.value()))
+        .getOrElse(false)
+      )
+      .collect(PropertyMap.collectProperties());
   }
 
   public <T extends Property> Option<T> get(Class<T> propertyClass) {
@@ -50,12 +66,57 @@ public class PropertyMap extends HashMap<String, Property> {
     return super.put(property.getKey(), property);
   }
 
+  public void putAll(Collection<? extends Property> c) {
+    super.putAll(c.stream().collect(collectProperties()));
+  }
+
   public Property putIfAbsent(Property property) {
     return super.putIfAbsent(property.getKey(), property);
   }
 
-  public void putAll(Collection<? extends Property> c) {
-    super.putAll(c.stream().collect(collectProperties()));
+  public Builder toBuilder() {
+    return new Builder().properties(this);
+  }
+
+  public PropertyMap with(Property property) {
+    return toBuilder().property(property).build();
+  }
+
+  @SuppressWarnings("MethodDoesntCallSuperMethod")
+  @Override
+  public PropertyMap clone() {
+    return toBuilder().build();
+  }
+
+  public static class Builder {
+
+    private final PropertyMap propertyMap = new PropertyMap();
+
+    private Builder() {
+    }
+
+    public PropertyMap build() {
+      return propertyMap;
+    }
+
+    public Builder properties(@NonNull PropertyMap propertyMap) {
+      this.propertyMap.putAll(propertyMap);
+      return this;
+    }
+
+    public Builder property(@NonNull Option<? extends Property> property) {
+      return property.fold(this::property, () -> this);
+    }
+
+    public Builder property(@NonNull Property property) {
+      propertyMap.put(property);
+      return this;
+    }
+
+    public String toString() {
+      return "PropertyMap.PropertyMapBuilder(propertyMap=" + this.propertyMap + ")";
+    }
+
   }
 
 }

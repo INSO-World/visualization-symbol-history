@@ -19,13 +19,18 @@ public final class None<T> implements Option<T> {
   }
 
   @Override
-  public boolean isSome() {
+  public boolean contains(@Nullable T value) {
     return false;
   }
 
   @Override
-  public boolean isNone() {
-    return true;
+  public @NotNull Option<T> filter(@NotNull Predicate<T> _predicate) {
+    return this;
+  }
+
+  @Override
+  public <U> U fold(@NotNull Function<T, U> _ifSome, @NotNull Supplier<U> ifNone) {
+    return ifNone.get();
   }
 
   @Override
@@ -34,23 +39,23 @@ public final class None<T> implements Option<T> {
   }
 
   @Override
-  public void ifSome(@NotNull Consumer<T> _consumer) {
-    // Do nothing
-  }
-
-  @Override
   public void ifNone(@NotNull Runnable runnable) {
     runnable.run();
   }
 
   @Override
-  public boolean contains(@Nullable T value) {
-    return false;
+  public void ifSome(@NotNull Consumer<T> _consumer) {
+    // Do nothing
   }
 
   @Override
-  public <U> U fold(@NotNull Function<T, U> _ifSome, @NotNull Supplier<U> ifNone) {
-    return ifNone.get();
+  public boolean isNone() {
+    return true;
+  }
+
+  @Override
+  public boolean isSome() {
+    return false;
   }
 
   @Override
@@ -61,11 +66,6 @@ public final class None<T> implements Option<T> {
   @Override
   public @NotNull Option<T> or(@NotNull Supplier<Option<T>> alternative) {
     return alternative.get();
-  }
-
-  @Override
-  public @NotNull Option<T> filter(@NotNull Predicate<T> _predicate) {
-    return this;
   }
 
 }

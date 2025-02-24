@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.property.value;
 
-import com.mategka.dava.analyzer.extension.MyStream;
+import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.option.Option;
 
 import lombok.*;
@@ -31,7 +31,7 @@ public enum Modifier {
   private ModifierKind spoonKind;
 
   public static Option<Modifier> fromModifierKind(ModifierKind modifier) {
-    return MyStream.from(values())
+    return AnStream.from(values())
       .filter(v -> v.spoonKind == modifier)
       .findFirstAsOption();
   }

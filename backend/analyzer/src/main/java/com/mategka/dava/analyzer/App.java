@@ -3,8 +3,8 @@ package com.mategka.dava.analyzer;
 import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.DefaultMap;
 import com.mategka.dava.analyzer.collections.IndexMap;
+import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.CollectorsX;
-import com.mategka.dava.analyzer.extension.MyStream;
 import com.mategka.dava.analyzer.extension.Pair;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.git.*;
@@ -22,8 +22,6 @@ import gumtree.spoon.diff.Diff;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.lib.Ref;
-import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevWalk;
 import spoon.reflect.declaration.CtCompilationUnit;
 import spoon.reflect.declaration.CtElement;
 import spoon.support.compiler.VirtualFile;
@@ -49,9 +47,8 @@ public class App {
       //noinspection MismatchedQueryAndUpdateOfCollection
       Map<Strand, StrandWorkspace> workspaces = new DefaultMap<>(HashMap::new, StrandWorkspace::new);
       // TODO: Traverse commits in normal topological order for ~5% performance boost
-      try (RevWalk walk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
-        for (RevCommit revCommit : walk) {
-          var commit = new Commit(revCommit);
+      try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
+        for (Commit commit : commitWalk) {
           var strand = history.getStrandMapping().get(commit.sha());
           var workspace = workspaces.get(strand);
           System.out.print(commit.shortSha() + " ");
@@ -151,23 +148,18 @@ public class App {
               var packageDeclaration = newUnit.getPackageDeclaration().getReference().getDeclaration();
               var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
               var typeDeclaration = newUnit.getMainType();
-              symbolizer.symbolizeType(typeDeclaration, pakkage).stepper()
-                .takeOne(s -> {
-                  workspace.putClassSymbol(new FileEntry(diff.getNewPath(), newFile, newUnit, s));
-                  additions.add(s);
-                })
-                .forEachRemaining(s -> {
-                  workspace.putSymbol(s);
-                  additions.add(s);
-                });
+
+              var symbols = symbolizer.symbolizeType(typeDeclaration, pakkage).toMutableList();
+              additions.addAll(symbols);
+              var classSymbol = symbols.removeFirst();
+              workspace.putClassSymbol(new FileEntry(diff.getNewPath(), newFile, newUnit, classSymbol));
+              symbols.forEach(workspace::putSymbol);
             }
             for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
-              parentWorkspace.getSymbolsFromFilePath(diff.getOldPath()).stepper()
-                .takeOne(s -> {
-                  workspace.removeClassSymbolHierarchy(s);
-                  deletions.add(s);
-                })
-                .forEachRemaining(deletions::add);
+              var symbols = parentWorkspace.getSymbolsFromFilePath(diff.getOldPath()).toMutableList();
+              deletions.addAll(symbols);
+              var classSymbol = symbols.getFirst();
+              workspace.removeClassSymbolHierarchy(classSymbol);
             }
             var commitDiff = CommitDiff.builder()
               .commit(commit)
@@ -189,18 +181,8 @@ public class App {
     }
   }
 
-  private static void moveDerivativeDiffEntries(Multimap<FileChangeType, DiffEntry> relevantDiffs) {
-    var movedDiffs = relevantDiffs.removeAll(FileChangeType.RENAMED);
-    var actuallyMovedDiffs = relevantDiffs.removeAll(FileChangeType.MOVED);
-    movedDiffs.addAll(actuallyMovedDiffs);
-    relevantDiffs.putAll(FileChangeType.DELETED, movedDiffs);
-    relevantDiffs.putAll(FileChangeType.ADDED, movedDiffs);
-    var copiedDiffs = relevantDiffs.removeAll(FileChangeType.COPIED);
-    relevantDiffs.putAll(FileChangeType.ADDED, copiedDiffs);
-  }
-
   private static BiMap<CtElement, CtElement> extractMappings(Diff astDiff) {
-    return MyStream.from(astDiff.getMappingsComp().asSet())
+    return AnStream.from(astDiff.getMappingsComp().asSet())
       .map(m -> Pair.of(m.first, m.second))
       .filter(Pair.filtering(t -> !t.isRoot() && !t.getType().isEmpty()))
       .map(Pair.mapping(Spoon::getMetaElement))
@@ -215,7 +197,7 @@ public class App {
     Map<FileChangeType, Collection<DiffEntry>> diffs,
     RepositoryWrapper repository
   ) {
-    return diffs.entrySet().stream()
+    return AnStream.from(diffs.entrySet())
       .flatMap(e -> e.getValue().stream().map(d -> Pair.of(e.getKey(), d)))
       .flatMap(p -> {
         List<Pair<String, VirtualFile>> entries = new ArrayList<>();
@@ -232,6 +214,16 @@ public class App {
         return entries.stream();
       })
       .collect(CollectorsX.pairsToMap());
+  }
+
+  private static void moveDerivativeDiffEntries(Multimap<FileChangeType, DiffEntry> relevantDiffs) {
+    var movedDiffs = relevantDiffs.removeAll(FileChangeType.RENAMED);
+    var actuallyMovedDiffs = relevantDiffs.removeAll(FileChangeType.MOVED);
+    movedDiffs.addAll(actuallyMovedDiffs);
+    relevantDiffs.putAll(FileChangeType.DELETED, movedDiffs);
+    relevantDiffs.putAll(FileChangeType.ADDED, movedDiffs);
+    var copiedDiffs = relevantDiffs.removeAll(FileChangeType.COPIED);
+    relevantDiffs.putAll(FileChangeType.ADDED, copiedDiffs);
   }
 
 }

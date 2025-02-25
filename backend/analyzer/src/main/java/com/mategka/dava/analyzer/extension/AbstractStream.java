@@ -88,6 +88,15 @@ public abstract class AbstractStream<T> implements Stream<T> {
     return stream.isParallel();
   }
 
+  public @NotNull Iterable<T> iterable() {
+    return new Iterable<>() {
+      @Override
+      public @NotNull Iterator<T> iterator() {
+        return stream.iterator();
+      }
+    };
+  }
+
   @Override
   public @NotNull Iterator<T> iterator() {
     return stream.iterator();
@@ -194,6 +203,11 @@ public abstract class AbstractStream<T> implements Stream<T> {
   }
 
   @Override
+  public void close() {
+    stream.close();
+  }
+
+  @Override
   public boolean equals(Object o) {
     return switch (o) {
       case AbstractStream<?> that -> stream.equals(that.stream);
@@ -205,11 +219,6 @@ public abstract class AbstractStream<T> implements Stream<T> {
   @Override
   public int hashCode() {
     return stream.hashCode();
-  }
-
-  @Override
-  public void close() {
-    stream.close();
   }
 
 }

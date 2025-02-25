@@ -13,6 +13,7 @@ import java.util.List;
 public record Commit(@NotNull RevCommit revCommit) {
 
   public ZonedDateTime dateTime() {
+    assertParsed();
     var instant = Instant.ofEpochSecond(revCommit.getCommitTime());
     var zoneOffset = ZoneOffset.ofTotalSeconds(revCommit.getAuthorIdent().getTimeZoneOffset() * 60);
     return ZonedDateTime.ofInstant(instant, zoneOffset);
@@ -35,11 +36,18 @@ public record Commit(@NotNull RevCommit revCommit) {
   }
 
   public String summary() {
+    assertParsed();
     return revCommit.getShortMessage();
   }
 
   public RevTree tree() {
     return revCommit.getTree();
+  }
+
+  private void assertParsed() {
+    if (revCommit.getRawBuffer() == null) {
+      throw new IllegalStateException("Commit has not been parsed");
+    }
   }
 
 }

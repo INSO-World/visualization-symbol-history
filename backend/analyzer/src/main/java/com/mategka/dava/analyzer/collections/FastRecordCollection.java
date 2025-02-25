@@ -200,19 +200,6 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
     return recordMap.values().toArray(a);
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (!(o instanceof FastRecordCollection<?> that)) return false;
-    if (recordMap.size() != that.recordMap.size()) return false;
-    return Objects.equals(recordClass, that.recordClass) && componentMap.keySet().stream()
-      .allMatch(c -> Objects.equals(getWhere(null, c), that.getWhere(null, c)));
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(recordClass, recordMap.values(), componentMap.keySet());
-  }
-
   private synchronized void internalAdd(R r, Iterable<Object> components) {
     var id = counter++;
     components.forEach(c -> componentMap.put(c, id));
@@ -229,6 +216,19 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
     }
     components.forEach(componentMap::remove);
     return true;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof FastRecordCollection<?> that)) return false;
+    if (recordMap.size() != that.recordMap.size()) return false;
+    return Objects.equals(recordClass, that.recordClass) && componentMap.keySet().stream()
+      .allMatch(c -> Objects.equals(getWhere(null, c), that.getWhere(null, c)));
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(recordClass, recordMap.values(), componentMap.keySet());
   }
 
 }

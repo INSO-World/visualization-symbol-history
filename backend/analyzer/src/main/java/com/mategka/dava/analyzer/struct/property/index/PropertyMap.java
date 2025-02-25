@@ -16,6 +16,14 @@ import java.util.stream.Collectors;
 
 public class PropertyMap extends HashMap<String, Property> {
 
+  public PropertyMap() {
+    super();
+  }
+
+  public PropertyMap(@NotNull final Map<String, Property> properties) {
+    super(properties);
+  }
+
   public static PropertyMap of(Property... properties) {
     var result = new PropertyMap();
     for (Property property : properties) {
@@ -52,6 +60,10 @@ public class PropertyMap extends HashMap<String, Property> {
         .getOrElse(false)
       )
       .collect(PropertyMap.collectProperties());
+  }
+
+  public PropertyMap diff(@NotNull PropertyIndexable newProperties) {
+    return diff(newProperties.getProperties().values());
   }
 
   public <T extends Property> Option<T> get(Class<T> propertyClass) {

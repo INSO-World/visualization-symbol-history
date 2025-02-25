@@ -5,7 +5,6 @@ import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
-import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -29,14 +28,12 @@ public sealed class BareSymbol implements PropertyIndexable permits Symbol {
     this.properties = properties;
   }
 
-  public static boolean isRootPackage(BareSymbol symbol) {
-    var name = symbol.getPropertyValue(SimpleNameProperty.class);
-    var kind = symbol.getPropertyValue(KindProperty.class);
-    var parent = symbol.getPropertyValue(ParentProperty.class);
-    if (name.isNone() || kind.isNone() || parent.isSome()) {
-      return false;
-    }
-    return SimpleNameProperty.ROOT_PACKAGE_NAME.equals(name.getOrThrow()) && Kind.PACKAGE.equals(kind.getOrThrow());
+  public @NotNull Symbol asReplacementFor(Symbol symbol, Symbol newParentSymbol) {
+    return withProperty(ParentProperty.fromSymbol(newParentSymbol))
+      .toSymbolBuilder()
+      .key(symbol.getKey())
+      .commitSha(symbol.getCommitSha())
+      .build();
   }
 
   public @NotNull Symbol complete(SymbolCreationContext context) {
@@ -55,15 +52,19 @@ public sealed class BareSymbol implements PropertyIndexable permits Symbol {
       ));
   }
 
-  public long getParentId() throws NoSuchElementException {
-    return getPropertyValue(ParentProperty.class)
-      .map(KnownType::getSymbolId)
-      .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
-  }
-
   public @NotNull CtEqPath getPath() throws NoSuchElementException {
     return getPropertyValue(PathProperty.class)
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
+  }
+
+  public boolean isRootPackage() {
+    var name = getPropertyValue(SimpleNameProperty.class);
+    var kind = getPropertyValue(KindProperty.class);
+    var parent = getPropertyValue(ParentProperty.class);
+    if (name.isNone() || kind.isNone() || parent.isSome()) {
+      return false;
+    }
+    return SimpleNameProperty.ROOT_PACKAGE_NAME.equals(name.getOrThrow()) && Kind.PACKAGE.equals(kind.getOrThrow());
   }
 
   public @NotNull Symbol.SymbolBuilder toSymbolBuilder() {

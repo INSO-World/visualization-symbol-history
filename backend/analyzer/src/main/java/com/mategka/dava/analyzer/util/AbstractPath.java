@@ -622,18 +622,6 @@ public class AbstractPath implements Comparable<AbstractPath>, Iterable<Abstract
     return toPath().toUri();
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (o == null || getClass() != o.getClass()) return false;
-    AbstractPath that = (AbstractPath) o;
-    return Objects.equals(parts, that.parts);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(parts);
-  }
-
   /**
    * Compares two abstract paths lexicographically. The ordering defined by
    * this method is provider specific, and in the case of the default
@@ -658,6 +646,18 @@ public class AbstractPath implements Comparable<AbstractPath>, Iterable<Abstract
       .filter(c -> c != 0)
       .findFirst()
       .orElse(n1 - n2);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (o == null || getClass() != o.getClass()) return false;
+    AbstractPath that = (AbstractPath) o;
+    return Objects.equals(parts, that.parts);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(parts);
   }
 
 }

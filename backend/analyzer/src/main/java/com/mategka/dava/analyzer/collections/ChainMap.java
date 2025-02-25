@@ -166,6 +166,14 @@ public class ChainMap<K, V> implements Map<K, V> {
       .collect(Collectors.toList());
   }
 
+  private Option<V> getInternal(Object key) {
+    //noinspection SuspiciousMethodCalls
+    return AnStream.from(maps)
+      .filter(map -> map.containsKey(key))
+      .findFirstAsOption()
+      .map(map -> map.get(key));
+  }
+
   @Override
   public boolean equals(Object o) {
     if (!(o instanceof ChainMap<?, ?> chainMap)) return false;
@@ -177,14 +185,6 @@ public class ChainMap<K, V> implements Map<K, V> {
   @Override
   public int hashCode() {
     return Objects.hashCode(maps);
-  }
-
-  private Option<V> getInternal(Object key) {
-    //noinspection SuspiciousMethodCalls
-    return AnStream.from(maps)
-      .filter(map -> map.containsKey(key))
-      .findFirstAsOption()
-      .map(map -> map.get(key));
   }
 
 }

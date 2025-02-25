@@ -1,8 +1,10 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
 import com.mategka.dava.analyzer.extension.AnStream;
+import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
+import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -37,8 +39,22 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
     return new SymbolBuilder();
   }
 
+  public long getId() {
+    return key.symbolId();
+  }
+
+  public long getParentId() throws NoSuchElementException {
+    return getPropertyValue(ParentProperty.class)
+      .map(KnownType::getSymbolId)
+      .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
+  }
+
   public SymbolKey getParentKey() throws NoSuchElementException {
     return new SymbolKey(getParentId(), key.strandId());
+  }
+
+  public long getStrandId() {
+    return key.strandId();
   }
 
   public SymbolBuilder toBuilder() {
@@ -63,6 +79,19 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
     return toBuilder().properties(updatedProperties).build();
   }
 
+  private void assertUpdatesApply(@NotNull Collection<? extends SymbolUpdate> updates) {
+    var violation = AnStream.from(updates)
+      .filter(u -> !u.appliesTo(this))
+      .findFirstAsOption();
+    if (violation.isSome()) {
+      var key = violation.getOrThrow().getKey();
+      throw new IllegalArgumentException(
+        "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(
+          key.symbolId(), key.strandId(), this.key.symbolId(), this.key.strandId())
+      );
+    }
+  }
+
   @SuppressWarnings("MethodDoesntCallSuperMethod")
   @Override
   public Symbol clone() {
@@ -85,19 +114,6 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
   @Override
   public String toString() {
     return "[%d] %s".formatted(key.symbolId(), getDisplayName());
-  }
-
-  private void assertUpdatesApply(@NotNull Collection<? extends SymbolUpdate> updates) {
-    var violation = AnStream.from(updates)
-      .filter(u -> !u.appliesTo(this))
-      .findFirstAsOption();
-    if (violation.isSome()) {
-      var key = violation.getOrThrow().getKey();
-      throw new IllegalArgumentException(
-        "Cannot apply update for symbol %d@%d to symbol %d@%d".formatted(
-          key.symbolId(), key.strandId(), this.key.symbolId(), this.key.strandId())
-      );
-    }
   }
 
   public static class SymbolBuilder {

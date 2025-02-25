@@ -1,10 +1,10 @@
 package com.mategka.dava.analyzer.spoon;
 
-import com.mategka.dava.analyzer.collections.Box;
 import com.mategka.dava.analyzer.extension.CollectionsX;
 import com.mategka.dava.analyzer.extension.option.Option;
 
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
@@ -27,9 +27,10 @@ public class CtEqPath implements CtPath, Comparable<CtPath> {
   @Delegate
   CtPath path;
 
-  Box<String> cachedStringRepresentation = Box.empty();
+  @Getter(lazy = true, value = AccessLevel.PRIVATE)
+  String cachedStringRepresentation = path.toString();
 
-  public static CtEqPath of(CtElement element) throws CtPathException {
+  public static CtEqPath of(@NotNull CtElement element) throws CtPathException {
     if (element instanceof CtModelImpl.CtRootPackage) {
       return EMPTY;
     }
@@ -38,6 +39,11 @@ public class CtEqPath implements CtPath, Comparable<CtPath> {
 
   public <T extends CtElement> Option<T> evaluateOn(CtModel model, Class<T> clazz) {
     return CollectionsX.firstOfType(path.evaluateOn(model.getRootPackage()), clazz);
+  }
+
+  @Override
+  public int compareTo(@NotNull CtPath o) {
+    return toString().compareTo(o.toString());
   }
 
   @Override
@@ -52,13 +58,8 @@ public class CtEqPath implements CtPath, Comparable<CtPath> {
   }
 
   @Override
-  public int compareTo(@NotNull CtPath o) {
-    return toString().compareTo(o.toString());
-  }
-
-  @Override
   public String toString() {
-    return cachedStringRepresentation.computeIfAbsent(path::toString);
+    return getCachedStringRepresentation();
   }
 
 }

@@ -1,6 +1,7 @@
-package com.mategka.dava.analyzer.extension;
+package com.mategka.dava.analyzer.extension.stream;
 
-import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.Covariant;
+import com.mategka.dava.analyzer.extension.Pair;
 
 import com.google.common.collect.Streams;
 import lombok.AccessLevel;
@@ -9,9 +10,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.*;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -59,6 +58,10 @@ public class AnStream<T> extends AbstractStreamAdapter<T, AnStream<T>> {
     return new AnStream<>(Streams.zip(streamA, streamB, Pair::of));
   }
 
+  public <U extends T> AnStream<U> allow(Class<U> clazz) {
+    return filter(clazz).map(clazz::cast);
+  }
+
   public AnStream<T> concat(Stream<? extends T> stream) {
     return new AnStream<>(Stream.concat(this.stream, stream));
   }
@@ -78,8 +81,8 @@ public class AnStream<T> extends AbstractStreamAdapter<T, AnStream<T>> {
     return new AnStream<>(stream.mapMulti(mapper));
   }
 
-  public <U extends T> AnStream<U> narrow(Class<U> clazz) {
-    return new AnStream<>(stream.map(e -> Option.cast(e, clazz)).mapMulti(Option.yieldIfSome()));
+  public AnStream<T> reject(Class<? extends T> clazz) {
+    return filter(Predicate.not(clazz::isInstance));
   }
 
 }

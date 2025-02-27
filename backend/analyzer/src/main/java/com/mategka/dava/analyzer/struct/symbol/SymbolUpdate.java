@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
+import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 
@@ -16,7 +17,7 @@ public class SymbolUpdate implements PropertyIndexable {
   SymbolKey key;
 
   @NonNull
-  String commitSha;
+  Hash commit;
 
   @NonNull
   PropertyMap properties;

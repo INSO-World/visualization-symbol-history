@@ -1,10 +1,11 @@
-package com.mategka.dava.analyzer.struct.symbol;
+package com.mategka.dava.analyzer.struct.pipeline;
 
 import com.mategka.dava.analyzer.collections.ClassSet;
 import com.mategka.dava.analyzer.collections.Stack;
-import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.spoon.Spoon;
+import com.mategka.dava.analyzer.struct.symbol.Subject;
 
 import lombok.experimental.UtilityClass;
 import spoon.reflect.code.CtBodyHolder;

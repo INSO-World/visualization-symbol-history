@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.extension;
+package com.mategka.dava.analyzer.extension.stream;
 
 import com.mategka.dava.analyzer.extension.option.Option;
 

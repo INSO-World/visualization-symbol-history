@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
-import com.mategka.dava.analyzer.extension.AnStream;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
+import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
@@ -22,16 +23,16 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
   SymbolKey key;
 
   @NonNull
-  String commitSha;
+  Hash commit;
 
   @NonNull
   List<Long> predecessors;
 
-  public Symbol(@NonNull SymbolKey key, @NonNull String commitSha, @NonNull List<Long> predecessors,
+  public Symbol(@NonNull SymbolKey key, @NonNull Hash commit, @NonNull List<Long> predecessors,
                 @NonNull PropertyMap properties) {
     super(properties);
     this.key = key;
-    this.commitSha = commitSha;
+    this.commit = commit;
     this.predecessors = predecessors;
   }
 
@@ -57,9 +58,13 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
     return key.strandId();
   }
 
+  public Symbol succeed(long strandId) {
+    return toBuilder().key(new SymbolKey(key.symbolId(), strandId)).build();
+  }
+
   public SymbolBuilder toBuilder() {
     return new SymbolBuilder().key(this.key)
-      .commitSha(this.commitSha)
+      .commit(this.commit)
       .predecessors(this.predecessors)
       .properties(this.properties);
   }
@@ -102,13 +107,13 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
   public boolean equals(Object o) {
     if (!(o instanceof Symbol that)) return false;
     if (!super.equals(o)) return false;
-    return Objects.equals(key, that.key) && Objects.equals(commitSha, that.commitSha)
+    return Objects.equals(key, that.key) && Objects.equals(commit, that.commit)
       && Objects.equals(predecessors, that.predecessors);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), key, commitSha, predecessors);
+    return Objects.hash(super.hashCode(), key, commit, predecessors);
   }
 
   @Override
@@ -121,17 +126,17 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
     private final List<Long> predecessors = new ArrayList<>();
     private final PropertyMap properties = new PropertyMap();
     private SymbolKey key;
-    private String commitSha;
+    private Hash commit;
 
     private SymbolBuilder() {
     }
 
     public Symbol build() {
-      return new Symbol(this.key, this.commitSha, this.predecessors, this.properties);
+      return new Symbol(this.key, this.commit, this.predecessors, this.properties);
     }
 
-    public SymbolBuilder commitSha(@NonNull String commitSha) {
-      this.commitSha = commitSha;
+    public SymbolBuilder commit(@NonNull Hash commit) {
+      this.commit = commit;
       return this;
     }
 
@@ -156,7 +161,7 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
     }
 
     public String toString() {
-      return "Symbol.SymbolBuilder(key=" + this.key + ", commitSha=" + this.commitSha + ", predecessors="
+      return "Symbol.SymbolBuilder(key=" + this.key + ", commit=" + this.commit + ", predecessors="
         + this.predecessors + ", properties=" + this.properties + ")";
     }
 

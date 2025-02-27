@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.extension;
+package com.mategka.dava.analyzer.extension.stream;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -17,6 +17,10 @@ public abstract class AbstractStreamAdapter<T, S extends AbstractStreamAdapter<T
     this.sameKindMapper = sameKindMapper;
   }
 
+  public S allow(Predicate<? super T> predicate) {
+    return filter(predicate);
+  }
+
   @Override
   public S distinct() {
     return sameKindMapper.apply(stream.distinct());
@@ -30,6 +34,10 @@ public abstract class AbstractStreamAdapter<T, S extends AbstractStreamAdapter<T
   @Override
   public S filter(Predicate<? super T> predicate) {
     return sameKindMapper.apply(stream.filter(predicate));
+  }
+
+  public S filter(Class<? extends T> clazz) {
+    return filter(clazz::isInstance);
   }
 
   @Override
@@ -50,6 +58,10 @@ public abstract class AbstractStreamAdapter<T, S extends AbstractStreamAdapter<T
   @Override
   public S peek(Consumer<? super T> action) {
     return sameKindMapper.apply(stream.peek(action));
+  }
+
+  public S reject(Predicate<? super T> predicate) {
+    return filter(Predicate.not(predicate));
   }
 
   @Override

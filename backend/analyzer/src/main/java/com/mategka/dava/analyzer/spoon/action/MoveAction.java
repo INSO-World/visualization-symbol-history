@@ -14,4 +14,9 @@ public class MoveAction implements EditAction {
   @NonNull
   Subject newSubject;
 
+  @Override
+  public String toString() {
+    return "~ %s -> %s".formatted(oldSubject.toDescriptor(), newSubject.toDescriptor());
+  }
+
 }

@@ -1,21 +1,23 @@
 package com.mategka.dava.analyzer;
 
 import com.mategka.dava.analyzer.collections.IndexMap;
-import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.CollectorsX;
 import com.mategka.dava.analyzer.extension.Pair;
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.spoon.action.*;
 import com.mategka.dava.analyzer.struct.CommitDiff;
-import com.mategka.dava.analyzer.struct.FileEntry;
 import com.mategka.dava.analyzer.struct.History;
+import com.mategka.dava.analyzer.struct.pipeline.PropertyCapture;
+import com.mategka.dava.analyzer.struct.pipeline.Symbolizer;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.symbol.*;
+import com.mategka.dava.analyzer.struct.workspace.FileEntry;
 import com.mategka.dava.analyzer.struct.workspace.StrandWorkspace;
 import com.mategka.dava.analyzer.struct.workspace.StrandWorkspaceIndex;
 import com.mategka.dava.analyzer.util.Benchmark;
@@ -53,36 +55,23 @@ public class App {
       // TODO: Traverse commits in normal topological order for ~5% performance boost
       try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (Commit commit : commitWalk) {
-          var strand = history.getStrandMapping().get(commit.sha());
+          var strand = history.getStrandMapping().get(commit.hash());
           var workspace = workspaces.get(strand);
-          System.out.print(commit.shortSha() + " ");
-          if (++offset >= 12) {
+          System.out.print(commit.hash().minimal() + " ");
+          if (++offset >= 18) {
             offset = 0;
             System.out.println();
           }
           var parent = Option.getFirst(commit.parents());
           if (parent.isNone()) {
             // TODO: Fix initial commit variant algorithm
-            /*var diffs = repository.initialCommitFilesOf(commit);
-            var additions = RelevantDiffs.extract(diffs).get(FileChangeType.ADDED);
-            if (additions.isEmpty()) {
-              // No relevant changes
-              continue;
-            }
-            var currentContents = workspace.getSpoonFiles();
-            for (var diff : additions) {
-              var content = repository.readFile(diff, Side.NEW).getSuccess().orElseThrow();
-              var file = new VirtualFile(content, diff.getNewPath());
-              currentContents.put(file.getPath(), file);
-            }
-            for (var file : currentContents.values()) {
-              //workspace.getSpoonUnits().put(file, Spoon.parse(file));
-            }
-            */
             continue;
           }
           var actualParent = parent.getOrThrow();
-          var parentStrand = history.getStrandMapping().get(actualParent.sha());
+          var parentStrand = history.getStrandMapping().get(actualParent.hash());
+          if (parentStrand != strand) {
+            System.out.printf("Switching strand from %s to %s%n", parentStrand.getId(), strand.getId());
+          }
           var parentWorkspace = workspaces.getReadonly(parentStrand);
           try (DiffFormatter formatter = repository.newFormatter()) {
             var diffs = formatter.scan(actualParent.tree(), commit.tree());
@@ -99,7 +88,7 @@ public class App {
             var derivativeDiffPairs = Stream.of(FileChangeType.RENAMED, FileChangeType.MOVED, FileChangeType.COPIED)
               .flatMap(t -> relevantDiffs.get(t).stream().map(d -> Pair.of(t, d)))
               .toList();
-            var creationContext = new SymbolCreationContext(symbolIdCounter, strand.getId(), commit.sha());
+            var creationContext = new SymbolCreationContext(symbolIdCounter, strand.getId(), commit.hash());
             var symbolizer = new Symbolizer(creationContext);
             List<Symbol> additions = new ArrayList<>();
             List<Symbol> deletions = new ArrayList<>();
@@ -129,6 +118,8 @@ public class App {
                 new HashMap<>(),
                 () -> EnumSet.noneOf(UpdateFlag.class)
               );
+              // TODO: Deal with the fact that when replacing, old symbols may not exist when deleting or moving in App
+              // Or rather, they will still exist, we only need to replace the root symbol itself and not touch anything else
               for (var action : actions) {
                 switch (action) {
                   case ReplacementAction replacementAction -> {
@@ -178,16 +169,18 @@ public class App {
                   }
                 }
               }
-              updateProperties.rowMap().entrySet().stream()
+              var newUpdates = updateProperties.rowMap().entrySet().stream()
                 .map(Pair::fromEntry)
                 .map(Pair.mapping(id -> new SymbolKey(id, strand.getId()), PropertyMap::new))
                 .map(Pair.folding((key, map) -> new SymbolUpdate(
                   key,
-                  commit.sha(),
+                  commit.hash(),
                   map,
                   updateFlags.get(key.symbolId())
                 )))
-                .forEach(updates::put);
+                .toList();
+              newUpdates.forEach(workspace::updateSymbol);
+              updates.putAll(newUpdates);
               workspace.updateFileEntry(diff.getOldPath(), newFile, newUnit);
               int dummy = 1;
             }
@@ -201,7 +194,8 @@ public class App {
               var symbols = symbolizer.symbolizeType(typeDeclaration, pakkage).toMutableList();
               additions.addAll(symbols);
               var classSymbol = symbols.removeFirst();
-              workspace.putFileEntry(new FileEntry(diff.getNewPath(), newFile, newUnit, classSymbol));
+              workspace.putFileEntry(
+                new FileEntry(diff.getNewPath(), newFile, newUnit, classSymbol.getId()), classSymbol);
               symbols.forEach(workspace::putSymbol);
             }
             for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
@@ -212,7 +206,7 @@ public class App {
             }
             deletions.addAll(workspace.purgeEmptyPackages());
             var commitDiff = CommitDiff.builder()
-              .commit(commit)
+              .commitData(commit)
               .successions(Collections.emptyMap())
               .refactorings(Collections.emptyList())
               .additions(additions)

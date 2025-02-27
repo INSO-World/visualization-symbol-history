@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.struct.property.value;
 
-import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;

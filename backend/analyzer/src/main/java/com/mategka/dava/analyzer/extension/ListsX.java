@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.extension;
 
+import com.mategka.dava.analyzer.extension.stream.AnStream;
+
 import com.leakyabstractions.result.core.Results;
 import lombok.experimental.UtilityClass;
 
@@ -40,7 +42,7 @@ public class ListsX {
   }
 
   public <T, U extends T> List<U> sublistOfType(Collection<T> collection, Class<U> clazz) {
-    return AnStream.from(collection).narrow(clazz).toList();
+    return AnStream.from(collection).filter(clazz).toList();
   }
 
 }

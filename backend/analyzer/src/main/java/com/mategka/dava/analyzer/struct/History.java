@@ -45,7 +45,7 @@ public class History {
   Graph<Strand> strandDag;
 
   @NonNull
-  Map<String, Strand> strandMapping;
+  Map<Hash, Strand> strandMapping;
 
   // Symbols are associated with a running ID
   // Property Update = Sealed hierarchy of types with unique name, new value and commit SHA
@@ -63,19 +63,19 @@ public class History {
   public static History emptyOfBranch(@NotNull RepositoryWrapper repository, Ref head) throws IOException {
     Set<Strand> baseStrands = new HashSet<>();
     MutableGraph<Strand> strandDag = GraphBuilder.directed().allowsSelfLoops(false).build();
-    Map<String, Strand> strandMapping = new HashMap<>();
-    Set<String> parentCommits = new HashSet<>();
-    Set<String> multiChildCommits = new HashSet<>();
+    Map<Hash, Strand> strandMapping = new HashMap<>();
+    Set<Hash> parentCommits = new HashSet<>();
+    Set<Hash> multiChildCommits = new HashSet<>();
     try (CommitWalk commitWalk = repository.commitsUpTo(head, CommitOrder.TOPOLOGICAL)) {
       for (Commit commit : commitWalk) {
         commit.disposeBody();
         commit.parents().stream()
-          .map(Commit::sha)
-          .forEach((parentSha) -> {
-            if (parentCommits.contains(parentSha)) {
-              multiChildCommits.add(parentSha);
+          .map(Commit::hash)
+          .forEach((parentHash) -> {
+            if (parentCommits.contains(parentHash)) {
+              multiChildCommits.add(parentHash);
             } else {
-              parentCommits.add(parentSha);
+              parentCommits.add(parentHash);
             }
           });
       }
@@ -83,22 +83,22 @@ public class History {
     try (CommitWalk commitWalk = repository.commitsUpTo(head, CommitOrder.REVERSE_TOPOLOGICAL)) {
       for (Commit commit : commitWalk) {
         String commitMessage = commit.summary();
-        var sha = commit.sha();
+        var hash = commit.hash();
         commit.disposeBody();
-        var parentShas = ListsX.map(commit.parents(), Commit::sha);
-        var hasMultiChildParent = parentShas.stream().anyMatch(multiChildCommits::contains);
-        var parentStrands = ListsX.map(parentShas, strandMapping::get);
-        if (hasMultiChildParent || parentShas.size() != 1) {
+        var parentHashes = ListsX.map(commit.parents(), Commit::hash);
+        var hasMultiChildParent = parentHashes.stream().anyMatch(multiChildCommits::contains);
+        var parentStrands = ListsX.map(parentHashes, strandMapping::get);
+        if (hasMultiChildParent || parentHashes.size() != 1) {
           var strand = Strand.builder().id(strandDag.nodes().size()).name(commitMessage).build();
           strandDag.addNode(strand);
-          strandMapping.put(sha, strand);
+          strandMapping.put(hash, strand);
           if (parentStrands.isEmpty()) {
             baseStrands.add(strand);
           } else {
             parentStrands.forEach(parentStrand -> strandDag.putEdge(parentStrand, strand));
           }
         } else {
-          strandMapping.put(sha, parentStrands.getFirst());
+          strandMapping.put(hash, parentStrands.getFirst());
         }
       }
     }

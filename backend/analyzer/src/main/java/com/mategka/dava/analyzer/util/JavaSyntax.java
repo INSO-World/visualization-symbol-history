@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.util;
 
-import com.mategka.dava.analyzer.extension.AnStream;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;

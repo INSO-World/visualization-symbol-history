@@ -7,9 +7,7 @@ import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -61,6 +59,10 @@ public class IndexMap<K, V> implements Map<K, V> {
       throw new IllegalArgumentException("Supplied key did not match key from value");
     }
     map.putAll(m);
+  }
+
+  public void putAll(Collection<? extends V> values) {
+    values.forEach(this::put);
   }
 
   @SuppressWarnings("UnusedReturnValue")

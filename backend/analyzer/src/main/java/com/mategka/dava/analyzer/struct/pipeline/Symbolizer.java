@@ -1,10 +1,13 @@
-package com.mategka.dava.analyzer.struct.symbol;
+package com.mategka.dava.analyzer.struct.pipeline;
 
-import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.struct.property.KindProperty;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
+import com.mategka.dava.analyzer.struct.symbol.Subject;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
+import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
 
 import lombok.Value;
 import spoon.reflect.declaration.CtElement;

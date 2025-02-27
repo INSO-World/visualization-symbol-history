@@ -40,5 +40,12 @@ testem.log
 # System Files
 .DS_Store
 Thumbs.db
+/*.ini
 
 vite.config.*.timestamp*
+
+# Local or temporary files
+.backup
+.local
+*.zip
+*.7z

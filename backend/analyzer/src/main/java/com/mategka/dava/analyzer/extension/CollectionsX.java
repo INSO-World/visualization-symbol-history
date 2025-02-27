@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.extension;
 
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 
 import lombok.experimental.UtilityClass;
 
@@ -15,7 +16,7 @@ import java.util.stream.Collectors;
 public class CollectionsX {
 
   public <T, U extends T> Option<U> firstOfType(SequencedCollection<T> collection, Class<U> clazz) {
-    return AnStream.from(collection).narrow(clazz).findFirstAsOption();
+    return AnStream.from(collection).filter(clazz).findFirstAsOption();
   }
 
   public <T, K> Map<K, T> groupBy(Collection<T> collection, Function<? super T, K> keyFn) {

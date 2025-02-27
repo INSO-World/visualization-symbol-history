@@ -32,14 +32,14 @@ public sealed class BareSymbol implements PropertyIndexable permits Symbol {
     return withProperty(ParentProperty.fromSymbol(newParentSymbol))
       .toSymbolBuilder()
       .key(symbol.getKey())
-      .commitSha(symbol.getCommitSha())
+      .commit(symbol.getCommit())
       .build();
   }
 
   public @NotNull Symbol complete(SymbolCreationContext context) {
     return toSymbolBuilder()
       .key(new SymbolKey(context.symbolIdCounter().getAndIncrement(), context.strandId()))
-      .commitSha(context.commitSha())
+      .commit(context.commit())
       .build();
   }
 

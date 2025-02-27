@@ -1,8 +1,7 @@
 package com.mategka.dava.analyzer.struct.workspace;
 
-import com.mategka.dava.analyzer.extension.AnStream;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
-import com.mategka.dava.analyzer.struct.FileEntry;
 import com.mategka.dava.analyzer.struct.Strand;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
@@ -50,5 +49,7 @@ public interface StrandWorkspace {
    * @return the cached Spoon parse result, or null if no matching file is registered
    */
   CtCompilationUnit getUnit(String filePath);
+
+  Succession succeed(Strand strand);
 
 }

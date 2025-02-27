@@ -14,4 +14,14 @@ public class UpdateAction implements EditAction {
   @NonNull
   Subject newSubject;
 
+  @Override
+  public String toString() {
+    var oldDescriptor = oldSubject.toDescriptor();
+    var newDescriptor = newSubject.toDescriptor();
+    if (oldDescriptor.equals(newDescriptor)) {
+      return "* " + oldDescriptor;
+    }
+    return "* %s -> %s".formatted(oldSubject.toDescriptor(), newSubject.toDescriptor());
+  }
+
 }

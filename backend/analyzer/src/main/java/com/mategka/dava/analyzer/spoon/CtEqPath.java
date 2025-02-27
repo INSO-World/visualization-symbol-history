@@ -20,11 +20,10 @@ import java.util.Objects;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor(staticName = "of")
-public class CtEqPath implements CtPath, Comparable<CtPath> {
+public class CtEqPath implements Comparable<CtPath> {
 
   public static final CtEqPath EMPTY = CtEqPath.of(new CtPathImpl());
 
-  @Delegate
   CtPath path;
 
   @Getter(lazy = true, value = AccessLevel.PRIVATE)

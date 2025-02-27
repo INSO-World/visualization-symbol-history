@@ -3,7 +3,6 @@ package com.mategka.dava.analyzer.extension.option;
 import com.mategka.dava.analyzer.extension.ComparatorsX;
 import com.mategka.dava.analyzer.extension.Pair;
 
-import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,7 +18,7 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
     return None.instance();
   }
 
-  static <T> @NotNull Option<T> Some(@NonNull T value) {
+  static <T> @NotNull Option<T> Some(@NotNull T value) {
     return Some.of(value);
   }
 
@@ -91,7 +90,7 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
   }
 
   default T getOrElse(T defaultValue) {
-    return fold(Function.identity(), () -> defaultValue);
+    return getOrCompute(() -> defaultValue);
   }
 
   default T getOrNull() {

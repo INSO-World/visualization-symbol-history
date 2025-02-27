@@ -1,8 +1,8 @@
 package com.mategka.dava.analyzer.struct.workspace;
 
-import com.mategka.dava.analyzer.struct.FileEntry;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
+import com.mategka.dava.analyzer.struct.symbol.SymbolUpdate;
 
 import org.jetbrains.annotations.NotNull;
 import spoon.reflect.CtModel;
@@ -37,9 +37,10 @@ public interface MutableStrandWorkspace extends StrandWorkspace {
   /**
    * Registers an entry for a file and adds its root symbol.
    *
-   * @param entry the entry for the new file
+   * @param entry      the entry for the new file
+   * @param rootSymbol the new root symbol
    */
-  void putFileEntry(@NotNull FileEntry entry);
+  void putFileEntry(@NotNull FileEntry entry, @NotNull Symbol rootSymbol);
 
   /**
    * Adds the given symbol to this workspace.
@@ -87,5 +88,7 @@ public interface MutableStrandWorkspace extends StrandWorkspace {
    * @param model the new model
    */
   void updateModel(CtModel model);
+
+  void updateSymbol(@NotNull SymbolUpdate update);
 
 }

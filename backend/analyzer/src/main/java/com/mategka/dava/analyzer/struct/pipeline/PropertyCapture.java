@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.struct.symbol;
+package com.mategka.dava.analyzer.struct.pipeline;
 
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.option.Option;
@@ -13,6 +13,7 @@ import com.mategka.dava.analyzer.struct.property.value.bound.TypeBound;
 import com.mategka.dava.analyzer.struct.property.value.bound.UpperTypeBound;
 import com.mategka.dava.analyzer.struct.property.value.type.Type;
 import com.mategka.dava.analyzer.struct.property.value.type.UnknownType;
+import com.mategka.dava.analyzer.struct.symbol.BareSymbol;
 
 import lombok.experimental.UtilityClass;
 import spoon.reflect.code.*;
@@ -145,7 +146,9 @@ public class PropertyCapture {
     var visibility = Visibility.fromModifiable(typeDeclaration);
     var ctSupertypes = typeDeclaration.isInterface()
       ? typeDeclaration.getSuperInterfaces()
-      : Set.of(typeDeclaration.getSuperclass());
+      : Option.fromNullable(typeDeclaration.getSuperclass())
+        .map(Set::of)
+        .getOrCompute(Collections::emptySet);
     var supertypes = ListsX.map(ctSupertypes, PropertyCapture::parseUnknownType);
     Set<CtTypeReference<?>> ctRealizations = typeDeclaration.isInterface()
       ? Collections.emptySet()

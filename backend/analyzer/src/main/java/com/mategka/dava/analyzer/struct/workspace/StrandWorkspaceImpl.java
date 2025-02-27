@@ -1,11 +1,12 @@
 package com.mategka.dava.analyzer.struct.workspace;
 
+import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.FastRecordCollection;
 import com.mategka.dava.analyzer.collections.IndexMap;
-import com.mategka.dava.analyzer.extension.AnStream;
+import com.mategka.dava.analyzer.extension.ListsX;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.spoon.Spoon;
-import com.mategka.dava.analyzer.struct.FileEntry;
 import com.mategka.dava.analyzer.struct.Strand;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.PathProperty;
@@ -46,19 +47,19 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
   /**
    * Maps Spoon paths to symbols.
    */
-  final Map<CtEqPath, Symbol> pathsToSymbols = new TreeMap<>();
+  final Map<CtEqPath, Long> pathsToSymbols = new TreeMap<>();
 
   /**
    * Maps symbol IDs to symbols.
    */
-  final IndexMap<SymbolKey, Symbol> keysToSymbols = new IndexMap<>(Symbol::getKey);
+  final IndexMap<Long, Symbol> symbolIndex = new IndexMap<>(Symbol::getId);
 
-  final Set<Symbol> innerPackageSymbols = new HashSet<>();
+  final Set<Long> innerPackageSymbols = new HashSet<>();
 
   /**
    * Maps parent to child symbols.
    */
-  final Multimap<SymbolKey, Symbol> parentsToChildren = HashMultimap.create();
+  final Multimap<Long, Long> parentsToChildren = HashMultimap.create();
 
   CtModel model = Spoon.EMPTY_MODEL;
 
@@ -80,7 +81,7 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
   public @NotNull Symbol getPackage(@NotNull CtPackage pakkage, @NotNull SymbolCreationContext context) {
     var pakkagePath = CtEqPath.of(pakkage);
     var pakkagePathProperty = new PathProperty(pakkagePath);
-    var existingSymbol = pathsToSymbols.get(pakkagePath);
+    var existingSymbol = getSymbol(pakkagePath);
     if (existingSymbol != null) {
       return existingSymbol;
     }
@@ -91,8 +92,8 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
         .property(pakkagePathProperty)
         .build();
       var rootPackage = new BareSymbol(properties).complete(context);
-      keysToSymbols.put(rootPackage);
-      pathsToSymbols.put(pakkagePath, rootPackage);
+      symbolIndex.put(rootPackage);
+      pathsToSymbols.put(pakkagePath, rootPackage.getId());
       return rootPackage;
     }
     var parentSymbol = getPackage(pakkage.getDeclaringPackage(), context);
@@ -104,7 +105,7 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
       .build();
     var childSymbol = new BareSymbol(properties).complete(context);
     putSymbol(childSymbol);
-    innerPackageSymbols.add(childSymbol);
+    innerPackageSymbols.add(childSymbol.getId());
     return childSymbol;
   }
 
@@ -116,7 +117,7 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
    */
   @Override
   public Symbol getSymbol(CtEqPath path) {
-    return pathsToSymbols.get(path);
+    return ChainMap.getOnce(pathsToSymbols, symbolIndex, path);
   }
 
   /**
@@ -139,7 +140,7 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
    */
   @Override
   public AnStream<Symbol> getSymbolsFromFilePath(@NotNull String filePath) {
-    var typeSymbol = fileEntries.getWhere(FileEntry::gitPath, filePath).rootSymbol();
+    var typeSymbol = symbolIndex.get(fileEntries.getWhere(FileEntry::gitPath, filePath).rootSymbol());
     return AnStream.cons(typeSymbol, getDescendantSymbols(typeSymbol));
   }
 
@@ -165,16 +166,21 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
    */
   @Override
   public void moveSymbol(@NotNull Symbol oldSymbol, @NotNull Symbol newSymbol) {
-    keysToSymbols.put(newSymbol);
-    pathsToSymbols.remove(oldSymbol.getPath());
-    pathsToSymbols.put(newSymbol.getPath(), newSymbol);
-    parentsToChildren.removeAll(oldSymbol.getKey());
-    var oldParentKey = oldSymbol.getParentKey();
-    var newParentKey = newSymbol.getParentKey();
-    if (!oldParentKey.equals(newParentKey) && parentsToChildren.containsKey(oldSymbol.getParentKey())) {
-      parentsToChildren.remove(oldSymbol.getParentKey(), oldSymbol);
+    assert oldSymbol.getId() == newSymbol.getId();
+    symbolIndex.put(newSymbol);
+    var oldSymbolPath = oldSymbol.getPath();
+    var newSymbolPath = newSymbol.getPath();
+    if (!oldSymbolPath.equals(newSymbolPath)) {
+      pathsToSymbols.remove(oldSymbolPath);
+      pathsToSymbols.put(newSymbolPath, newSymbol.getId());
     }
-    parentsToChildren.put(newSymbol.getParentKey(), newSymbol);
+    parentsToChildren.removeAll(oldSymbol.getId()); // Defensive statement (oldSymbol shouldn't have children)
+    var oldParentId = oldSymbol.getParentId();
+    var newParentId = newSymbol.getParentId();
+    if (oldParentId != newParentId) {
+      parentsToChildren.remove(oldSymbol.getParentId(), oldSymbol.getId());
+      parentsToChildren.put(newSymbol.getParentId(), newSymbol.getId());
+    }
   }
 
   /**
@@ -186,16 +192,17 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
   public @NotNull List<Symbol> purgeEmptyPackages() {
     List<Symbol> result = new ArrayList<>();
     while (true) {
-      var emptyPackages = innerPackageSymbols.stream()
-        .filter(s -> !parentsToChildren.containsKey(s.getKey()))
+      var emptyPackages = AnStream.from(innerPackageSymbols)
+        .reject(parentsToChildren::containsKey)
+        .map(symbolIndex::get)
         .toList();
       if (emptyPackages.isEmpty()) {
         break;
       }
       for (var emptyPackage : emptyPackages) {
-        keysToSymbols.removeByValue(emptyPackage);
+        symbolIndex.removeByValue(emptyPackage);
         pathsToSymbols.remove(emptyPackage.getPath());
-        innerPackageSymbols.remove(emptyPackage);
+        innerPackageSymbols.remove(emptyPackage.getId());
       }
       result.addAll(emptyPackages);
     }
@@ -205,11 +212,12 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
   /**
    * Registers an entry for a file and adds its root symbol.
    *
-   * @param entry the entry for the new file
+   * @param entry      the entry for the new file
+   * @param rootSymbol the new root symbol
    */
   @Override
-  public void putFileEntry(@NotNull FileEntry entry) {
-    putSymbol(entry.rootSymbol());
+  public void putFileEntry(@NotNull FileEntry entry, @NotNull Symbol rootSymbol) {
+    putSymbol(rootSymbol);
     fileEntries.add(entry);
   }
 
@@ -220,9 +228,9 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
    */
   @Override
   public void putSymbol(@NotNull Symbol symbol) {
-    keysToSymbols.put(symbol);
-    pathsToSymbols.put(symbol.getPath(), symbol);
-    parentsToChildren.put(symbol.getParentKey(), symbol);
+    symbolIndex.put(symbol);
+    pathsToSymbols.put(symbol.getPath(), symbol.getId());
+    parentsToChildren.put(symbol.getParentId(), symbol.getId());
   }
 
   /**
@@ -244,12 +252,24 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
    */
   @Override
   public void removeSymbol(Symbol symbol) {
-    keysToSymbols.removeByValue(symbol);
+    symbolIndex.removeByValue(symbol);
     pathsToSymbols.remove(symbol.getPath());
-    parentsToChildren.removeAll(symbol.getKey());
-    if (parentsToChildren.containsKey(symbol.getParentKey())) {
-      parentsToChildren.remove(symbol.getParentKey(), symbol);
+    parentsToChildren.removeAll(symbol.getId());
+    if (parentsToChildren.containsKey(symbol.getParentId())) {
+      parentsToChildren.remove(symbol.getParentId(), symbol.getId());
     }
+  }
+
+  @Override
+  public Succession succeed(Strand strand) {
+    var workspace = new StrandWorkspaceImpl(strand);
+    workspace.fileEntries.addAll(fileEntries);
+    workspace.pathsToSymbols.putAll(pathsToSymbols);
+    var successors = symbolIndex.values().stream().map(s -> s.succeed(strand.getId())).toList();
+    workspace.symbolIndex.putAll(successors);
+    workspace.innerPackageSymbols.addAll(innerPackageSymbols);
+    workspace.parentsToChildren.putAll(parentsToChildren);
+    return new Succession(workspace, successors);
   }
 
   /**
@@ -282,7 +302,7 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
     fileEntries.computeWhere(
       FileEntry::rootSymbol,
       oldSymbol,
-      r -> new FileEntry(r.gitPath(), r.spoonFile(), r.spoonUnit(), newSymbol)
+      r -> new FileEntry(r.gitPath(), r.spoonFile(), r.spoonUnit(), newSymbol.getId())
     );
   }
 
@@ -296,6 +316,12 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
     this.model = model;
   }
 
+  @Override
+  public void updateSymbol(@NotNull SymbolUpdate update) {
+    var symbol = symbolIndex.get(update.getKey().symbolId());
+    moveSymbol(symbol, symbol.withUpdate(update));
+  }
+
   /**
    * Returns a stream of all symbols from the subtree rooted at the given symbol.
    *
@@ -303,7 +329,7 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
    * @return a stream of the given symbol and all its known descendants in preorder (parents before children)
    */
   private AnStream<Symbol> getDescendantSymbols(@NotNull Symbol symbol) {
-    var children = parentsToChildren.get(symbol.getKey());
+    var children = ListsX.map(parentsToChildren.get(symbol.getId()), symbolIndex::get);
     return AnStream.from(children).concat(children.stream().flatMap(this::getDescendantSymbols));
   }
 

@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.spoon.action;
 
-import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.struct.symbol.Subject;
 
 import lombok.NonNull;

@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.struct.property;
 
-import com.mategka.dava.analyzer.extension.AnStream;
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 import com.mategka.dava.analyzer.struct.property.value.Modifier;
 

@@ -1,8 +1,7 @@
 package com.mategka.dava.analyzer.struct.workspace;
 
-import com.mategka.dava.analyzer.extension.AnStream;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
-import com.mategka.dava.analyzer.struct.FileEntry;
 import com.mategka.dava.analyzer.struct.Strand;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
@@ -49,6 +48,11 @@ public class StrandWorkspaceView implements StrandWorkspace {
   @Override
   public CtCompilationUnit getUnit(String filePath) {
     return workspace.getUnit(filePath);
+  }
+
+  @Override
+  public Succession succeed(Strand strand) {
+    return workspace.succeed(strand);
   }
 
 }

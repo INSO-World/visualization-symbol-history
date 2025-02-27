@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer.struct;
 
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.git.Commit;
+import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.refactoring.SymbolRefactoring;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolUpdate;
@@ -23,13 +24,13 @@ public class CommitDiff {
    * The commit SHAs of all parents compared with.
    */
   @NonNull
-  List<String> parentCommitShas;
+  List<Hash> parentCommits;
 
   /**
    * The SHA of the commit addressed by this diff.
    */
   @NonNull
-  String commitSha;
+  Hash commit;
 
   /**
    * The date and time of the commit addressed by this diff.
@@ -91,9 +92,7 @@ public class CommitDiff {
 
   public static CommitDiff empty(Commit commit) {
     return CommitDiff.builder()
-      .parentCommitShas(ListsX.map(commit.parents(), Commit::sha))
-      .commitSha(commit.sha())
-      .commitDate(commit.dateTime())
+      .commitData(commit)
       .successions(Collections.emptyMap())
       .refactorings(Collections.emptyList())
       .additions(Collections.emptyList())
@@ -104,9 +103,9 @@ public class CommitDiff {
 
   public static class CommitDiffBuilder {
 
-    public CommitDiffBuilder commit(Commit commit) {
-      return parentCommitShas(ListsX.map(commit.parents(), Commit::sha))
-        .commitSha(commit.sha())
+    public CommitDiffBuilder commitData(Commit commit) {
+      return parentCommits(ListsX.map(commit.parents(), Commit::hash))
+        .commit(commit.hash())
         .commitDate(commit.dateTime());
     }
 

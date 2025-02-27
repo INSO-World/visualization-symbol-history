@@ -1,8 +1,10 @@
 package com.mategka.dava.analyzer.git;
 
+import lombok.*;
+import lombok.experimental.Accessors;
+import lombok.experimental.FieldDefaults;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTree;
-import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -10,7 +12,18 @@ import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
 
-public record Commit(@NotNull RevCommit revCommit) {
+@Getter
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@RequiredArgsConstructor
+@EqualsAndHashCode
+public final class Commit {
+
+  @NonNull
+  RevCommit revCommit;
+
+  @Accessors(fluent = true)
+  @Getter(lazy = true)
+  Hash hash = new Hash(revCommit.getId().getName());
 
   public ZonedDateTime dateTime() {
     assertParsed();
@@ -25,14 +38,6 @@ public record Commit(@NotNull RevCommit revCommit) {
 
   public List<Commit> parents() {
     return Arrays.stream(revCommit.getParents()).map(Commit::new).toList();
-  }
-
-  public String sha() {
-    return revCommit.getId().getName();
-  }
-
-  public String shortSha() {
-    return sha().substring(0, 6);
   }
 
   public String summary() {

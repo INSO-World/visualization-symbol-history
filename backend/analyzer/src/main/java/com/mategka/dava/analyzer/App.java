@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer;
 
 import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.extension.CollectorsX;
+import com.mategka.dava.analyzer.extension.MultimapsX;
 import com.mategka.dava.analyzer.extension.Pair;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
@@ -13,8 +14,10 @@ import com.mategka.dava.analyzer.struct.CommitDiff;
 import com.mategka.dava.analyzer.struct.History;
 import com.mategka.dava.analyzer.struct.pipeline.PropertyCapture;
 import com.mategka.dava.analyzer.struct.pipeline.Symbolizer;
+import com.mategka.dava.analyzer.struct.property.AnalyzerLevelProperty;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.Property;
+import com.mategka.dava.analyzer.struct.property.index.PropertyKeys;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.symbol.*;
 import com.mategka.dava.analyzer.struct.workspace.FileEntry;
@@ -114,22 +117,16 @@ public class App {
               var mappings = extractMappings(astDiff);
               var actions = EditActions.fromDiff(astDiff, mappings);
               Table<Long, String, Property> updateProperties = HashBasedTable.create();
-              SetMultimap<Long, UpdateFlag> updateFlags = Multimaps.newSetMultimap(
-                new HashMap<>(),
-                () -> EnumSet.noneOf(UpdateFlag.class)
-              );
-              // TODO: Deal with the fact that when replacing, old symbols may not exist when deleting or moving in App
-              // Or rather, they will still exist, we only need to replace the root symbol itself and not touch anything else
+              SetMultimap<Long, UpdateFlag> updateFlags = MultimapsX.newEnumSetMultimap(UpdateFlag.class);
+              Set<Symbol> bodyUpdateSymbols = new HashSet<>();
               for (var action : actions) {
                 switch (action) {
                   case ReplacementAction replacementAction -> {
                     var oldSymbol = parentWorkspace.getSymbol(replacementAction.getOldSubject().getElement());
+                    var id = oldSymbol.getId();
                     var newBareSymbol = PropertyCapture.parseElement(replacementAction.getNewSubject().getElement());
-                    updateProperties.row(oldSymbol.getId()).putAll(oldSymbol.getProperties().diff(newBareSymbol));
-                    var newParentSymbol = workspace.getSymbol(replacementAction.getNewSubject().getParent());
-                    var newSymbol = newBareSymbol.asReplacementFor(oldSymbol, newParentSymbol);
-                    updateFlags.put(oldSymbol.getId(), UpdateFlag.REPLACED);
-                    workspace.updateFileEntry(oldSymbol, newSymbol);
+                    updateProperties.row(id).putAll(oldSymbol.getProperties().diff(newBareSymbol));
+                    updateFlags.put(id, UpdateFlag.REPLACED);
                   }
                   case AdditionAction additionAction -> {
                     var newParentSymbol = workspace.getSymbol(additionAction.getNewParent());
@@ -146,13 +143,14 @@ public class App {
                   }
                   case BodyUpdateAction bodyUpdateAction -> {
                     var oldSymbol = parentWorkspace.getSymbol(bodyUpdateAction.getOldSubject().getElement());
-                    // TODO: Also allow body updates for unchanged symbols
+                    bodyUpdateSymbols.add(oldSymbol);
                     updateFlags.put(oldSymbol.getId(), UpdateFlag.BODY_UPDATED);
                   }
                   case MoveAction moveAction -> {
                     var oldSymbol = parentWorkspace.getSymbol(moveAction.getOldSubject().getElement());
+                    var id = oldSymbol.getId();
                     var newBareSymbol = PropertyCapture.parseElement(moveAction.getNewSubject().getElement());
-                    updateProperties.row(oldSymbol.getId()).putAll(oldSymbol.getProperties().diff(newBareSymbol));
+                    updateProperties.row(id).putAll(oldSymbol.getProperties().diff(newBareSymbol));
                     var newParentSymbol = workspace.getSymbol(moveAction.getNewSubject().getParent());
                     var newSymbol = newBareSymbol.asReplacementFor(oldSymbol, newParentSymbol);
                     workspace.moveSymbol(oldSymbol, newSymbol);
@@ -160,13 +158,21 @@ public class App {
                     var newParentMoved = Stream.of(UpdateFlag.MOVED, UpdateFlag.MOVED_WITH_PARENT)
                       .anyMatch(newParentFlags::contains);
                     var moveFlag = newParentMoved ? UpdateFlag.MOVED_WITH_PARENT : UpdateFlag.MOVED;
-                    updateFlags.put(oldSymbol.getId(), moveFlag);
+                    updateFlags.put(id, moveFlag);
                   }
                   case UpdateAction updateAction -> {
                     var oldSymbol = parentWorkspace.getSymbol(updateAction.getOldSubject().getElement());
+                    var id = oldSymbol.getId();
                     var newBareSymbol = PropertyCapture.parseElement(updateAction.getNewSubject().getElement());
-                    updateProperties.row(oldSymbol.getId()).putAll(oldSymbol.getProperties().diff(newBareSymbol));
+                    updateProperties.row(id).putAll(oldSymbol.getProperties().diff(newBareSymbol));
                   }
+                }
+              }
+              for (var symbol : bodyUpdateSymbols) {
+                if (!updateProperties.containsRow(symbol.getId())) {
+                  // Add _level update to ensure an update is created
+                  var levelProperty = AnalyzerLevelProperty.CURRENT;
+                  updateProperties.put(symbol.getId(), PropertyKeys.get(levelProperty.getClass()), levelProperty);
                 }
               }
               var newUpdates = updateProperties.rowMap().entrySet().stream()
@@ -191,7 +197,7 @@ public class App {
               var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
               var typeDeclaration = newUnit.getMainType();
 
-              var symbols = symbolizer.symbolizeType(typeDeclaration, pakkage).toMutableList();
+              var symbols = symbolizer.symbolizeRootType(typeDeclaration, pakkage).toMutableList();
               additions.addAll(symbols);
               var classSymbol = symbols.removeFirst();
               workspace.putFileEntry(
@@ -232,7 +238,7 @@ public class App {
       .map(Pair.mapping(Spoon::getMetaElement))
       .map(Pair.mapping(Options::fromNullable))
       .map(Pair.mapping(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e)))
-      .map(Options::pair)
+      .map(Options::flatten)
       .mapMulti(Options.yieldIfSome())
       .collect(CollectorsX.toBiMap());
   }

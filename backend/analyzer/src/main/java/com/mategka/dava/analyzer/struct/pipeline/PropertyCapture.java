@@ -48,6 +48,7 @@ public class PropertyCapture {
       a -> UnknownType.of(a.getAnnotationType().getQualifiedName())
     );
     var builder = PropertyMap.builder()
+      .property(AnalyzerLevelProperty.CURRENT)
       .property(new AnnotationsProperty(annotations))
       .property(LineRangeProperty.fromElement(element))
       .property(PathProperty.fromElement(element));

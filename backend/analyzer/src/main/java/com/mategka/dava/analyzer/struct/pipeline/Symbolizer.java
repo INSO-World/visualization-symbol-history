@@ -28,7 +28,7 @@ public class Symbolizer {
       .map(mapper(baseParent));
   }
 
-  public AnStream<Symbol> symbolizeType(CtType<?> typeDeclaration, Symbol packageSymbol) {
+  public AnStream<Symbol> symbolizeRootType(CtType<?> typeDeclaration, Symbol packageSymbol) {
     if (packageSymbol.getPropertyValue(KindProperty.class).getOrThrow() != Kind.PACKAGE) {
       throw new IllegalArgumentException("Given parent symbol was not a package-kind symbol");
     }

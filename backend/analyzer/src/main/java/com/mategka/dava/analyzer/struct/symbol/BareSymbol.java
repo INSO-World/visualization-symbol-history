@@ -29,8 +29,8 @@ public sealed class BareSymbol implements PropertyIndexable permits Symbol {
   }
 
   public @NotNull Symbol asReplacementFor(Symbol symbol, Symbol newParentSymbol) {
-    return withProperty(ParentProperty.fromSymbol(newParentSymbol))
-      .toSymbolBuilder()
+    return toSymbolBuilder()
+      .property(ParentProperty.fromSymbol(newParentSymbol))
       .key(symbol.getKey())
       .commit(symbol.getCommit())
       .build();
@@ -38,7 +38,7 @@ public sealed class BareSymbol implements PropertyIndexable permits Symbol {
 
   public @NotNull Symbol complete(SymbolCreationContext context) {
     return toSymbolBuilder()
-      .key(new SymbolKey(context.symbolIdCounter().getAndIncrement(), context.strandId()))
+      .key(context.generateKey())
       .commit(context.commit())
       .build();
   }
@@ -67,7 +67,7 @@ public sealed class BareSymbol implements PropertyIndexable permits Symbol {
     return SimpleNameProperty.ROOT_PACKAGE_NAME.equals(name.getOrThrow()) && Kind.PACKAGE.equals(kind.getOrThrow());
   }
 
-  public @NotNull Symbol.SymbolBuilder toSymbolBuilder() {
+  public @NotNull SymbolBuilder toSymbolBuilder() {
     return Symbol.builder().properties(properties);
   }
 

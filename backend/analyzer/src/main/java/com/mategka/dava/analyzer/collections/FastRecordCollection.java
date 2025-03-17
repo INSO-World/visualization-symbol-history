@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.collections;
 
 import com.mategka.dava.analyzer.extension.CollectorsX;
+import com.mategka.dava.analyzer.extension.MapsX;
 import com.mategka.dava.analyzer.extension.RecordClass;
 
 import com.google.common.collect.BiMap;
@@ -115,7 +116,7 @@ public class FastRecordCollection<R extends Record> implements Collection<R> {
 
   @SuppressWarnings("unused")
   public synchronized <C> R getWhere(Function<R, C> _accessor, C value) {
-    return ChainMap.getOnce(componentMap, recordMap, value);
+    return MapsX.get(componentMap, recordMap, value);
   }
 
   @Override

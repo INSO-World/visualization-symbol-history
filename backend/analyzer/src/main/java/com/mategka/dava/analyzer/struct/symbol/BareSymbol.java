@@ -30,17 +30,17 @@ public sealed class BareSymbol implements PropertyIndexable permits Symbol {
 
   public @NotNull Symbol asReplacementFor(Symbol symbol, Symbol newParentSymbol) {
     return toSymbolBuilder()
-        .property(ParentProperty.fromSymbol(newParentSymbol))
-        .key(symbol.getKey())
-        .commit(symbol.getCommit())
-        .build();
+      .property(ParentProperty.fromSymbol(newParentSymbol))
+      .key(symbol.getKey())
+      .commit(symbol.getCommit())
+      .build();
   }
 
   public @NotNull Symbol complete(SymbolCreationContext context) {
     return toSymbolBuilder()
-        .key(context.generateKey())
-        .commit(context.commit())
-        .build();
+      .key(context.generateKey())
+      .commit(context.commit())
+      .build();
   }
 
   public @NotNull String getDisplayName() {

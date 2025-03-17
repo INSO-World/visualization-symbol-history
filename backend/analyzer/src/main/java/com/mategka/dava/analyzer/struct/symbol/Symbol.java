@@ -61,9 +61,9 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
   public Symbol succeedOneToOne(long strandId) {
     var successorKey = new SymbolKey(key.symbolId(), strandId);
     return toBuilder()
-        .noPredecessors().predecessor(key)
-        .key(successorKey)
-        .build();
+      .noPredecessors().predecessor(key)
+      .key(successorKey)
+      .build();
   }
 
   public SymbolBuilder toBuilder() {

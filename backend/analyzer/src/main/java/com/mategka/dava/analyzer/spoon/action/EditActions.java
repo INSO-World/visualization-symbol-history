@@ -1,6 +1,5 @@
 package com.mategka.dava.analyzer.spoon.action;
 
-import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.extension.*;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
@@ -26,10 +25,10 @@ public class EditActions {
     BiMap<CtElement, CtElement> mappings
   ) {
     var rawActions = astDiff.getRootOperations().stream()
-        .map(EditActions::fromOperation)
-        .flatMap(Collection::stream)
-        .distinct()
-        .toList();
+      .map(EditActions::fromOperation)
+      .flatMap(Collection::stream)
+      .distinct()
+      .toList();
     var replacement = ReplacementTuple.find(rawActions);
     if (replacement.isSome()) {
       // Remove possible (now invalidated) mapping for the root replacement nodes
@@ -42,10 +41,10 @@ public class EditActions {
       }
     }
     var mappedDeletionsMap = AnStream.from(rawActions)
-        .allow(DeletionAction.class)
-        .map(Pair.fromRight(DeletionAction::getOldElement))
-        .filter(p -> mappings.containsKey(p.left()))
-        .collect(CollectorsX.pairsToMap());
+      .allow(DeletionAction.class)
+      .map(Pair.fromRight(DeletionAction::getOldElement))
+      .filter(p -> mappings.containsKey(p.left()))
+      .collect(CollectorsX.pairsToMap());
     var updatesStream = getUpdatesStream(mappings, mappedDeletionsMap.keySet());
     return replacement.fold(
         r -> editsWithReplacement(rawActions, r, mappings, mappedDeletionsMap),
@@ -73,28 +72,28 @@ public class EditActions {
     Set<CtElement> mappedParents = new HashSet<>();
     mappedParents.add(replacement.addition().action().getNewElement());
     var mainStream = AnStream.from(rawActions)
-        .skip(replacement.addition().index() + 1)
-        .reject(BodyUpdateAction.class)
-        .map((action) -> {
-          if (action instanceof AdditionAction additionAction) {
-            var newElement = additionAction.getNewElement();
-            if (mappings.inverse().containsKey(newElement)) {
-              var deletionAction = MapsX.get(mappings.inverse(), mappedDeletionsMap, newElement);
-              assert deletionAction != null;
-              BiFunction<Subject, Subject, EditAction> actionConstructor = MoveAction::of;
-              if (mappedParents.contains(additionAction.getNewParent())) {
-                mappedParents.add(newElement);
-                actionConstructor = UpdateAction::of;
-              }
-              return actionConstructor.apply(deletionAction.getOldSubject(), additionAction.getNewSubject());
+      .skip(replacement.addition().index() + 1)
+      .reject(BodyUpdateAction.class)
+      .map((action) -> {
+        if (action instanceof AdditionAction additionAction) {
+          var newElement = additionAction.getNewElement();
+          if (mappings.inverse().containsKey(newElement)) {
+            var deletionAction = MapsX.get(mappings.inverse(), mappedDeletionsMap, newElement);
+            assert deletionAction != null;
+            BiFunction<Subject, Subject, EditAction> actionConstructor = MoveAction::of;
+            if (mappedParents.contains(additionAction.getNewParent())) {
+              mappedParents.add(newElement);
+              actionConstructor = UpdateAction::of;
             }
+            return actionConstructor.apply(deletionAction.getOldSubject(), additionAction.getNewSubject());
           }
-          return action;
-        });
+        }
+        return action;
+      });
     var deletionsStream = AnStream.from(rawActions)
-        .limit(replacement.deletion().index())
-        .allow(DeletionAction.class)
-        .filter(deletion -> !mappedDeletionsMap.containsKey(deletion.getOldElement()));
+      .limit(replacement.deletion().index())
+      .allow(DeletionAction.class)
+      .filter(deletion -> !mappedDeletionsMap.containsKey(deletion.getOldElement()));
     // NOTE: This is safe since unchanged symbols cannot have symbols as parents that have been deleted
     return replacementStream.concat(mainStream).concat(deletionsStream);
   }
@@ -103,17 +102,17 @@ public class EditActions {
                                                        BiMap<CtElement, CtElement> mappings,
                                                        Map<CtElement, DeletionAction> mappedDeletionsMap) {
     return AnStream.from(rawActions)
-        .map((action) -> {
-          if (action instanceof AdditionAction additionAction) {
-            var newElement = additionAction.getNewElement();
-            if (mappings.inverse().containsKey(newElement)) {
-              var deletionAction = MapsX.get(mappings.inverse(), mappedDeletionsMap, newElement);
-              assert deletionAction != null;
-              return MoveAction.of(deletionAction.getOldSubject(), additionAction.getNewSubject());
-            }
+      .map((action) -> {
+        if (action instanceof AdditionAction additionAction) {
+          var newElement = additionAction.getNewElement();
+          if (mappings.inverse().containsKey(newElement)) {
+            var deletionAction = MapsX.get(mappings.inverse(), mappedDeletionsMap, newElement);
+            assert deletionAction != null;
+            return MoveAction.of(deletionAction.getOldSubject(), additionAction.getNewSubject());
           }
-          return action;
-        });
+        }
+        return action;
+      });
   }
 
   private List<SimpleEditAction> fromOperation(Operation<?> operation) {

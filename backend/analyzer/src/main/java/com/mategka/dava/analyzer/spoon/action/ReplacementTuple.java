@@ -15,10 +15,10 @@ record ReplacementTuple(ActionIndex<DeletionAction> deletion, ActionIndex<Additi
   static Option<ReplacementTuple> find(Collection<SimpleEditAction> rawActions) {
     var actionsToIndices = AnStream.fromIndexed(rawActions).collect(CollectorsX.pairsToMap());
     var candidates = AnStream.from(rawActions)
-        .reject(BodyUpdateAction.class)
-        .filter(a -> a.getReferenceParent() instanceof CtPackage)
-        .filter(a -> a.getReferenceElement() instanceof CtType<?>)
-        .toList();
+      .reject(BodyUpdateAction.class)
+      .filter(a -> a.getReferenceParent() instanceof CtPackage)
+      .filter(a -> a.getReferenceElement() instanceof CtType<?>)
+      .toList();
     var deletion = CollectionsX.firstOfType(candidates, DeletionAction.class);
     var addition = CollectionsX.lastOfType(candidates, AdditionAction.class);
     if (deletion.isNone() || addition.isNone()) {

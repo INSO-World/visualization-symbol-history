@@ -197,7 +197,7 @@ public class App {
               var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
               var typeDeclaration = newUnit.getMainType();
 
-              var symbols = symbolizer.symbolizeType(typeDeclaration, pakkage).toMutableList();
+              var symbols = symbolizer.symbolizeRootType(typeDeclaration, pakkage).toMutableList();
               additions.addAll(symbols);
               var classSymbol = symbols.removeFirst();
               workspace.putFileEntry(
@@ -238,7 +238,7 @@ public class App {
       .map(Pair.mapping(Spoon::getMetaElement))
       .map(Pair.mapping(Option::fromNullable))
       .map(Pair.mapping(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e)))
-      .map(Option::pair)
+      .map(Option::flatten)
       .mapMulti(Option.yieldIfSome())
       .collect(CollectorsX.toBiMap());
   }

@@ -283,9 +283,9 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
   public void updateFileEntry(@NotNull String gitPath, @NotNull VirtualFile spoonFile,
                               @NotNull CtCompilationUnit spoonUnit) {
     fileEntries.computeWhere(
-        FileEntry::gitPath,
-        gitPath,
-        r -> new FileEntry(r.gitPath(), spoonFile, spoonUnit, r.rootSymbol())
+      FileEntry::gitPath,
+      gitPath,
+      r -> new FileEntry(r.gitPath(), spoonFile, spoonUnit, r.rootSymbol())
     );
   }
 

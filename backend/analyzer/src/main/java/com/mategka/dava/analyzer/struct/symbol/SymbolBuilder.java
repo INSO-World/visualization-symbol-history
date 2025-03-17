@@ -60,7 +60,7 @@ public final class SymbolBuilder {
 
   public String toString() {
     return "Symbol.SymbolBuilder(key=" + this.key + ", commit=" + this.commit + ", predecessors="
-        + this.predecessors + ", properties=" + this.properties + ")";
+      + this.predecessors + ", properties=" + this.properties + ")";
   }
 
 }

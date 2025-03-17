@@ -1,8 +1,8 @@
 package com.mategka.dava.analyzer.util;
 
 import com.mategka.dava.analyzer.extension.option.Option;
-
 import com.mategka.dava.analyzer.extension.option.Options;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;

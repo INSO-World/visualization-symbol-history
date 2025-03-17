@@ -10,17 +10,17 @@ public abstract class MeanEstimator implements Estimator {
   long count = 0;
 
   @Override
-  public synchronized void reset() {
-    sum = 0;
-    count = 0;
-  }
-
-  @Override
   public synchronized int estimate() {
     if (count == 0) {
       return 0;
     }
     return Math.clamp(sum / count, 0, Integer.MAX_VALUE);
+  }
+
+  @Override
+  public synchronized void reset() {
+    sum = 0;
+    count = 0;
   }
 
 }

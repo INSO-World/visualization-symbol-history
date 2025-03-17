@@ -1,10 +1,10 @@
 package com.mategka.dava.analyzer.git;
 
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 
 import com.leakyabstractions.result.api.Result;
 import com.leakyabstractions.result.core.Results;
-import com.mategka.dava.analyzer.extension.option.Options;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;

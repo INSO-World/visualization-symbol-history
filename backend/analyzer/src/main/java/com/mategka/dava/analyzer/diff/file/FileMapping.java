@@ -1,15 +1,14 @@
 package com.mategka.dava.analyzer.diff.file;
 
-import com.google.common.collect.Table;
 import com.mategka.dava.analyzer.extension.Pair;
+
+import com.google.common.collect.Table;
 import lombok.Value;
 
 import java.util.List;
 
 @Value
 public class FileMapping {
-
-  public record DirectFileChange(String newPath, int parentIndex, FileChange change) {}
 
   Table<String, Integer, FileChange> mappings;
 
@@ -21,6 +20,10 @@ public class FileMapping {
       .map(Pair.mappingRight(Pair::fromEntry))
       .map(p -> new DirectFileChange(p.left(), p.right().left(), p.right().right()))
       .toList();
+  }
+
+  public record DirectFileChange(String newPath, int parentIndex, FileChange change) {
+
   }
 
   /*

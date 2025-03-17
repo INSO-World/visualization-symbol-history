@@ -2,10 +2,10 @@ package com.mategka.dava.analyzer.extension.stream;
 
 import com.mategka.dava.analyzer.extension.Covariant;
 import com.mategka.dava.analyzer.extension.Pair;
-
-import com.google.common.collect.Streams;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.option.Options;
+
+import com.google.common.collect.Streams;
 import lombok.AccessLevel;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;

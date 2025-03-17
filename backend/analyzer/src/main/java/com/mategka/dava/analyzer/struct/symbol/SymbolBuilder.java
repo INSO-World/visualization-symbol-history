@@ -4,14 +4,13 @@ import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import lombok.NonNull;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public final class SymbolBuilder {
 
-  private final List<SymbolKey> predecessors = new ArrayList<>();
+  private final Multimap<PrdRole, SymbolKey> predecessors = HashMultimap.create(PrdRole.SIZE, 2);
   private final PropertyMap properties = new PropertyMap();
   private SymbolKey key;
   private Hash commit;
@@ -38,13 +37,13 @@ public final class SymbolBuilder {
     return this;
   }
 
-  public SymbolBuilder predecessor(SymbolKey key) {
-    predecessors.add(key);
+  public SymbolBuilder predecessor(PrdRole role, SymbolKey key) {
+    predecessors.put(role, key);
     return this;
   }
 
-  public SymbolBuilder predecessors(@NonNull List<SymbolKey> predecessors) {
-    this.predecessors.addAll(predecessors);
+  public SymbolBuilder predecessors(@NonNull Multimap<PrdRole, SymbolKey> predecessors) {
+    this.predecessors.putAll(predecessors);
     return this;
   }
 

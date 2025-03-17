@@ -2,7 +2,6 @@ package com.mategka.dava.analyzer.extension.option;
 
 import com.mategka.dava.analyzer.extension.ComparatorsX;
 
-import com.mategka.dava.analyzer.extension.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,21 +17,6 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
 
   static <T> @NotNull Option<T> Some(@NotNull T value) {
     return Some.of(value);
-  }
-
-  static <L, R> @NotNull Option<Pair<L, R>> flatten(@NotNull Pair<Option<L>, Option<R>> optionPair) {
-    return pair(optionPair.left(), optionPair.right());
-  }
-
-  static <L, R> @NotNull Option<Pair<L, R>> pair(@NotNull L left, @NotNull R right) {
-    return Some(Pair.of(left, right));
-  }
-
-  static <L, R> @NotNull Option<Pair<L, R>> pair(@NotNull Option<L> left, @NotNull Option<R> right) {
-    if (left.isSome() && right.isSome()) {
-      return Some(Pair.of(left.getOrThrow(), right.getOrThrow()));
-    }
-    return None();
   }
 
   boolean contains(@Nullable T value);

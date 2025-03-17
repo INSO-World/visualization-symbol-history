@@ -1,8 +1,8 @@
 package com.mategka.dava.analyzer.extension.stream;
 
 import com.mategka.dava.analyzer.extension.option.Option;
-
 import com.mategka.dava.analyzer.extension.option.Options;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import org.jetbrains.annotations.NotNull;

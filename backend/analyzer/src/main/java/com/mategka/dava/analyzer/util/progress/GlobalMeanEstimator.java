@@ -7,14 +7,14 @@ import lombok.experimental.FieldDefaults;
 public class GlobalMeanEstimator extends MeanEstimator {
 
   @Override
-  public int getRetentionSize() {
-    return Integer.MAX_VALUE;
-  }
-
-  @Override
   public synchronized void accept(int value) {
     sum += value;
     count++;
+  }
+
+  @Override
+  public int getRetentionSize() {
+    return Integer.MAX_VALUE;
   }
 
 }

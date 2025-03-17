@@ -1,7 +1,5 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
@@ -9,6 +7,7 @@ import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
 
+import com.google.common.collect.Multimap;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
@@ -63,7 +62,7 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
   public Symbol succeedOneToOne(long strandId) {
     var successorKey = new SymbolKey(key.symbolId(), strandId);
     return toBuilder()
-      .noPredecessors().predecessor(key)
+      .noPredecessors().predecessor(PrdRole.DIRECT, key)
       .key(successorKey)
       .build();
   }

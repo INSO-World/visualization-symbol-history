@@ -1,20 +1,22 @@
 package com.mategka.dava.analyzer.diff.file;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import com.mategka.dava.analyzer.extension.PathsX;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.Commit;
 import com.mategka.dava.analyzer.git.FileChangeType;
 import com.mategka.dava.analyzer.git.RepositoryWrapper;
+
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
 import lombok.experimental.UtilityClass;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 
-import static com.mategka.dava.analyzer.extension.option.Option.*;
+import static com.mategka.dava.analyzer.extension.option.Option.None;
+import static com.mategka.dava.analyzer.extension.option.Option.Some;
 
 @UtilityClass
 public class FileDiff {
@@ -38,6 +40,10 @@ public class FileDiff {
       }
     }
     return new FileMapping(mapping);
+  }
+
+  private boolean isFileRelevant(@NotNull String filename) {
+    return filename.endsWith(".java");
   }
 
   private Option<FileChange> yieldIfRelevant(@NotNull DiffEntry diff) {
@@ -70,10 +76,6 @@ public class FileDiff {
       }
     }
     return None();
-  }
-
-  private boolean isFileRelevant(@NotNull String filename) {
-    return filename.endsWith(".java");
   }
 
 }

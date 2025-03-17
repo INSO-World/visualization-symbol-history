@@ -8,13 +8,10 @@ import com.leakyabstractions.result.core.Results;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;
-import org.eclipse.jgit.diff.DiffAlgorithm;
 import org.eclipse.jgit.diff.DiffEntry;
-import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.lib.*;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.TreeWalk;
-import org.eclipse.jgit.util.io.NullOutputStream;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
@@ -25,16 +22,16 @@ import java.util.List;
 
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class RepositoryWrapper implements AutoCloseable {
+public class Repository implements AutoCloseable {
 
-  Repository repository;
+  org.eclipse.jgit.lib.Repository spoonRepository;
 
-  public static RepositoryWrapper open(@NotNull String repositoryPath) throws IOException {
+  public static Repository open(@NotNull String repositoryPath) throws IOException {
     var repository = new RepositoryBuilder()
       .setMustExist(true)
       .setGitDir(getGitFolder(repositoryPath))
       .build();
-    return new RepositoryWrapper(repository);
+    return new Repository(repository);
   }
 
   private static File getGitFolder(@NotNull String repositoryPath) throws FileNotFoundException {
@@ -54,7 +51,7 @@ public class RepositoryWrapper implements AutoCloseable {
   }
 
   public CommitWalk commitsUpTo(@NotNull Ref head, CommitOrder order) throws IOException {
-    var revWalk = new RevWalk(repository);
+    var revWalk = new RevWalk(spoonRepository);
     var startCommit = revWalk.parseCommit(head.getObjectId());
     revWalk.markStart(startCommit);
     order.applyTo(revWalk);
@@ -71,19 +68,12 @@ public class RepositoryWrapper implements AutoCloseable {
     return result;
   }
 
-  public DiffFormatter newFormatter() {
-    DiffFormatter formatter = new DiffFormatter(NullOutputStream.INSTANCE);
-    formatter.setRepository(repository);
-    formatter.setContext(0);
-    formatter.setDetectRenames(true);
-    formatter.setDiffAlgorithm(DiffAlgorithm.getAlgorithm(DiffAlgorithm.SupportedAlgorithm.MYERS));
-    var renameDetector = formatter.getRenameDetector();
-    renameDetector.setRenameScore(50);
-    return formatter;
+  public TreeDiffer newTreeDiffer() {
+    return TreeDiffer.create(this);
   }
 
   public TreeWalk newTreeWalk(@NotNull Commit commit) throws IOException {
-    var walk = new TreeWalk(repository);
+    var walk = new TreeWalk(spoonRepository);
     walk.addTree(commit.tree());
     walk.setRecursive(true);
     return walk;
@@ -95,7 +85,7 @@ public class RepositoryWrapper implements AutoCloseable {
 
   public Result<String, IOException> readFile(ObjectId objectId) {
     try (
-      ObjectReader reader = repository.newObjectReader();
+      ObjectReader reader = spoonRepository.newObjectReader();
       ByteArrayOutputStream output = new ByteArrayOutputStream()
     ) {
       reader.open(objectId).copyTo(output);
@@ -106,12 +96,12 @@ public class RepositoryWrapper implements AutoCloseable {
   }
 
   public Option<Ref> resolveRef(@NotNull String name) {
-    return Options.fromCallable(() -> repository.findRef(name));
+    return Options.fromCallable(() -> spoonRepository.findRef(name));
   }
 
   @Override
   public void close() {
-    repository.close();
+    spoonRepository.close();
   }
 
 }

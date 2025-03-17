@@ -60,7 +60,7 @@ public class History {
   // In final result: include final state of all then-present and removed symbols on branch of HEAD
 
   @SuppressWarnings("UnstableApiUsage")
-  public static History emptyOfBranch(@NotNull RepositoryWrapper repository, Ref head) throws IOException {
+  public static History emptyOfBranch(@NotNull Repository repository, Ref head) throws IOException {
     Set<Strand> baseStrands = new HashSet<>();
     MutableGraph<Strand> strandDag = GraphBuilder.directed().allowsSelfLoops(false).build();
     Map<Hash, Strand> strandMapping = new HashMap<>();

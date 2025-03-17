@@ -11,5 +11,5 @@ public enum PrdRole {
   UPDATED,
   ;
 
-  static int SIZE = values().length;
+  static final int SIZE = values().length;
 }

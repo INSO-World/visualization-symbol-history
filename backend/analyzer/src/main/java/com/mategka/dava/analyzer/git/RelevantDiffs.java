@@ -48,6 +48,41 @@ public class RelevantDiffs {
     return result;
   }
 
+  public boolean isDiffRelevant(@NotNull DiffEntry diff) {
+    var changeType = diff.getChangeType();
+    return switch (changeType) {
+      case ADD, MODIFY, COPY -> isFileRelevant(diff.getNewPath());
+      case DELETE -> isFileRelevant(diff.getOldPath());
+      case RENAME -> {
+        var oldPathIsRelevant = isFileRelevant(diff.getOldPath());
+        var newPathIsRelevant = isFileRelevant(diff.getNewPath());
+        yield oldPathIsRelevant || newPathIsRelevant;
+      }
+    };
+  }
+
+  public FileChangeType getChangeType(@NotNull DiffEntry diff) {
+    var changeType = diff.getChangeType();
+    return switch (changeType) {
+      case ADD, MODIFY, COPY, DELETE -> FileChangeType.fromJGitChangeType(changeType);
+      case RENAME -> {
+        var oldPathIsRelevant = isFileRelevant(diff.getOldPath());
+        if (!oldPathIsRelevant) {
+          yield FileChangeType.ADDED;
+        }
+        var newPathIsRelevant = isFileRelevant(diff.getNewPath());
+        if (!newPathIsRelevant) {
+          yield FileChangeType.DELETED;
+        }
+        if (PathsX.areSiblingPaths(diff.getOldPath(), diff.getNewPath())) {
+          yield FileChangeType.RENAMED;
+        } else {
+          yield FileChangeType.MOVED;
+        }
+      }
+    };
+  }
+
   private boolean isFileRelevant(@NotNull String filename) {
     return filename.endsWith(".java");
   }

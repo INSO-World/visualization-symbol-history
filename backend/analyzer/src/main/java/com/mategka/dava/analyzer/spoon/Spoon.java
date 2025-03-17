@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.spoon;
 
-import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.util.JavaSyntax;
 
@@ -25,7 +25,7 @@ public class Spoon {
   public String descriptorOf(CtElement element) {
     return "%s %s".formatted(
       simpleNameOf(element.getClass()),
-      Option.cast(element, CtNamedElement.class)
+      Options.cast(element, CtNamedElement.class)
         .map(CtNamedElement::getSimpleName)
         .getOrElse("(unnamed)")
     );

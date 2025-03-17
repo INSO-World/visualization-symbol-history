@@ -1,12 +1,13 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
-
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
@@ -26,10 +27,10 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
   Hash commit;
 
   @NonNull
-  List<Long> predecessors;
+  Multimap<PrdRole, SymbolKey> predecessors;
 
-  public Symbol(@NonNull SymbolKey key, @NonNull Hash commit, @NonNull List<Long> predecessors,
-                @NonNull PropertyMap properties) {
+  public Symbol(@NonNull SymbolKey key, @NonNull Hash commit,
+                @NonNull Multimap<PrdRole, SymbolKey> predecessors, @NonNull PropertyMap properties) {
     super(properties);
     this.key = key;
     this.commit = commit;
@@ -123,7 +124,7 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
 
   public static class SymbolBuilder {
 
-    private final List<Long> predecessors = new ArrayList<>();
+    private final Multimap<PrdRole, SymbolKey> predecessors = HashMultimap.create(PrdRole.SIZE, 2);
     private final PropertyMap properties = new PropertyMap();
     private SymbolKey key;
     private Hash commit;
@@ -145,13 +146,13 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
       return this;
     }
 
-    public SymbolBuilder predecessor(long id) {
-      predecessors.add(id);
+    public SymbolBuilder predecessor(PrdRole role, SymbolKey symbolKey) {
+      predecessors.put(role, symbolKey);
       return this;
     }
 
-    public SymbolBuilder predecessors(@NonNull List<Long> predecessors) {
-      this.predecessors.addAll(predecessors);
+    public SymbolBuilder predecessors(@NonNull Multimap<PrdRole, SymbolKey> predecessors) {
+      this.predecessors.putAll(predecessors);
       return this;
     }
 

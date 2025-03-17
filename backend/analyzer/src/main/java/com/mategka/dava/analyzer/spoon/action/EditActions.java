@@ -2,7 +2,7 @@ package com.mategka.dava.analyzer.spoon.action;
 
 import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.extension.*;
-import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.struct.pipeline.ElementCapture;
 import com.mategka.dava.analyzer.struct.symbol.Subject;
@@ -145,13 +145,13 @@ public class EditActions {
       .map(elements -> {
         var oldParent = ElementCapture.getNearestValidParent(elements.left());
         var newParent = ElementCapture.getNearestValidParent(elements.right());
-        return Option.pair(oldParent, newParent).map(parents -> {
+        return Options.pair(oldParent, newParent).map(parents -> {
           var oldSubject = Subject.of(elements.left(), parents.left());
           var newSubject = Subject.of(elements.right(), parents.right());
           return UpdateAction.of(oldSubject, newSubject);
         });
       })
-      .mapMulti(Option.yieldIfSome());
+      .mapMulti(Options.yieldIfSome());
   }
 
 }

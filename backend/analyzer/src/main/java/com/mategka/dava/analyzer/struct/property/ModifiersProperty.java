@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.property;
 
-import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 import com.mategka.dava.analyzer.struct.property.value.Modifier;
@@ -26,7 +26,7 @@ public record ModifiersProperty(Set<Modifier> value) implements SetProperty<Modi
       .filter(kind -> kind != visibility)
       .filter(Objects::nonNull)
       .map(Modifier::fromModifierKind)
-      .mapMulti(Option.yieldIfSome())
+      .mapMulti(Options.yieldIfSome())
       .collect(Collectors.toSet());
   }
 

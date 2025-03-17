@@ -42,7 +42,7 @@ public class ListsX {
   }
 
   public <T, U extends T> List<U> sublistOfType(Collection<T> collection, Class<U> clazz) {
-    return AnStream.from(collection).filter(clazz).toList();
+    return (List<U>) AnStream.from(collection).filter(clazz).toList();
   }
 
 }

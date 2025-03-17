@@ -3,7 +3,7 @@ package com.mategka.dava.analyzer;
 import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.extension.CollectorsX;
 import com.mategka.dava.analyzer.extension.Pair;
-import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.spoon.AstComparator;
@@ -62,7 +62,7 @@ public class App {
             offset = 0;
             System.out.println();
           }
-          var parent = Option.getFirst(commit.parents());
+          var parent = Options.getFirst(commit.parents());
           if (parent.isNone()) {
             // TODO: Fix initial commit variant algorithm
             continue;
@@ -230,10 +230,10 @@ public class App {
       .map(m -> Pair.of(m.first, m.second))
       .filter(Pair.filtering(t -> !t.isRoot() && !t.getType().isEmpty()))
       .map(Pair.mapping(Spoon::getMetaElement))
-      .map(Pair.mapping(Option::fromNullable))
+      .map(Pair.mapping(Options::fromNullable))
       .map(Pair.mapping(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e)))
-      .map(Option::pair)
-      .mapMulti(Option.yieldIfSome())
+      .map(Options::pair)
+      .mapMulti(Options.yieldIfSome())
       .collect(CollectorsX.toBiMap());
   }
 

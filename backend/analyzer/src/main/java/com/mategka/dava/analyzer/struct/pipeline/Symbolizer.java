@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.pipeline;
 
-import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.struct.property.KindProperty;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
@@ -23,7 +23,7 @@ public class Symbolizer {
   SymbolCreationContext context;
 
   public AnStream<Symbol> symbolize(CtElement rootElement, Symbol baseParent) {
-    var parentElement = Option.when(rootElement.isParentInitialized(), rootElement::getParent).getOrElse(rootElement);
+    var parentElement = Options.when(rootElement.isParentInitialized(), rootElement::getParent).getOrElse(rootElement);
     return ElementCapture.parseElement(rootElement, parentElement)
       .map(mapper(baseParent));
   }

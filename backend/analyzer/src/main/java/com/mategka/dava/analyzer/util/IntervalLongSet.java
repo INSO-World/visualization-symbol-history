@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer.util;
 
 import com.mategka.dava.analyzer.extension.option.Option;
 
+import com.mategka.dava.analyzer.extension.option.Options;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -171,7 +172,7 @@ public class IntervalLongSet implements Set<Long> {
   }
 
   private Option<Entry> internalFloor(Long value) {
-    return Option.fromNullable(internalSet.floor(new Entry(value, 1)));
+    return Options.fromNullable(internalSet.floor(new Entry(value, 1)));
   }
 
   private record Entry(long start, long end) {

@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer.extension.stream;
 
 import com.mategka.dava.analyzer.extension.option.Option;
 
+import com.mategka.dava.analyzer.extension.option.Options;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import org.jetbrains.annotations.NotNull;
@@ -46,7 +47,7 @@ public abstract class AbstractStream<T> implements Stream<T> {
   }
 
   public @NotNull Option<T> findAnyAsOption() {
-    return Option.fromOptional(findAny());
+    return Options.fromOptional(findAny());
   }
 
   @Override
@@ -55,7 +56,7 @@ public abstract class AbstractStream<T> implements Stream<T> {
   }
 
   public @NotNull Option<T> findFirstAsOption() {
-    return Option.fromOptional(findFirst());
+    return Options.fromOptional(findFirst());
   }
 
   @Override
@@ -138,7 +139,7 @@ public abstract class AbstractStream<T> implements Stream<T> {
   }
 
   public @NotNull Option<T> maxAsOption(Comparator<? super T> comparator) {
-    return Option.fromOptional(max(comparator));
+    return Options.fromOptional(max(comparator));
   }
 
   @Override
@@ -147,7 +148,7 @@ public abstract class AbstractStream<T> implements Stream<T> {
   }
 
   public @NotNull Option<T> minAsOption(Comparator<? super T> comparator) {
-    return Option.fromOptional(min(comparator));
+    return Options.fromOptional(min(comparator));
   }
 
   @Override
@@ -171,7 +172,7 @@ public abstract class AbstractStream<T> implements Stream<T> {
   }
 
   public @NotNull Option<T> reduceAsOption(BinaryOperator<T> accumulator) {
-    return Option.fromOptional(reduce(accumulator));
+    return Options.fromOptional(reduce(accumulator));
   }
 
   @Override

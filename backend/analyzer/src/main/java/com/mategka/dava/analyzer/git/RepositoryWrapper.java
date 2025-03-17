@@ -4,6 +4,7 @@ import com.mategka.dava.analyzer.extension.option.Option;
 
 import com.leakyabstractions.result.api.Result;
 import com.leakyabstractions.result.core.Results;
+import com.mategka.dava.analyzer.extension.option.Options;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Value;
@@ -105,7 +106,7 @@ public class RepositoryWrapper implements AutoCloseable {
   }
 
   public Option<Ref> resolveRef(@NotNull String name) {
-    return Option.fromCallable(() -> repository.findRef(name));
+    return Options.fromCallable(() -> repository.findRef(name));
   }
 
   @Override

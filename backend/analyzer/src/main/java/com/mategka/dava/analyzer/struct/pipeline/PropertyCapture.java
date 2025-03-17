@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer.struct.pipeline;
 
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
@@ -72,7 +73,7 @@ public class PropertyCapture {
     if (!Spoon.isRegularConstructor(constructor)) {
       throw new IllegalArgumentException("Given subject constitutes an illegal constructor symbol basis");
     }
-    var name = Option.cast(constructor.getParent(), CtNamedElement.class)
+    var name = Options.cast(constructor.getParent(), CtNamedElement.class)
       .map(CtNamedElement::getSimpleName)
       .getOrElse("");
     var visibility = Visibility.fromModifiable(constructor);
@@ -85,7 +86,7 @@ public class PropertyCapture {
   }
 
   private BareSymbol parseEnumConstant(CtEnumValue<?> enumConstant) {
-    var arguments = Option.fromNullable(enumConstant.getDefaultExpression())
+    var arguments = Options.fromNullable(enumConstant.getDefaultExpression())
       .map(i -> (CtConstructorCall<?>) i)
       .map(CtAbstractInvocation::getArguments)
       .getOrElse(Collections.emptyList())
@@ -122,7 +123,7 @@ public class PropertyCapture {
   }
 
   private Option<Expression> parseNullableExpression(CtExpression<?> expression) {
-    return Option.fromNullable(expression).map(Expression::fromSpoon);
+    return Options.fromNullable(expression).map(Expression::fromSpoon);
   }
 
   private BareSymbol parseParameter(CtParameter<?> parameter) {
@@ -146,7 +147,7 @@ public class PropertyCapture {
     var visibility = Visibility.fromModifiable(typeDeclaration);
     var ctSupertypes = typeDeclaration.isInterface()
       ? typeDeclaration.getSuperInterfaces()
-      : Option.fromNullable(typeDeclaration.getSuperclass())
+      : Options.fromNullable(typeDeclaration.getSuperclass())
         .map(Set::of)
         .getOrCompute(Collections::emptySet);
     var supertypes = ListsX.map(ctSupertypes, PropertyCapture::parseUnknownType);
@@ -165,7 +166,7 @@ public class PropertyCapture {
 
   private TypeParameter parseTypeParameter(CtTypeParameter typeParameter) {
     var name = typeParameter.getSimpleName();
-    var bound = Option.fromNullable(typeParameter.getSuperclass())
+    var bound = Options.fromNullable(typeParameter.getSuperclass())
       .map(Object::toString)
       .map(UnknownType::of)
       .map(UpperTypeBound::new);

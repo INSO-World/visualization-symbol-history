@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.struct.property.index;
 
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.struct.property.NullableProperty;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.TypedProperty;
@@ -27,7 +28,7 @@ public interface PropertyIndexable {
     return switch (property) {
       case null -> Option.None();
       case NullableProperty<T> nullableProperty -> nullableProperty.asOption();
-      default -> Option.fromNullable(property.value());
+      default -> Options.fromNullable(property.value());
     };
   }
 

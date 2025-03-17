@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.struct.property.value;
 
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.struct.property.value.bound.UpperTypeBound;
 
 import lombok.*;
@@ -16,7 +17,7 @@ public final class TypeParameter {
   UpperTypeBound bound = null;
 
   public Option<UpperTypeBound> getTypeBound() {
-    return Option.fromNullable(bound);
+    return Options.fromNullable(bound);
   }
 
   @Override

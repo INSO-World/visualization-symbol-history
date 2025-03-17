@@ -4,6 +4,8 @@ import com.mategka.dava.analyzer.extension.Covariant;
 import com.mategka.dava.analyzer.extension.Pair;
 
 import com.google.common.collect.Streams;
+import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import lombok.AccessLevel;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
@@ -79,6 +81,10 @@ public class AnStream<T> extends AbstractStreamAdapter<T, AnStream<T>> {
   @Override
   public <R> AnStream<R> mapMulti(BiConsumer<? super T, ? super Consumer<R>> mapper) {
     return new AnStream<>(stream.mapMulti(mapper));
+  }
+
+  public <R> AnStream<R> mapOption(Function<? super T, Option<R>> mapper) {
+    return map(mapper).mapMulti(Options.yieldIfSome());
   }
 
   public AnStream<T> reject(Class<? extends T> clazz) {

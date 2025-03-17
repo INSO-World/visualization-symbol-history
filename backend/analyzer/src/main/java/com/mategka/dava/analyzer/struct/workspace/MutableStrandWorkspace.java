@@ -73,16 +73,6 @@ public interface MutableStrandWorkspace extends StrandWorkspace {
   void updateFileEntry(@NotNull String gitPath, @NotNull VirtualFile spoonFile, @NotNull CtCompilationUnit spoonUnit);
 
   /**
-   * Updates the root symbol for the file with the given current root symbol.
-   * When this method is called, {@link #updateFileEntry(String, VirtualFile, CtCompilationUnit)}
-   * should also be called either before or after.
-   *
-   * @param oldSymbol the old root symbol
-   * @param newSymbol the new root symbol
-   */
-  void updateFileEntry(@NotNull Symbol oldSymbol, @NotNull Symbol newSymbol);
-
-  /**
    * Updates the full Spoon model.
    *
    * @param model the new model

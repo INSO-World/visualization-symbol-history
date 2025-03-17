@@ -6,7 +6,6 @@ import com.mategka.dava.analyzer.extension.option.Option;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.NotNull;
 import spoon.reflect.CtModel;

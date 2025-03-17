@@ -6,10 +6,15 @@ import lombok.NonNull;
 import lombok.Value;
 
 @Value(staticConstructor = "of")
-public class BodyUpdateAction implements EditAction {
+public class BodyUpdateAction implements SimpleEditAction {
 
   @NonNull
   Subject oldSubject;
+
+  @Override
+  public Subject getReferenceSubject() {
+    return oldSubject;
+  }
 
   @Override
   public String toString() {

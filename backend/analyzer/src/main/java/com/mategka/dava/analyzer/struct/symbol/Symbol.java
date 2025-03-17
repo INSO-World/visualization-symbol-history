@@ -26,9 +26,9 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
   Hash commit;
 
   @NonNull
-  List<Long> predecessors;
+  List<SymbolKey> predecessors;
 
-  public Symbol(@NonNull SymbolKey key, @NonNull Hash commit, @NonNull List<Long> predecessors,
+  public Symbol(@NonNull SymbolKey key, @NonNull Hash commit, @NonNull List<SymbolKey> predecessors,
                 @NonNull PropertyMap properties) {
     super(properties);
     this.key = key;
@@ -58,8 +58,12 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
     return key.strandId();
   }
 
-  public Symbol succeed(long strandId) {
-    return toBuilder().key(new SymbolKey(key.symbolId(), strandId)).build();
+  public Symbol succeedOneToOne(long strandId) {
+    var successorKey = new SymbolKey(key.symbolId(), strandId);
+    return toBuilder()
+        .noPredecessors().predecessor(key)
+        .key(successorKey)
+        .build();
   }
 
   public SymbolBuilder toBuilder() {
@@ -119,52 +123,6 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
   @Override
   public String toString() {
     return "[%d] %s".formatted(key.symbolId(), getDisplayName());
-  }
-
-  public static class SymbolBuilder {
-
-    private final List<Long> predecessors = new ArrayList<>();
-    private final PropertyMap properties = new PropertyMap();
-    private SymbolKey key;
-    private Hash commit;
-
-    private SymbolBuilder() {
-    }
-
-    public Symbol build() {
-      return new Symbol(this.key, this.commit, this.predecessors, this.properties);
-    }
-
-    public SymbolBuilder commit(@NonNull Hash commit) {
-      this.commit = commit;
-      return this;
-    }
-
-    public SymbolBuilder key(@NonNull SymbolKey key) {
-      this.key = key;
-      return this;
-    }
-
-    public SymbolBuilder predecessor(long id) {
-      predecessors.add(id);
-      return this;
-    }
-
-    public SymbolBuilder predecessors(@NonNull List<Long> predecessors) {
-      this.predecessors.addAll(predecessors);
-      return this;
-    }
-
-    public SymbolBuilder properties(@NonNull PropertyMap properties) {
-      this.properties.putAll(properties);
-      return this;
-    }
-
-    public String toString() {
-      return "Symbol.SymbolBuilder(key=" + this.key + ", commit=" + this.commit + ", predecessors="
-        + this.predecessors + ", properties=" + this.properties + ")";
-    }
-
   }
 
 }

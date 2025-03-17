@@ -26,6 +26,10 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
     return fromNullable(value).narrow(clazz);
   }
 
+  static <L, R> @NotNull Option<Pair<L, R>> flatten(@NotNull Pair<Option<L>, Option<R>> optionPair) {
+    return pair(optionPair.left(), optionPair.right());
+  }
+
   static <T> @NotNull Option<T> fromCallable(@NotNull Callable<T> callable) {
     try {
       return fromNullable(callable.call());
@@ -56,15 +60,15 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
     return when(array.length > 0, () -> array[0]);
   }
 
+  static <L, R> @NotNull Option<Pair<L, R>> pair(@NotNull L left, @NotNull R right) {
+    return Some(Pair.of(left, right));
+  }
+
   static <L, R> @NotNull Option<Pair<L, R>> pair(@NotNull Option<L> left, @NotNull Option<R> right) {
     if (left.isSome() && right.isSome()) {
       return Some(Pair.of(left.getOrThrow(), right.getOrThrow()));
     }
     return None();
-  }
-
-  static <L, R> @NotNull Option<Pair<L, R>> pair(@NotNull Pair<Option<L>, Option<R>> optionPair) {
-    return pair(optionPair.left(), optionPair.right());
   }
 
   static <T> @NotNull Option<T> when(boolean condition, @NotNull Supplier<T> supplier) {

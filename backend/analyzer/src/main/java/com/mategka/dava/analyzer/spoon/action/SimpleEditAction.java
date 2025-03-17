@@ -4,7 +4,7 @@ import com.mategka.dava.analyzer.struct.symbol.Subject;
 
 import spoon.reflect.declaration.CtElement;
 
-public sealed interface SimpleEditAction extends EditAction permits AdditionAction, DeletionAction {
+public sealed interface SimpleEditAction extends EditAction permits BodyUpdateAction, AdditionAction, DeletionAction {
 
   default CtElement getReferenceElement() {
     return getReferenceSubject().getElement();

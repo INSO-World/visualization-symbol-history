@@ -29,18 +29,18 @@ public sealed class BareSymbol implements PropertyIndexable permits Symbol {
   }
 
   public @NotNull Symbol asReplacementFor(Symbol symbol, Symbol newParentSymbol) {
-    return withProperty(ParentProperty.fromSymbol(newParentSymbol))
-      .toSymbolBuilder()
-      .key(symbol.getKey())
-      .commit(symbol.getCommit())
-      .build();
+    return toSymbolBuilder()
+        .property(ParentProperty.fromSymbol(newParentSymbol))
+        .key(symbol.getKey())
+        .commit(symbol.getCommit())
+        .build();
   }
 
   public @NotNull Symbol complete(SymbolCreationContext context) {
     return toSymbolBuilder()
-      .key(new SymbolKey(context.symbolIdCounter().getAndIncrement(), context.strandId()))
-      .commit(context.commit())
-      .build();
+        .key(context.generateKey())
+        .commit(context.commit())
+        .build();
   }
 
   public @NotNull String getDisplayName() {
@@ -67,7 +67,7 @@ public sealed class BareSymbol implements PropertyIndexable permits Symbol {
     return SimpleNameProperty.ROOT_PACKAGE_NAME.equals(name.getOrThrow()) && Kind.PACKAGE.equals(kind.getOrThrow());
   }
 
-  public @NotNull Symbol.SymbolBuilder toSymbolBuilder() {
+  public @NotNull SymbolBuilder toSymbolBuilder() {
     return Symbol.builder().properties(properties);
   }
 

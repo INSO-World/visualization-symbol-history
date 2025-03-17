@@ -1,9 +1,9 @@
 package com.mategka.dava.analyzer.struct.workspace;
 
-import com.mategka.dava.analyzer.collections.ChainMap;
 import com.mategka.dava.analyzer.collections.FastRecordCollection;
 import com.mategka.dava.analyzer.collections.IndexMap;
 import com.mategka.dava.analyzer.extension.ListsX;
+import com.mategka.dava.analyzer.extension.MapsX;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.spoon.Spoon;
@@ -117,7 +117,7 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
    */
   @Override
   public Symbol getSymbol(CtEqPath path) {
-    return ChainMap.getOnce(pathsToSymbols, symbolIndex, path);
+    return MapsX.get(pathsToSymbols, symbolIndex, path);
   }
 
   /**
@@ -265,7 +265,7 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
     var workspace = new StrandWorkspaceImpl(strand);
     workspace.fileEntries.addAll(fileEntries);
     workspace.pathsToSymbols.putAll(pathsToSymbols);
-    var successors = symbolIndex.values().stream().map(s -> s.succeed(strand.getId())).toList();
+    var successors = symbolIndex.values().stream().map(s -> s.succeedOneToOne(strand.getId())).toList();
     workspace.symbolIndex.putAll(successors);
     workspace.innerPackageSymbols.addAll(innerPackageSymbols);
     workspace.parentsToChildren.putAll(parentsToChildren);
@@ -283,26 +283,9 @@ public class StrandWorkspaceImpl implements MutableStrandWorkspace {
   public void updateFileEntry(@NotNull String gitPath, @NotNull VirtualFile spoonFile,
                               @NotNull CtCompilationUnit spoonUnit) {
     fileEntries.computeWhere(
-      FileEntry::gitPath,
-      gitPath,
-      r -> new FileEntry(r.gitPath(), spoonFile, spoonUnit, r.rootSymbol())
-    );
-  }
-
-  /**
-   * Updates the root symbol for the file with the given current root symbol.
-   * When this method is called, {@link #updateFileEntry(String, VirtualFile, CtCompilationUnit)}
-   * should also be called either before or after.
-   *
-   * @param oldSymbol the old root symbol
-   * @param newSymbol the new root symbol
-   */
-  @Override
-  public void updateFileEntry(@NotNull Symbol oldSymbol, @NotNull Symbol newSymbol) {
-    fileEntries.computeWhere(
-      FileEntry::rootSymbol,
-      oldSymbol,
-      r -> new FileEntry(r.gitPath(), r.spoonFile(), r.spoonUnit(), newSymbol.getId())
+        FileEntry::gitPath,
+        gitPath,
+        r -> new FileEntry(r.gitPath(), spoonFile, spoonUnit, r.rootSymbol())
     );
   }
 

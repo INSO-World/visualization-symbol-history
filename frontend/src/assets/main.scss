@@ -1,0 +1,75 @@
+@use 'bulma/sass' with (
+  $body-overflow-y: auto
+);
+
+@import '@mdi/font/css/materialdesignicons.css';
+
+$header-height: 7rem;
+$pins-height: 3rem;
+$elements-pane-width: 24rem;
+$cell-height: 96px;
+$cell-width: 64px;
+
+$primary-border-color: #aaa;
+$secondary-border-color: #ccc;
+$navbar-border-width: 1px;
+$primary-border-width: 2px;
+$secondary-border-width: 1px;
+
+$timeline-bar-width: 24px;
+$timeline-spot-outline-diameter: 40px;
+
+$result-profile-size: 20px;
+$result-profile-border-width: 4px;
+
+$timeline-profile-size: 16px;
+$timeline-profile-border-width: 3px;
+
+.is-flex-static {
+  @extend .is-flex-grow-0;
+  @extend .is-flex-shrink-0;
+}
+
+.pb-pins {
+  padding-bottom: $pins-height;
+}
+
+.h-pins {
+  height: $pins-height;
+}
+
+.w-elements-pane {
+  width: $elements-pane-width;
+}
+
+.h-header {
+  height: $header-height;
+}
+
+.chip-very-high {
+  background-color: hsl(0, 100%, 80%);
+}
+
+.chip-high {
+  background-color: hsl(330, 100%, 80%);
+}
+
+.chip-medium {
+  background-color: hsl(300, 100%, 80%);
+}
+
+.chip-low {
+  background-color: hsl(270, 100%, 80%);
+}
+
+.chip-very-low {
+  background-color: hsl(240, 100%, 80%);
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.main-date {
+  background-color: hsl(0, 100%, 93%);
+}

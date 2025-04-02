@@ -9,13 +9,13 @@ import lombok.Value;
 import java.util.Set;
 
 @Value
-public class SymbolUpdate2 implements PropertyIndexable {
+public class SymbolUpdate implements PropertyIndexable {
 
   @NonNull
   SymbolKey sourceKey;
 
   @NonNull
-  Symbol2.Context targetContext;
+  Symbol.Context targetContext;
 
   @NonNull
   PropertyMap properties;

@@ -1,8 +1,8 @@
 package com.mategka.dava.analyzer.git;
 
 import com.mategka.dava.analyzer.diff.file.FileChange;
-import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.PathsX;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -59,19 +59,6 @@ public class RelevantDiffs {
       .toList();
   }
 
-  public boolean isDiffRelevant(@NotNull DiffEntry diff) {
-    var changeType = diff.getChangeType();
-    return switch (changeType) {
-      case ADD, MODIFY, COPY -> isFileRelevant(diff.getNewPath());
-      case DELETE -> isFileRelevant(diff.getOldPath());
-      case RENAME -> {
-        var oldPathIsRelevant = isFileRelevant(diff.getOldPath());
-        var newPathIsRelevant = isFileRelevant(diff.getNewPath());
-        yield oldPathIsRelevant || newPathIsRelevant;
-      }
-    };
-  }
-
   public FileChangeType getChangeType(@NotNull DiffEntry diff) {
     var changeType = diff.getChangeType();
     return switch (changeType) {
@@ -90,6 +77,19 @@ public class RelevantDiffs {
         } else {
           yield FileChangeType.MOVED;
         }
+      }
+    };
+  }
+
+  public boolean isDiffRelevant(@NotNull DiffEntry diff) {
+    var changeType = diff.getChangeType();
+    return switch (changeType) {
+      case ADD, MODIFY, COPY -> isFileRelevant(diff.getNewPath());
+      case DELETE -> isFileRelevant(diff.getOldPath());
+      case RENAME -> {
+        var oldPathIsRelevant = isFileRelevant(diff.getOldPath());
+        var newPathIsRelevant = isFileRelevant(diff.getNewPath());
+        yield oldPathIsRelevant || newPathIsRelevant;
       }
     };
   }

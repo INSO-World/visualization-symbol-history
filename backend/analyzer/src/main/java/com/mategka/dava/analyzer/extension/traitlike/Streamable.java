@@ -6,11 +6,11 @@ import java.util.stream.Stream;
 
 public interface Streamable<T, S extends Stream<T>> {
 
-  @NotNull S stream();
-
   default @NotNull S parallelStream() {
     //noinspection unchecked
     return (S) stream().parallel();
   }
+
+  @NotNull S stream();
 
 }

@@ -59,6 +59,10 @@ public abstract class AbstractStream<T> implements Stream<T> {
     return Options.fromOptional(findFirst());
   }
 
+  public Option<T> findFirstAsOption(Predicate<? super T> predicate) {
+    return Options.fromOptional(stream.filter(predicate).findFirst());
+  }
+
   @Override
   public DoubleStream flatMapToDouble(Function<? super T, ? extends DoubleStream> mapper) {
     return stream.flatMapToDouble(mapper);
@@ -209,10 +213,6 @@ public abstract class AbstractStream<T> implements Stream<T> {
 
   public Set<T> toSet(Supplier<? extends Set<T>> supplier) {
     return stream.collect(Collectors.toCollection(supplier));
-  }
-
-  public Option<T> findFirstAsOption(Predicate<? super T> predicate) {
-    return Options.fromOptional(stream.filter(predicate).findFirst());
   }
 
   @Override

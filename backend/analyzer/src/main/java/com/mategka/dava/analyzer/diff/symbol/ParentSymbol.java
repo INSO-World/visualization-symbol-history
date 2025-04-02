@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.diff.symbol;
 
-import com.mategka.dava.analyzer.struct.symbol.Symbol2;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
-public record ParentSymbol(int parentIndex, Symbol2 symbol) {
+public record ParentSymbol(int parentIndex, Symbol symbol) {
 
 }

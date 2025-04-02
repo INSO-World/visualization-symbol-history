@@ -18,11 +18,6 @@ public class ManyToOneMap<S, T, M> implements RelationshipMap<S, T, M> {
   Table<T, S, Mapping<S, T, M>> targetTable = HashBasedTable.create();
 
   @Override
-  public @NotNull Collection<Mapping<S, T, M>> mappings() {
-    return Collections.unmodifiableCollection(sourceMap.values());
-  }
-
-  @Override
   public @NotNull List<Mapping<S, T, M>> getBySource(S source) {
     return List.of(sourceMap.get(source));
   }
@@ -43,13 +38,8 @@ public class ManyToOneMap<S, T, M> implements RelationshipMap<S, T, M> {
   }
 
   @Override
-  public @NotNull Set<T> targets() {
-    return Collections.unmodifiableSet(targetTable.rowKeySet());
-  }
-
-  @Override
-  public @NotNull Set<S> sources() {
-    return Collections.unmodifiableSet(targetTable.columnKeySet());
+  public @NotNull Collection<Mapping<S, T, M>> mappings() {
+    return Collections.unmodifiableCollection(sourceMap.values());
   }
 
   @Override
@@ -104,6 +94,16 @@ public class ManyToOneMap<S, T, M> implements RelationshipMap<S, T, M> {
     var hadTarget = hasTarget(target);
     targetTable.row(target).clear();
     return hadTarget;
+  }
+
+  @Override
+  public @NotNull Set<S> sources() {
+    return Collections.unmodifiableSet(targetTable.columnKeySet());
+  }
+
+  @Override
+  public @NotNull Set<T> targets() {
+    return Collections.unmodifiableSet(targetTable.rowKeySet());
   }
 
   @Override

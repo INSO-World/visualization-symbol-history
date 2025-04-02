@@ -1,11 +1,11 @@
 package com.mategka.dava.analyzer.struct.pipeline;
 
-import com.mategka.dava.analyzer.extension.struct.TreeNode;
 import com.mategka.dava.analyzer.extension.option.Options;
+import com.mategka.dava.analyzer.extension.struct.TreeNode;
 import com.mategka.dava.analyzer.struct.property.KindProperty;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
-import com.mategka.dava.analyzer.struct.symbol.Symbol2;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.Contract;
@@ -17,10 +17,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 @UtilityClass
-public class Symbolizer2 {
+public class Symbolizer {
 
   @Contract(mutates = "param")
-  public @NotNull TreeNode<Symbol2> augmentParentProperty(@NotNull TreeNode<Symbol2> root) {
+  public @NotNull TreeNode<Symbol> augmentParentProperty(@NotNull TreeNode<Symbol> root) {
     //noinspection CodeBlock2Expr
     root.iterator().forEachRemaining(node -> {
       node.parent().ifSome(p -> node.value().putProperty(ParentProperty.fromSymbol(p.value())));
@@ -28,14 +28,14 @@ public class Symbolizer2 {
     return root;
   }
 
-  public TreeNode<Symbol2> symbolize(@NotNull CtElement rootElement, @NotNull Symbol2 baseParent) {
+  public TreeNode<Symbol> symbolize(@NotNull CtElement rootElement, @NotNull Symbol baseParent) {
     var parentElement = Options.when(rootElement.isParentInitialized(), rootElement::getParent).getOrElse(rootElement);
-    final TreeNode<Symbol2> virtualRoot = new TreeNode<>(baseParent);
-    final Map<CtElement, TreeNode<Symbol2>> symbolMap = new HashMap<>();
+    final TreeNode<Symbol> virtualRoot = new TreeNode<>(baseParent);
+    final Map<CtElement, TreeNode<Symbol>> symbolMap = new HashMap<>();
     ElementCapture.parseElement(rootElement, parentElement)
       .forEachOrdered(s -> {
         var parent = symbolMap.computeIfAbsent(s.getParent(), _k -> virtualRoot);
-        var symbol = PropertyCapture2.parseElement(s.getElement());
+        var symbol = PropertyCapture.parseElement(s.getElement());
         var symbolNode = new TreeNode<>(symbol);
         symbolMap.put(s.getElement(), symbolNode);
         parent.add(symbolNode);
@@ -43,7 +43,7 @@ public class Symbolizer2 {
     return virtualRoot.children().getFirst().toRoot();
   }
 
-  public TreeNode<Symbol2> symbolizeFileType(@NotNull CtType<?> typeDeclaration, @NotNull Symbol2 packageSymbol) {
+  public TreeNode<Symbol> symbolizeFileType(@NotNull CtType<?> typeDeclaration, @NotNull Symbol packageSymbol) {
     if (packageSymbol.getPropertyValue(KindProperty.class).getOrThrow() != Kind.PACKAGE) {
       throw new IllegalArgumentException("Given parent symbol was not a package-kind symbol");
     }

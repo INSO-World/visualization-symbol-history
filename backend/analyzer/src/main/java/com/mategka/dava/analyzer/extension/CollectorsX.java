@@ -1,7 +1,8 @@
 package com.mategka.dava.analyzer.extension;
 
-import com.google.common.collect.*;
 import com.mategka.dava.analyzer.extension.struct.Pair;
+
+import com.google.common.collect.*;
 import lombok.experimental.UtilityClass;
 
 import java.util.Map;
@@ -49,7 +50,10 @@ public class CollectorsX {
     return Collector.of(
       HashMultimap::create,
       (m, t) -> m.put(keyMapper.apply(t), valueMapper.apply(t)),
-      (m1, m2) -> { m1.putAll(m2); return m1; },
+      (m1, m2) -> {
+        m1.putAll(m2);
+        return m1;
+      },
       Collector.Characteristics.UNORDERED
     );
   }

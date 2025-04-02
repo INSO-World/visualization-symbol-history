@@ -64,15 +64,18 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
 
   <U extends T> @NotNull Option<U> narrow(@NotNull Class<U> clazz);
 
-  default Option<T> tap(@NotNull Consumer<T> consumer) {
-    return map(t -> { consumer.accept(t); return t; });
-  }
+  @NotNull Option<T> or(@NotNull Supplier<Option<T>> alternative);
 
   default <R> OptionSwitch<T, R> switchMap() {
     return new OptionSwitch<>(this);
   }
 
-  @NotNull Option<T> or(@NotNull Supplier<Option<T>> alternative);
+  default Option<T> tap(@NotNull Consumer<T> consumer) {
+    return map(t -> {
+      consumer.accept(t);
+      return t;
+    });
+  }
 
   default @NotNull Optional<T> toOptional() {
     return fold(Optional::of, Optional::empty);

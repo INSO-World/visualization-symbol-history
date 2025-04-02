@@ -10,7 +10,8 @@ import java.util.Map;
 @UtilityClass
 public class FileDiff {
 
-  public FileMapping getMapping(Array<Map<String, FileChange>> diffsPerParent, Array<Map<String, FileChange>> additionsPerParent) {
+  public FileMapping getMapping(Array<Map<String, FileChange>> diffsPerParent,
+                                Array<Map<String, FileChange>> additionsPerParent) {
     var mapping = new ManyToOneMap<ParentFile, String, FileChange>();
     for (var parentEntry : diffsPerParent.withIndex()) {
       int parentIndex = parentEntry.left();

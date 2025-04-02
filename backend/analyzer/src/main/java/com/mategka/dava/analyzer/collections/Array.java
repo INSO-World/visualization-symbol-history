@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.collections;
 
-import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.traitlike.Streamable;
 
 import lombok.AccessLevel;
@@ -45,6 +45,12 @@ public final class Array<T> implements List<T>, Streamable<T, AnStream<T>> {
     this(new Object[length]);
   }
 
+  @Contract(value = "_ -> new", pure = true)
+  @SafeVarargs
+  public static <T> @NotNull Array<T> of(T... elements) {
+    return new Array<>(elements);
+  }
+
   public static <T> Array<T> fromFunction(int length, IntFunction<? extends T> factory) {
     var result = new Array<T>(length);
     for (int i = 0; i < length; i++) {
@@ -61,10 +67,8 @@ public final class Array<T> implements List<T>, Streamable<T, AnStream<T>> {
     return result;
   }
 
-  @Contract(value = "_ -> new", pure = true)
-  @SafeVarargs
-  public static <T> @NotNull Array<T> of(T... elements) {
-    return new Array<>(elements);
+  public T[] asTypedArray() {
+    return array;
   }
 
   public T computeIfNull(int key, Function<@NotNull Integer, T> mappingFunction) {
@@ -80,18 +84,14 @@ public final class Array<T> implements List<T>, Streamable<T, AnStream<T>> {
     return t;
   }
 
-  public T[] asTypedArray() {
-    return array;
+  @Override
+  public @NotNull AnStream<T> parallelStream() {
+    return Streamable.super.parallelStream();
   }
 
   @Override
   public @NotNull AnStream<T> stream() {
     return AnStream.from(array);
-  }
-
-  @Override
-  public @NotNull AnStream<T> parallelStream() {
-    return Streamable.super.parallelStream();
   }
 
   public Iterable<Pair<Integer, T>> withIndex() {

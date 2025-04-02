@@ -21,14 +21,14 @@ public class CountingMap<K> implements Map<K, @NotNull Integer> {
   @Delegate
   Map<K, @NotNull Integer> map = new HashMap<>();
 
-  public void increment(K key) {
-    map.put(key, map.getOrDefault(key, 0) + 1);
-  }
-
   @CheckReturnValue
   public int getAndIncrement(K key) {
     return Options.fromNullable(map.put(key, map.getOrDefault(key, 0) + 1))
       .getOrElse(0);
+  }
+
+  public void increment(K key) {
+    map.put(key, map.getOrDefault(key, 0) + 1);
   }
 
   @CheckReturnValue

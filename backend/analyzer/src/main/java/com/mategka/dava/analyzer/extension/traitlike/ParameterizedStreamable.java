@@ -8,13 +8,6 @@ import java.util.stream.Stream;
 public interface ParameterizedStreamable<T, S extends Stream<T>, P> extends Streamable<T, S> {
 
   @Override
-  default @NotNull S stream() {
-    return stream(null);
-  }
-
-  @NotNull S stream(@Nullable P parameter);
-
-  @Override
   default @NotNull S parallelStream() {
     return parallelStream(null);
   }
@@ -23,5 +16,12 @@ public interface ParameterizedStreamable<T, S extends Stream<T>, P> extends Stre
     //noinspection unchecked
     return (S) stream(parameter).parallel();
   }
+
+  @Override
+  default @NotNull S stream() {
+    return stream(null);
+  }
+
+  @NotNull S stream(@Nullable P parameter);
 
 }

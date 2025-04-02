@@ -19,6 +19,14 @@ public class TreeDiffer {
 
   Repository repository;
 
+  public List<DiffEntry> diff(@NotNull Commit before, @NotNull Commit after) {
+    try (var diffFormatter = newFormatter()) {
+      return diffFormatter.scan(before.tree(), after.tree());
+    } catch (IOException e) {
+      throw new IllegalArgumentException("Could not determine differences for " + after, e);
+    }
+  }
+
   public DiffFormatter newFormatter() {
     DiffFormatter formatter = new DiffFormatter(NullOutputStream.INSTANCE);
     formatter.setRepository(repository.getSpoonRepository());
@@ -28,14 +36,6 @@ public class TreeDiffer {
     var renameDetector = formatter.getRenameDetector();
     renameDetector.setRenameScore(50);
     return formatter;
-  }
-
-  public List<DiffEntry> diff(@NotNull Commit before, @NotNull Commit after) {
-    try (var diffFormatter = newFormatter()) {
-      return diffFormatter.scan(before.tree(), after.tree());
-    } catch (IOException e) {
-      throw new IllegalArgumentException("Could not determine differences for " + after, e);
-    }
   }
 
 }

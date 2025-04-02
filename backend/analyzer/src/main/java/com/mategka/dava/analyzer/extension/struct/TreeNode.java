@@ -18,7 +18,8 @@ import java.util.*;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 
-public class TreeNode<T> implements ParameterizedIterable<TreeNode<T>, TreeOrder>, ParameterizedStreamable<TreeNode<T>, AnStream<TreeNode<T>>, TreeOrder> {
+public class TreeNode<T>
+  implements ParameterizedIterable<TreeNode<T>, TreeOrder>, ParameterizedStreamable<TreeNode<T>, AnStream<TreeNode<T>>, TreeOrder> {
 
   @Accessors(fluent = true)
   @Getter(lazy = true)
@@ -31,23 +32,9 @@ public class TreeNode<T> implements ParameterizedIterable<TreeNode<T>, TreeOrder
     this.value = value;
   }
 
-  public void merge(@NotNull TreeNode<T> otherRoot, BiPredicate<TreeNode<T>, TreeNode<T>> equals) {
-    for (TreeNode<T> otherChild : otherRoot.children()) {
-      var match = children().stream().filter(c -> equals.test(c, otherChild)).findFirst();
-      var thisChild = match.orElseGet(() -> addByValue(otherChild.value()));
-      thisChild.merge(otherChild, equals);
-    }
-  }
-
   public void add(TreeNode<T> child) {
     children().add(child);
     child.parent = this;
-  }
-
-  public TreeNode<T> addByValue(T childValue) {
-    var child = new TreeNode<>(childValue);
-    add(child);
-    return child;
   }
 
   public void addAll(Collection<TreeNode<T>> children) {
@@ -59,6 +46,16 @@ public class TreeNode<T> implements ParameterizedIterable<TreeNode<T>, TreeOrder
     var children = childValues.stream().<TreeNode<T>>map(TreeNode::new).toList();
     addAll(children);
     return children;
+  }
+
+  public TreeNode<T> addByValue(T childValue) {
+    var child = new TreeNode<>(childValue);
+    add(child);
+    return child;
+  }
+
+  public TreeNode<T> copy() {
+    return mapValues(Function.identity());
   }
 
   public Option<TreeNode<T>> find(T value) {
@@ -98,9 +95,10 @@ public class TreeNode<T> implements ParameterizedIterable<TreeNode<T>, TreeOrder
     };
   }
 
-  @Override
-  public @NotNull AnStream<TreeNode<T>> stream(TreeOrder order) {
-    return AnStream.from(Spliterators.spliteratorUnknownSize(iterator(order), Spliterator.ORDERED));
+  public <U> TreeNode<U> mapNodes(@NotNull Function<? super TreeNode<T>, U> mapper) {
+    var root = new TreeNode<>(mapper.apply(this));
+    root.addAll(children().stream().map(c -> c.mapNodes(mapper)).toList());
+    return root;
   }
 
   /**
@@ -116,14 +114,12 @@ public class TreeNode<T> implements ParameterizedIterable<TreeNode<T>, TreeOrder
     return root;
   }
 
-  public <U> TreeNode<U> mapNodes(@NotNull Function<? super TreeNode<T>, U> mapper) {
-    var root = new TreeNode<>(mapper.apply(this));
-    root.addAll(children().stream().map(c -> c.mapNodes(mapper)).toList());
-    return root;
-  }
-
-  public TreeNode<T> copy() {
-    return mapValues(Function.identity());
+  public void merge(@NotNull TreeNode<T> otherRoot, BiPredicate<TreeNode<T>, TreeNode<T>> equals) {
+    for (TreeNode<T> otherChild : otherRoot.children()) {
+      var match = children().stream().filter(c -> equals.test(c, otherChild)).findFirst();
+      var thisChild = match.orElseGet(() -> addByValue(otherChild.value()));
+      thisChild.merge(otherChild, equals);
+    }
   }
 
   public Option<TreeNode<T>> parent() {
@@ -138,14 +134,6 @@ public class TreeNode<T> implements ParameterizedIterable<TreeNode<T>, TreeOrder
     child.parent = null;
     children().remove(child);
     return true;
-  }
-
-  @CanIgnoreReturnValue
-  public boolean removeByValue(T childValue) {
-    var match = children().stream()
-      .filter(n -> n.value().equals(childValue))
-      .findFirst();
-    return match.map(this::remove).orElse(false);
   }
 
   @CanIgnoreReturnValue
@@ -173,6 +161,14 @@ public class TreeNode<T> implements ParameterizedIterable<TreeNode<T>, TreeOrder
   }
 
   @CanIgnoreReturnValue
+  public boolean removeByValue(T childValue) {
+    var match = children().stream()
+      .filter(n -> n.value().equals(childValue))
+      .findFirst();
+    return match.map(this::remove).orElse(false);
+  }
+
+  @CanIgnoreReturnValue
   public boolean removeFromParent() {
     if (parent == null) {
       return false;
@@ -188,6 +184,11 @@ public class TreeNode<T> implements ParameterizedIterable<TreeNode<T>, TreeOrder
       current = current.parent;
     }
     return current;
+  }
+
+  @Override
+  public @NotNull AnStream<TreeNode<T>> stream(TreeOrder order) {
+    return AnStream.from(Spliterators.spliteratorUnknownSize(iterator(order), Spliterator.ORDERED));
   }
 
   @Contract(mutates = "this")

@@ -1,9 +1,9 @@
 package com.mategka.dava.analyzer.extension.stream;
 
 import com.mategka.dava.analyzer.extension.Covariant;
-import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.option.Options;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 
 import com.google.common.collect.Streams;
 import lombok.AccessLevel;
@@ -32,19 +32,6 @@ public class AnStream<T> extends AbstractStreamAdapter<T, AnStream<T>> {
     return new AnStream<>(Arrays.stream(array));
   }
 
-  public static <T> AnStream<T> iterate(Supplier<Boolean> hasNext, Supplier<T> next) {
-    return new AnStream<>(Stream.<T>iterate(null, _t -> hasNext.get(), _t -> next.get()).skip(1));
-  }
-
-  public static <T> AnStream<T> singleton(T value) {
-    return new AnStream<>(Stream.of(value));
-  }
-
-  @SafeVarargs
-  public static <T> AnStream<T> sequence(T... values) {
-    return new AnStream<>(Stream.of(values));
-  }
-
   public static <T> AnStream<T> from(Spliterator<? extends T> spliterator) {
     var parallel = spliterator.hasCharacteristics(Spliterator.CONCURRENT);
     return new AnStream<>(Covariant.stream(StreamSupport.stream(spliterator, parallel)));
@@ -68,6 +55,19 @@ public class AnStream<T> extends AbstractStreamAdapter<T, AnStream<T>> {
 
   public static <T> AnStream<Pair<T, Integer>> fromIndexed(Collection<T> collection) {
     return new AnStream<>(AnStream.zip(collection.stream(), IntStream.range(0, collection.size()).boxed()));
+  }
+
+  public static <T> AnStream<T> iterate(Supplier<Boolean> hasNext, Supplier<T> next) {
+    return new AnStream<>(Stream.<T>iterate(null, _t -> hasNext.get(), _t -> next.get()).skip(1));
+  }
+
+  @SafeVarargs
+  public static <T> AnStream<T> sequence(T... values) {
+    return new AnStream<>(Stream.of(values));
+  }
+
+  public static <T> AnStream<T> singleton(T value) {
+    return new AnStream<>(Stream.of(value));
   }
 
   public static <L, R> AnStream<Pair<L, R>> zip(Stream<L> streamA, Stream<R> streamB) {

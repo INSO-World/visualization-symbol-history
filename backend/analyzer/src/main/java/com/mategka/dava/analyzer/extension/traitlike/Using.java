@@ -16,13 +16,13 @@ public class Using {
     return new Streamable<>() {
 
       @Override
-      public @NotNull S stream() {
-        return streamable.stream(parameter);
+      public @NotNull S parallelStream() {
+        return streamable.parallelStream(parameter);
       }
 
       @Override
-      public @NotNull S parallelStream() {
-        return streamable.parallelStream(parameter);
+      public @NotNull S stream() {
+        return streamable.stream(parameter);
       }
 
     };

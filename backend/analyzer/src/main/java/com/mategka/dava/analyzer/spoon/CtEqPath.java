@@ -28,10 +28,6 @@ public class CtEqPath implements Comparable<CtEqPath> {
   @Getter(lazy = true, value = AccessLevel.PRIVATE)
   String cachedStringRepresentation = path.toString();
 
-  public boolean isEmpty() {
-    return this == EMPTY;
-  }
-
   public static CtEqPath of(@NotNull CtElement element) throws CtPathException {
     if (element instanceof CtModelImpl.CtRootPackage) {
       return EMPTY;
@@ -41,6 +37,10 @@ public class CtEqPath implements Comparable<CtEqPath> {
 
   public <T extends CtElement> Option<T> evaluateOn(CtModel model, Class<T> clazz) {
     return CollectionsX.firstOfType(path.evaluateOn(model.getRootPackage()), clazz);
+  }
+
+  public boolean isEmpty() {
+    return this == EMPTY;
   }
 
   @Override

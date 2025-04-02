@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
-import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.struct.property.*;
@@ -22,44 +22,24 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public final class Symbol2 implements PropertyIndexable {
+public final class Symbol implements PropertyIndexable {
 
-  public record Context(@NonNull SymbolKey key, @NonNull Hash commit) {}
-
+  final Multimap<PrdRole, SymbolKey> predecessors = HashMultimap.create(2, 2);
+  @Getter
+  final PropertyMap properties;
   @Getter
   Option<Context> context = Option.None();
 
-  final Multimap<PrdRole, SymbolKey> predecessors = HashMultimap.create(2, 2);
-
-  @Getter
-  final PropertyMap properties;
-
-  public Symbol2() {
+  public Symbol() {
     properties = new PropertyMap();
   }
 
-  public static Symbol2 withPropertyMap(@NonNull PropertyMap properties) {
-    return new Symbol2(properties);
-  }
-
-  private Symbol2(@NonNull PropertyMap properties) {
+  private Symbol(@NonNull PropertyMap properties) {
     this.properties = properties;
   }
 
-  public @NotNull String getName() throws NoSuchElementException {
-    return getPropertyValue(SimpleNameProperty.class).getOrThrow();
-  }
-
-  public @NotNull Kind getKind() throws NoSuchElementException {
-    return getPropertyValue(KindProperty.class).getOrThrow();
-  }
-
-  public List<Pair<PrdRole, SymbolKey>> getPredecessors() {
-    return predecessors.entries().stream().map(Pair::fromEntry).toList();
-  }
-
-  public List<Pair<PrdRole, SymbolKey>> getPredecessors(PrdRole role) {
-    return predecessors.get(role).stream().map(k -> Pair.of(role, k)).toList();
+  public static Symbol withPropertyMap(@NonNull PropertyMap properties) {
+    return new Symbol(properties);
   }
 
   public void addPredecessor(PrdRole role, SymbolKey key) {
@@ -68,25 +48,6 @@ public final class Symbol2 implements PropertyIndexable {
 
   public void clearPredecessors() {
     predecessors.clear();
-  }
-
-  public void putProperty(Property property) {
-    properties.put(property);
-  }
-
-  public void setContext(@NonNull Context context) {
-    this.context = Option.Some(context);
-  }
-
-  public @NotNull SymbolKey getKey() throws NoSuchElementException {
-    return context.getOrThrow().key();
-  }
-
-  public @NotNull SymbolKey getParentKey() throws NoSuchElementException {
-    return getPropertyValue(ParentProperty.class)
-      .map(KnownType::getSymbolId)
-      .map(symbolId -> new SymbolKey(symbolId, getKey().strandId()))
-      .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
   }
 
   public @NotNull String getDisplayName() {
@@ -98,9 +59,36 @@ public final class Symbol2 implements PropertyIndexable {
       ));
   }
 
+  public @NotNull SymbolKey getKey() throws NoSuchElementException {
+    return context.getOrThrow().key();
+  }
+
+  public @NotNull Kind getKind() throws NoSuchElementException {
+    return getPropertyValue(KindProperty.class).getOrThrow();
+  }
+
+  public @NotNull String getName() throws NoSuchElementException {
+    return getPropertyValue(SimpleNameProperty.class).getOrThrow();
+  }
+
+  public @NotNull SymbolKey getParentKey() throws NoSuchElementException {
+    return getPropertyValue(ParentProperty.class)
+      .map(KnownType::getSymbolId)
+      .map(symbolId -> new SymbolKey(symbolId, getKey().strandId()))
+      .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
+  }
+
   public @NotNull CtEqPath getPath() throws NoSuchElementException {
     return getPropertyValue(PathProperty.class)
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
+  }
+
+  public List<Pair<PrdRole, SymbolKey>> getPredecessors() {
+    return predecessors.entries().stream().map(Pair::fromEntry).toList();
+  }
+
+  public List<Pair<PrdRole, SymbolKey>> getPredecessors(PrdRole role) {
+    return predecessors.get(role).stream().map(k -> Pair.of(role, k)).toList();
   }
 
   public boolean isRootPackage() {
@@ -113,10 +101,23 @@ public final class Symbol2 implements PropertyIndexable {
     return SimpleNameProperty.ROOT_PACKAGE_NAME.equals(name.getOrThrow()) && Kind.PACKAGE.equals(kind.getOrThrow());
   }
 
+  public void putProperty(Property property) {
+    properties.put(property);
+  }
+
+  public void setContext(@NonNull Context context) {
+    this.context = Option.Some(context);
+  }
+
   @SuppressWarnings({ "MethodDoesntCallSuperMethod" })
   @Override
-  public Symbol2 clone() {
-    return new Symbol2(properties.clone());
+  public Symbol clone() {
+    return new Symbol(properties.clone());
+  }
+
+  @Override
+  public String toString() {
+    return getDisplayName();
   }
 
   /*
@@ -138,9 +139,8 @@ public final class Symbol2 implements PropertyIndexable {
   }
   */
 
-  @Override
-  public String toString() {
-    return getDisplayName();
+  public record Context(@NonNull SymbolKey key, @NonNull Hash commit) {
+
   }
 
 }

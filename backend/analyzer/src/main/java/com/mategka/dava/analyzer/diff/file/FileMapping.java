@@ -23,6 +23,10 @@ public class FileMapping {
    */
   ManyToOneMap<ParentFile, String, FileChange> mappings;
 
+  public static boolean isFileAddition(Mapping<ParentFile, ?, ?> fileMapping) {
+    return fileMapping.source().filePath() == null;
+  }
+
   /**
    * Also add mappings for files that have remained unchanged.
    * Unchanged files are all those which are not already mapped and exist under an identical path in the child commit.
@@ -36,8 +40,18 @@ public class FileMapping {
     }
   }
 
-  public static boolean isFileAddition(Mapping<ParentFile, ?, ?> fileMapping) {
-    return fileMapping.source().filePath() == null;
+  public List<ParentFile> getDeletedFiles() {
+    return mappings.mappings().stream()
+      .filter(Mapping::isDeletion)
+      .map(Mapping::source)
+      .collect(Collectors.toList());
+  }
+
+  public List<ParentFile> getUnchangedFiles() {
+    return mappings.mappings().stream()
+      .filter(Mapping::isStatic)
+      .map(Mapping::source)
+      .collect(Collectors.toList());
   }
 
   private void addUnchangedMappingsForParent(int parentIndex, List<String> parentPaths, Set<String> childPaths) {
@@ -48,20 +62,6 @@ public class FileMapping {
     for (var file : unchangedFiles) {
       mappings.put(file, file.filePath(), null);
     }
-  }
-
-  public List<ParentFile> getUnchangedFiles() {
-    return mappings.mappings().stream()
-      .filter(Mapping::isStatic)
-      .map(Mapping::source)
-      .collect(Collectors.toList());
-  }
-
-  public List<ParentFile> getDeletedFiles() {
-    return mappings.mappings().stream()
-      .filter(Mapping::isDeletion)
-      .map(Mapping::source)
-      .collect(Collectors.toList());
   }
 
   /*

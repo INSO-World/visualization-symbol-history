@@ -37,4 +37,16 @@ public class SetsX {
       .collect(Collectors.toSet());
   }
 
+  @SafeVarargs
+  public <E> Set<E> intersection(Set<? extends E> @NotNull ... sets) {
+    if (sets.length == 0) {
+      return Collections.emptySet();
+    }
+    Set<E> result = new HashSet<>(sets[0]);
+    for (int i = 1; i < sets.length; i++) {
+      result.retainAll(sets[i]);
+    }
+    return result;
+  }
+
 }

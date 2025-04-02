@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+@Deprecated
 public class AbstractPath implements Comparable<AbstractPath>, Iterable<AbstractPath> {
 
   public static final AbstractPath EMPTY = new AbstractPath(Collections.emptyList());

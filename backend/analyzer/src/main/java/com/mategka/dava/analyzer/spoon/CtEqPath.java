@@ -19,7 +19,7 @@ import java.util.Objects;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor(staticName = "of")
-public class CtEqPath implements Comparable<CtPath> {
+public class CtEqPath implements Comparable<CtEqPath> {
 
   public static final CtEqPath EMPTY = CtEqPath.of(new CtPathImpl());
 
@@ -27,6 +27,10 @@ public class CtEqPath implements Comparable<CtPath> {
 
   @Getter(lazy = true, value = AccessLevel.PRIVATE)
   String cachedStringRepresentation = path.toString();
+
+  public boolean isEmpty() {
+    return this == EMPTY;
+  }
 
   public static CtEqPath of(@NotNull CtElement element) throws CtPathException {
     if (element instanceof CtModelImpl.CtRootPackage) {
@@ -40,13 +44,13 @@ public class CtEqPath implements Comparable<CtPath> {
   }
 
   @Override
-  public int compareTo(@NotNull CtPath o) {
+  public int compareTo(@NotNull CtEqPath o) {
     return toString().compareTo(o.toString());
   }
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof CtPath ctPath)) return false;
+    if (!(o instanceof CtEqPath ctPath)) return false;
     return Objects.equals(toString(), ctPath.toString());
   }
 

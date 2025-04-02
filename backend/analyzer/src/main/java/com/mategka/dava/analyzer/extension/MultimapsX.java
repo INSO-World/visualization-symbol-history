@@ -1,7 +1,6 @@
 package com.mategka.dava.analyzer.extension;
 
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.SetMultimap;
+import com.google.common.collect.*;
 import lombok.experimental.UtilityClass;
 
 import java.util.EnumSet;

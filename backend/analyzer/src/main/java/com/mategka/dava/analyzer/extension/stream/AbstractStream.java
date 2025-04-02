@@ -203,6 +203,18 @@ public abstract class AbstractStream<T> implements Stream<T> {
     return toList(ArrayList::new);
   }
 
+  public Set<T> toSet() {
+    return stream.collect(Collectors.toSet());
+  }
+
+  public Set<T> toSet(Supplier<? extends Set<T>> supplier) {
+    return stream.collect(Collectors.toCollection(supplier));
+  }
+
+  public Option<T> findFirstAsOption(Predicate<? super T> predicate) {
+    return Options.fromOptional(stream.filter(predicate).findFirst());
+  }
+
   @Override
   public void close() {
     stream.close();

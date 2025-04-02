@@ -3,6 +3,7 @@ package com.mategka.dava.analyzer.struct.symbol;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;
+import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
@@ -87,6 +88,11 @@ public final class Symbol extends BareSymbol implements PropertyIndexable {
       .flatMap(Collection::stream)
       .collect(PropertyMap.collectEntries());
     return toBuilder().properties(updatedProperties).build();
+  }
+
+  @Override
+  public Symbol withProperty(Property property) {
+    return toBuilder().property(property).build();
   }
 
   private void assertUpdatesApply(@NotNull Collection<? extends SymbolUpdate> updates) {

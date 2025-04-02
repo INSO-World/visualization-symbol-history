@@ -7,6 +7,7 @@ import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.TypedProperty;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.UnknownNullability;
 
 import java.util.Map;
 
@@ -15,6 +16,7 @@ public interface PropertyIndexable {
   @NotNull
   Map<String, Property> getProperties();
 
+  @UnknownNullability
   default Property getProperty(String propertyKey) {
     return getProperties().get(propertyKey);
   }

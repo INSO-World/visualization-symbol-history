@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.git;
 
+import com.mategka.dava.analyzer.diff.file.FileChange;
+import com.mategka.dava.analyzer.extension.Pair;
 import com.mategka.dava.analyzer.extension.PathsX;
 
 import com.google.common.collect.HashMultimap;
@@ -9,6 +11,7 @@ import org.eclipse.jgit.diff.DiffEntry;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
+import java.util.List;
 
 @UtilityClass
 public class RelevantDiffs {
@@ -48,6 +51,14 @@ public class RelevantDiffs {
     return result;
   }
 
+  public List<FileChange> extract2(Collection<DiffEntry> diffs) {
+    return diffs.stream()
+      .filter(RelevantDiffs::isDiffRelevant)
+      .map(Pair.fromRight(RelevantDiffs::getChangeType))
+      .map(Pair.folding(FileChange::new))
+      .toList();
+  }
+
   public boolean isDiffRelevant(@NotNull DiffEntry diff) {
     var changeType = diff.getChangeType();
     return switch (changeType) {
@@ -83,7 +94,7 @@ public class RelevantDiffs {
     };
   }
 
-  private boolean isFileRelevant(@NotNull String filename) {
+  public boolean isFileRelevant(@NotNull String filename) {
     return filename.endsWith(".java");
   }
 

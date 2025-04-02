@@ -18,4 +18,12 @@ public class IterablesX {
     return element;
   }
 
+  public <T> T getFirst(@NotNull Iterable<T> iterable) {
+    var iterator = iterable.iterator();
+    if (!iterator.hasNext()) {
+      throw new IllegalArgumentException("Iterable was empty");
+    }
+    return iterator.next();
+  }
+
 }

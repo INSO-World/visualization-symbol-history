@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer.extension.option;
 
 import com.mategka.dava.analyzer.extension.ComparatorsX;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,9 +48,11 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
 
   @NotNull T getOrThrow(@NotNull Supplier<? extends RuntimeException> exceptionSupplier);
 
-  void ifNone(@NotNull Runnable runnable);
+  @CanIgnoreReturnValue
+  Option<T> ifNone(@NotNull Runnable runnable);
 
-  void ifSome(@NotNull Consumer<T> consumer);
+  @CanIgnoreReturnValue
+  Option<T> ifSome(@NotNull Consumer<T> consumer);
 
   boolean isNone();
 
@@ -60,6 +63,14 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
   }
 
   <U extends T> @NotNull Option<U> narrow(@NotNull Class<U> clazz);
+
+  default Option<T> tap(@NotNull Consumer<T> consumer) {
+    return map(t -> { consumer.accept(t); return t; });
+  }
+
+  default <R> OptionSwitch<T, R> switchMap() {
+    return new OptionSwitch<>(this);
+  }
 
   @NotNull Option<T> or(@NotNull Supplier<Option<T>> alternative);
 

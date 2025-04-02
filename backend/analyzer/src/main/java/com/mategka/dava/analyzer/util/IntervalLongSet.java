@@ -11,6 +11,7 @@ import java.util.function.Predicate;
 import java.util.stream.LongStream;
 import java.util.stream.StreamSupport;
 
+@Deprecated
 public class IntervalLongSet implements Set<Long> {
 
   private final NavigableSet<Entry> internalSet = new TreeSet<>(Comparator.comparingLong(Entry::start));

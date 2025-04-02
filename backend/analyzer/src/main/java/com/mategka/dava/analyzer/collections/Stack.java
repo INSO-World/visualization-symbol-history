@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
 import org.apache.commons.lang3.ArrayUtils;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -60,16 +61,24 @@ public class Stack<T> implements Collection<T> {
     return deque.descendingIterator();
   }
 
+  @Contract(pure = true)
   public T peek() {
     return deque.getFirst();
   }
 
+  @Contract(mutates = "this")
   public T pop() {
     return deque.removeFirst();
   }
 
+  @Contract(mutates = "this")
   public void push(T e) {
     deque.addFirst(e);
+  }
+
+  @Contract(mutates = "this")
+  public void pushAll(Collection<? extends T> c) {
+    c.forEach(this::push);
   }
 
   @Override

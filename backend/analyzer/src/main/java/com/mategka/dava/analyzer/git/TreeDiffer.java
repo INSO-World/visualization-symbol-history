@@ -1,9 +1,5 @@
 package com.mategka.dava.analyzer.git;
 
-import com.mategka.dava.analyzer.collections.MultisetArray;
-import com.mategka.dava.analyzer.diff.file.FileChange;
-import com.mategka.dava.analyzer.extension.stream.AnStream;
-
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.eclipse.jgit.diff.DiffAlgorithm;
@@ -40,21 +36,6 @@ public class TreeDiffer {
     } catch (IOException e) {
       throw new IllegalArgumentException("Could not determine differences for " + after, e);
     }
-  }
-
-  public MultisetArray<FileChange> diffRelevant(@NotNull Commit after) {
-    var parents = after.parents();
-    var result = MultisetArray.<FileChange>create(parents.size());
-    for (int parentIndex = 0; parentIndex < parents.size(); parentIndex++) {
-      var parent = parents.get(parentIndex);
-      var diffs = diff(parent, after);
-      var relevantDiffs = AnStream.from(diffs)
-        .filter(RelevantDiffs::isDiffRelevant)
-        .map(d -> new FileChange(RelevantDiffs.getChangeType(d), d))
-        .toList();
-      result.putAll(parentIndex, relevantDiffs);
-    }
-    return result;
   }
 
 }

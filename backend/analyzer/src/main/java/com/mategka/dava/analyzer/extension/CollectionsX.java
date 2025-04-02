@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 public class CollectionsX {
 
   public <T, U extends T> Option<U> firstOfType(SequencedCollection<T> collection, Class<U> clazz) {
-    return (Option<U>) AnStream.from(collection).filter(clazz).findFirstAsOption();
+    return AnStream.from(collection).allow(clazz).findFirstAsOption();
   }
 
   public <T, K> Map<K, T> groupBy(Collection<T> collection, Function<? super T, K> keyFn) {

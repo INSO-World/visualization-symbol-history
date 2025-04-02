@@ -1,9 +1,12 @@
 package com.mategka.dava.analyzer;
 
+import com.mategka.dava.analyzer.collections.Array;
 import com.mategka.dava.analyzer.collections.IndexMap;
-import com.mategka.dava.analyzer.extension.CollectorsX;
-import com.mategka.dava.analyzer.extension.MultimapsX;
-import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.diff.file.FileChange;
+import com.mategka.dava.analyzer.diff.file.FileDiff;
+import com.mategka.dava.analyzer.diff.file.FileMapping;
+import com.mategka.dava.analyzer.diff.symbol.SymbolDiff;
+import com.mategka.dava.analyzer.extension.*;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.*;
@@ -38,6 +41,8 @@ import spoon.support.compiler.VirtualFile;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class App {
@@ -50,6 +55,7 @@ public class App {
       Ref mainBranch = repository.resolveRef("main").getOrThrow();
       var benchmark = Benchmark.start();
       var history = History.emptyOfBranch(repository, mainBranch);
+      var strandMapping = history.getStrandMapping();
       var symbolIdCounter = new AtomicLong();
       int offset = 0;
       var comparator = new AstComparator();
@@ -58,13 +64,33 @@ public class App {
       // TODO: Traverse commits in normal topological order for ~5% performance boost
       try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (Commit commit : commitWalk) {
-          var strand = history.getStrandMapping().get(commit.hash());
+          var strand = strandMapping.get(commit.hash());
+          var commitPaths = repository.readRelevantPaths(commit);
           var workspace = workspaces.get(strand);
           System.out.print(commit.hash().minimal() + " ");
           if (++offset >= 18) {
             offset = 0;
             System.out.println();
           }
+          var parents = commit.parents();
+          var breakCommit = !parents.isEmpty() && strandMapping.get(parents.getFirst().hash()) != strand;
+
+          var fileMapping = extractFileMapping(commit, repository, treeDiffer);
+          Array<List<String>> pathsPerParent = null; // TODO: Retrieve from prior data once implemented
+          fileMapping.addUnchangedMappings(pathsPerParent, commitPaths);
+          // TODO: Store commitPaths for child commits
+
+          /*
+          Idea:
+          - Map file and sub-file symbols first
+            - For unchanged files, copy over symbols, ensuring create-if-not-exists-style package creation, and just map
+            - For changed files, scan the target, ensuring create-if-not-exists-style package creation, and diff
+          - Then, check target package symbols and map them to their source counterparts where applicable for all parents
+          - Then, declare all unmapped target package symbols additions and all unmapped source package symbols deletions
+           */
+          Array<TreeNode<Symbol>> parentData = null;
+          var symbolMapping = SymbolDiff.getMapping(fileMapping, parentData);
+
           var parent = Options.getFirst(commit.parents());
           if (parent.isNone()) {
             // TODO: Fix initial commit variant algorithm
@@ -227,6 +253,34 @@ public class App {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static FileMapping extractFileMapping(Commit commit, Repository repository, TreeDiffer treeDiffer)
+    throws IOException {
+    var parents = commit.parents();
+    Array<Map<String, FileChange>> relevantChangesPerParent;
+    Array<Map<String, FileChange>> relevantAdditionsPerParent;
+    if (parents.isEmpty()) {
+      var relevantDiffs = RelevantDiffs.extract2(repository.initialCommitFilesOf(commit));
+      var relevantAdditions = ListsX.collect(relevantDiffs, Collectors.toMap(FileChange::getNewPath, Function.identity()));
+      relevantChangesPerParent = Array.of(Collections.emptyMap());
+      relevantAdditionsPerParent = Array.of(relevantAdditions);
+    } else {
+      var allChangesPerParent = AnStream.from(parents)
+        .map(p -> treeDiffer.diff(p, commit))
+        .map(RelevantDiffs::extract2)
+        .map(ListsX.collecting(Collectors.partitioningBy(c -> c.getOldPath() == null)))
+        .toTypedArray();
+      relevantChangesPerParent = AnStream.from(allChangesPerParent)
+        .map(m -> m.get(false))
+        .map(ListsX.collecting(Collectors.toMap(FileChange::getOldPath, Function.identity())))
+        .toTypedArray();
+      relevantAdditionsPerParent = AnStream.from(allChangesPerParent)
+        .map(m -> m.get(true))
+        .map(ListsX.collecting(Collectors.toMap(FileChange::getNewPath, Function.identity())))
+        .toTypedArray();
+    }
+    return FileDiff.getMapping(relevantChangesPerParent, relevantAdditionsPerParent);
   }
 
   private static BiMap<CtElement, CtElement> extractMappings(Diff astDiff) {

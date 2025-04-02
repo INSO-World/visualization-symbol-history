@@ -24,7 +24,7 @@ public class ReplacementAction implements EditAction {
 
   @Override
   public String toString() {
-    return AnStream.from(Pair.of(oldSubject, newSubject))
+    return AnStream.singleton(Pair.of(oldSubject, newSubject))
       .map(Pair.mapping(Subject::toDescriptor))
       .map(Pair.folding("R %s -> %s"::formatted))
       .findFirst()

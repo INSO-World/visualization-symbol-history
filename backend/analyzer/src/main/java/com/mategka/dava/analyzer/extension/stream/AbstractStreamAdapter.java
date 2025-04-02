@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.extension.stream;
 
+import com.mategka.dava.analyzer.collections.Array;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Comparator;
@@ -38,6 +40,10 @@ public abstract class AbstractStreamAdapter<T, S extends AbstractStreamAdapter<T
 
   public S filter(Class<? extends T> clazz) {
     return filter(clazz::isInstance);
+  }
+
+  public <P> S filterBy(Function<? super T, P> propertyMapper, Predicate<? super P> predicate) {
+    return filter(e -> predicate.test(propertyMapper.apply(e)));
   }
 
   @Override
@@ -87,6 +93,10 @@ public abstract class AbstractStreamAdapter<T, S extends AbstractStreamAdapter<T
   @Override
   public S takeWhile(Predicate<? super T> predicate) {
     return sameKindMapper.apply(stream.takeWhile(predicate));
+  }
+
+  public Array<T> toTypedArray() {
+    return new Array<>(toArray());
   }
 
   @Override

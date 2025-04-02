@@ -2,7 +2,6 @@ package com.mategka.dava.analyzer.spoon;
 
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
-import com.mategka.dava.analyzer.util.JavaSyntax;
 
 import com.github.gumtreediff.tree.Tree;
 import lombok.experimental.UtilityClass;
@@ -10,6 +9,7 @@ import org.apache.commons.io.FileSystem;
 import org.jetbrains.annotations.NotNull;
 import spoon.Launcher;
 import spoon.reflect.CtModel;
+import spoon.reflect.CtModelImpl;
 import spoon.reflect.declaration.*;
 import spoon.support.compiler.VirtualFile;
 
@@ -52,6 +52,10 @@ public class Spoon {
 
   public boolean isRegularConstructor(CtConstructor<?> constructor) {
     return !isDefaultConstructor(constructor) && !constructor.isCompactConstructor();
+  }
+
+  public boolean isRootPackage(CtPackage pakkage) {
+    return pakkage instanceof CtModelImpl.CtRootPackage;
   }
 
   public Launcher newLauncher() {

@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.util;
+package com.mategka.dava.analyzer.spoon;
 
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 

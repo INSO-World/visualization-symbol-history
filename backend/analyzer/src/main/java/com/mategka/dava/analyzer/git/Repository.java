@@ -17,8 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -77,6 +76,22 @@ public class Repository implements AutoCloseable {
     walk.addTree(commit.tree());
     walk.setRecursive(true);
     return walk;
+  }
+
+  public Set<String> readRelevantPaths(@NotNull Commit commit) {
+    Set<String> result = new HashSet<>();
+    try (var walk = newTreeWalk(commit)) {
+      // TODO: Fix for subtrees/submodules, which will make next() throw
+      while (walk.next()) {
+        var path = walk.getPathString();
+        if (RelevantDiffs.isFileRelevant(path)) {
+          result.add(path);
+        }
+      }
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to read paths from " + commit, e);
+    }
+    return result;
   }
 
   public Result<String, IOException> readFile(DiffEntry diff, DiffEntry.Side side) {

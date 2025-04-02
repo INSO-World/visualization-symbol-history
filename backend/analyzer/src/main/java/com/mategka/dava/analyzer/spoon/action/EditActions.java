@@ -68,7 +68,7 @@ public class EditActions {
   private AnStream<EditAction> editsWithReplacement(List<SimpleEditAction> rawActions, ReplacementTuple replacement,
                                                     BiMap<CtElement, CtElement> mappings,
                                                     Map<CtElement, DeletionAction> mappedDeletionsMap) {
-    var replacementStream = AnStream.<EditAction>from(ReplacementAction.fromTuple(replacement));
+    var replacementStream = AnStream.<EditAction>singleton(ReplacementAction.fromTuple(replacement));
     Set<CtElement> mappedParents = new HashSet<>();
     mappedParents.add(replacement.addition().action().getNewElement());
     var mainStream = AnStream.from(rawActions)

@@ -178,7 +178,7 @@ public class ElementCapture {
           return getVariables(bodyHolder);
         }
         if (childElement instanceof CtLocalVariable<?> localVariable) {
-          return AnStream.from(localVariable);
+          return AnStream.singleton(localVariable);
         }
         return AnStream.empty();
       });

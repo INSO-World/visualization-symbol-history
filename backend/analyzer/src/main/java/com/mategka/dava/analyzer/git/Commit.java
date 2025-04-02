@@ -32,6 +32,9 @@ public final class Commit {
     return ZonedDateTime.ofInstant(instant, zoneOffset);
   }
 
+  /**
+   * Disposes all information other than what is necessary for {@link #hash()}, {@link #parents()} and {@link #tree()}.
+   */
   public void disposeBody() {
     revCommit.disposeBody();
   }

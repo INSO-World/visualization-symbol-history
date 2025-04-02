@@ -52,10 +52,13 @@ public class PropertyMap extends HashMap<String, Property> {
     return Collectors.toMap(keyFunction, valueFunction, (older, newer) -> newer, PropertyMap::new);
   }
 
+  public boolean containsProperty(@NotNull Class<? extends Property> propertyClass) {
+    return containsKey(PropertyKeys.get(propertyClass));
+  }
+
   public PropertyMap diff(@NotNull Collection<Property> newProperties) {
     return newProperties.stream()
-      .filter(p -> Option.Some(p.getKey())
-        .map(this::get)
+      .filter(p -> Options.fromNullable(get(p.getKey()))
         .map(Property::value)
         .map(v -> !v.equals(p.value()))
         .getOrElse(false)

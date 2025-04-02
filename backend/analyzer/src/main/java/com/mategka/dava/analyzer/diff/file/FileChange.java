@@ -7,11 +7,11 @@ import org.eclipse.jgit.diff.DiffEntry;
 public record FileChange(FileChangeType changeType, DiffEntry diffEntry) {
 
   public String getOldPath() {
-    return diffEntry().getOldPath();
+    return changeType == FileChangeType.ADDED ? null : diffEntry.getOldPath();
   }
 
   public String getNewPath() {
-    return diffEntry().getNewPath();
+    return changeType == FileChangeType.DELETED ? null : diffEntry.getNewPath();
   }
 
 }

@@ -1,24 +1,33 @@
 package com.mategka.dava.analyzer.diff.file;
 
-import com.mategka.dava.analyzer.collections.MultisetArray;
-import com.mategka.dava.analyzer.git.FileChangeType;
+import com.mategka.dava.analyzer.collections.Array;
+import com.mategka.dava.analyzer.collections.ManyToOneMap;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import lombok.experimental.UtilityClass;
+
+import java.util.Map;
 
 @UtilityClass
 public class FileDiff {
 
-  public FileMapping getMapping(MultisetArray<FileChange> diffMap) {
-    // TODO: Fix unchanged files not being detected anywhere (problematic for merge commits)
-    Table<String, Integer, FileChange> mapping = HashBasedTable.create(32, diffMap.length());
-    for (var diffEntry : diffMap.asMap().entrySet()) {
-      var parentIndex = diffEntry.getKey();
-      var changes = diffEntry.getValue();
-      for (FileChange change : changes) {
-        var path = (change.changeType() == FileChangeType.DELETED) ? change.getOldPath() : change.getNewPath();
-        mapping.put(path, parentIndex, change);
+  public FileMapping getMapping(Array<Map<String, FileChange>> diffsPerParent, Array<Map<String, FileChange>> additionsPerParent) {
+    var mapping = new ManyToOneMap<ParentFile, String, FileChange>();
+    for (var parentEntry : diffsPerParent.withIndex()) {
+      int parentIndex = parentEntry.left();
+      var diffs = parentEntry.right();
+      for (var sourcePath : diffs.keySet()) {
+        var fileChange = diffs.get(sourcePath);
+        var parentFile = new ParentFile(parentIndex, sourcePath);
+        mapping.put(parentFile, fileChange.getNewPath(), fileChange);
+      }
+    }
+    for (var parentEntry : additionsPerParent.withIndex()) {
+      int parentIndex = parentEntry.left();
+      var diffs = parentEntry.right();
+      for (var targetPath : diffs.keySet()) {
+        var fileChange = diffs.get(targetPath);
+        var parentFile = new ParentFile(parentIndex, null);
+        mapping.put(parentFile, targetPath, fileChange);
       }
     }
     return new FileMapping(mapping);

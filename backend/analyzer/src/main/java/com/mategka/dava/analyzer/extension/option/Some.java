@@ -37,13 +37,15 @@ public final class Some<T> implements Option<T> {
   }
 
   @Override
-  public void ifNone(@NotNull Runnable _runnable) {
+  public Option<T> ifNone(@NotNull Runnable _runnable) {
     // Do nothing
+    return this;
   }
 
   @Override
-  public void ifSome(@NotNull Consumer<T> consumer) {
+  public Option<T> ifSome(@NotNull Consumer<T> consumer) {
     consumer.accept(value);
+    return this;
   }
 
   @Override

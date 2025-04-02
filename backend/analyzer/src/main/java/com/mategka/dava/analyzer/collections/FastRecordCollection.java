@@ -2,7 +2,7 @@ package com.mategka.dava.analyzer.collections;
 
 import com.mategka.dava.analyzer.extension.CollectorsX;
 import com.mategka.dava.analyzer.extension.MapsX;
-import com.mategka.dava.analyzer.extension.RecordClass;
+import com.mategka.dava.analyzer.extension.struct.RecordClass;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;

@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.extension.option;
 
-import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;

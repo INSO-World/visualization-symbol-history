@@ -1,7 +1,8 @@
-package com.mategka.dava.analyzer.extension;
+package com.mategka.dava.analyzer.extension.struct;
 
 import com.mategka.dava.analyzer.collections.MapEntry;
 
+import com.mategka.dava.analyzer.extension.ComparatorsX;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.NotNull;

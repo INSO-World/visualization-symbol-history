@@ -1,5 +1,6 @@
-package com.mategka.dava.analyzer.extension;
+package com.mategka.dava.analyzer.extension.struct;
 
+import com.mategka.dava.analyzer.extension.ListsX;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.Contract;

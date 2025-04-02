@@ -2,7 +2,6 @@ package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
-import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.Symbol2;
 
 import org.jetbrains.annotations.Contract;

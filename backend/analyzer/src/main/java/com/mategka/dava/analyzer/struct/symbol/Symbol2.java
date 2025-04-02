@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
-import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.spoon.CtEqPath;

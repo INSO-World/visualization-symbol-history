@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.diff.symbol;
 
 import com.mategka.dava.analyzer.collections.Array;
-import com.mategka.dava.analyzer.extension.TreeNode;
+import com.mategka.dava.analyzer.extension.struct.TreeNode;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.struct.symbol.Symbol2;
 

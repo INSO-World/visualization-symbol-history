@@ -4,8 +4,6 @@ import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.git.Commit;
 import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.refactoring.SymbolRefactoring;
-import com.mategka.dava.analyzer.struct.symbol.Symbol;
-import com.mategka.dava.analyzer.struct.symbol.SymbolUpdate;
 
 import lombok.Builder;
 import lombok.NonNull;

@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.pipeline;
 
-import com.mategka.dava.analyzer.extension.TreeNode;
+import com.mategka.dava.analyzer.extension.struct.TreeNode;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.struct.property.KindProperty;
 import com.mategka.dava.analyzer.struct.property.ParentProperty;

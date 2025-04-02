@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.struct.property;
 
-import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 
 import spoon.reflect.declaration.CtElement;

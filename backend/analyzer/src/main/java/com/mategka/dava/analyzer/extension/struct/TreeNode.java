@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.extension;
+package com.mategka.dava.analyzer.extension.struct;
 
 import com.mategka.dava.analyzer.collections.Stack;
 import com.mategka.dava.analyzer.extension.option.Option;

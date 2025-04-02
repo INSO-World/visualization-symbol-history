@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.extension.stream;
 
 import com.mategka.dava.analyzer.extension.Covariant;
-import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.option.Options;
 

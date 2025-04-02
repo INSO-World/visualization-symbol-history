@@ -1,6 +1,6 @@
 package com.mategka.dava.analyzer.collections;
 
-import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.traitlike.Streamable;
 

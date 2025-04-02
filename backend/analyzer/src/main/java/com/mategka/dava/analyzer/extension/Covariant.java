@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.extension;
 
+import com.mategka.dava.analyzer.extension.struct.Pair;
 import lombok.experimental.UtilityClass;
 
 import java.util.List;

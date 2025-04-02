@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.extension;
 
 import com.google.common.collect.*;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 import lombok.experimental.UtilityClass;
 
 import java.util.Map;

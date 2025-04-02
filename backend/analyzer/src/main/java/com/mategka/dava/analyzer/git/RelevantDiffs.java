@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.git;
 
 import com.mategka.dava.analyzer.diff.file.FileChange;
-import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.PathsX;
 
 import com.google.common.collect.HashMultimap;

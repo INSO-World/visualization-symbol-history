@@ -3,39 +3,42 @@ package com.mategka.dava.analyzer.extension.option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.UnknownNullability;
 
-import java.util.NoSuchElementException;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-@FieldDefaults(level = AccessLevel.PRIVATE)
-@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
-public final class OptionSwitch<T, R> {
+sealed interface OptionSwitch {
 
-  final Option<T> option;
-  Option<@NotNull R> result = Option.None();
-
-  public OptionSwitch<T, R> none(Supplier<@NotNull R> supplier) {
-    result = result.or(() -> Option.Some(supplier.get()));
-    return this;
+  @Contract("_ -> new")
+  static <T> OptionSwitch.@NotNull SomeStage<T> of(@NotNull Option<T> option) {
+    return new SomeStage<>(option);
   }
 
-  @UnknownNullability
-  public R resolve() throws NoSuchElementException {
-    return result.getOrNull();
+  @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+  @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+  final class SomeStage<T> implements OptionSwitch {
+
+    Option<T> option;
+
+    @Contract("_ -> new")
+    public <R> OptionSwitch.@NotNull NoneStage<R> some(Function<T, @NotNull R> mapper) {
+      return new NoneStage<>(option.map(mapper));
+    }
+
   }
 
-  public OptionSwitch<T, R> some(Function<T, @NotNull R> mapper) {
-    result = result.or(() -> option.map(mapper));
-    return this;
-  }
+  @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+  @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+  final class NoneStage<R> implements OptionSwitch {
 
-  public OptionSwitch<T, R> someSpecific(Predicate<T> predicate, Function<T, @NotNull R> mapper) {
-    result = result.or(() -> option.filter(predicate).map(mapper));
-    return this;
+    Option<@NotNull R> result;
+
+    public @NotNull R none(Supplier<@NotNull R> supplier) {
+      return result.getOrCompute(supplier);
+    }
+
   }
 
 }

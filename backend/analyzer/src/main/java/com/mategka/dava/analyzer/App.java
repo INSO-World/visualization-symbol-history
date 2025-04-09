@@ -41,7 +41,6 @@ public class App {
       int offset = 0;
       var treeDiffer = repository.newTreeDiffer();
       Map<@NotNull Long, SymbolWorkspace> workspaces = new HashMap<>();
-      // TODO: Traverse commits in normal topological order for ~5% performance boost
       try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (Commit commit : commitWalk) {
           var strand = strandMapping.get(commit.hash());

@@ -12,7 +12,8 @@ import lombok.NonNull;
 import lombok.Value;
 
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
 
 @Value
 @Builder

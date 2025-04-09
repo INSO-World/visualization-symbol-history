@@ -35,6 +35,11 @@ public class CollectionsX {
   public <K, V> Collection<V> unmodifiableCollection(Map<? super K, ? extends V> map, K key) {
     return new AbstractCollection<>() {
       @Override
+      public boolean contains(Object o) {
+        return map.containsKey(key) && Objects.equals(map.get(key), o);
+      }
+
+      @Override
       public @NotNull Iterator<V> iterator() {
         V value = map.get(key);
         if (!map.containsKey(key)) {
@@ -47,11 +52,6 @@ public class CollectionsX {
       @Override
       public int size() {
         return map.containsKey(key) ? 1 : 0;
-      }
-
-      @Override
-      public boolean contains(Object o) {
-        return map.containsKey(key) && Objects.equals(map.get(key), o);
       }
     };
   }

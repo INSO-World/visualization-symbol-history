@@ -63,7 +63,8 @@ public class PropertyCapture {
       // TODO: Replace with known type where applicable (may be generic type parameter)
       builder.property(new TypeProperty(parseUnknownType(typedElement.getType())));
     }
-    if (element instanceof CtFormalTypeDeclarer formalTypeDeclarer && !formalTypeDeclarer.getFormalCtTypeParameters().isEmpty()) {
+    if (element instanceof CtFormalTypeDeclarer formalTypeDeclarer && !formalTypeDeclarer.getFormalCtTypeParameters()
+      .isEmpty()) {
       var typeParameters = ListsX.map(
         formalTypeDeclarer.getFormalCtTypeParameters(), PropertyCapture::parseTypeParameter);
       builder.property(new TypeParametersProperty(typeParameters));

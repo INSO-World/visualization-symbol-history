@@ -41,10 +41,6 @@ public class FileMapping {
     }
   }
 
-  public void unlinkTarget(String targetFilePath) {
-    mappings.removeByTarget(targetFilePath);
-  }
-
   public List<ParentFile> getDeletedFiles() {
     return mappings.mappings().stream()
       .filter(Mapping::isDeletion)
@@ -57,6 +53,10 @@ public class FileMapping {
       .filter(Mapping::isStatic)
       .map(Mapping::source)
       .collect(Collectors.toList());
+  }
+
+  public void unlinkTarget(String targetFilePath) {
+    mappings.removeByTarget(targetFilePath);
   }
 
   private void addUnchangedMappingsForParent(int parentIndex, Collection<String> parentPaths, Set<String> childPaths) {

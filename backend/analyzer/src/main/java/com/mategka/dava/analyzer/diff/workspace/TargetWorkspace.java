@@ -73,7 +73,8 @@ public class TargetWorkspace {
               .map(FileChange::diffEntry)
               .findFirstAsOption()
               .getOrThrow();
-            yield getNewlyParsedTargetEntry(parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot);
+            yield getNewlyParsedTargetEntry(
+              parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot);
           }
           var parentPackage = establishPackageHierarchyByName(targetRoot, fileTree);
           var spoonUnit = parentWorkspace.getFileSpoonUnits().get(file.filePath());
@@ -81,7 +82,8 @@ public class TargetWorkspace {
         }
         case None<?> _n -> {
           var changeMetadata = sourceMappings.getFirst().metadata().diffEntry(); // must exist since target exists
-          yield getNewlyParsedTargetEntry(parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot);
+          yield getNewlyParsedTargetEntry(
+            parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot);
         }
       };
       if (entryData == null) {
@@ -103,44 +105,6 @@ public class TargetWorkspace {
       .map(Pair.fromRight(n -> n.value().getPath()))
       .collect(CollectorsX.pairsToMutableMap(TreeMap::new));
     return new SymbolWorkspace(targetRoot, fileSymbols, fileSpoonUnits, locatedSymbols, unchangedFromParent);
-  }
-
-  private static @Nullable TargetEntry getNewlyParsedTargetEntry(Array<SymbolWorkspace> parentWorkspaces,
-                                                              Repository repository, String targetFilePath,
-                                                              DiffEntry changeMetadata,
-                                                              List<Mapping<ParentFile, String, FileChange>> sourceMappings,
-                                                              TreeNode<Symbol> targetRoot) {
-    var newContents = repository.readFile(changeMetadata, Side.NEW).getSuccess().orElseThrow();
-    var virtualFile = new VirtualFile(newContents, targetFilePath);
-    CtCompilationUnit spoonUnit = null;
-    try {
-      spoonUnit = Spoon.parse(virtualFile);
-    } catch (CompilationException e) {
-      e.printStackTrace();
-      // TODO: Figure out better last resort error handling than taking first valid parent's state
-      var nonAdditionChangeSource = AnStream.from(sourceMappings)
-        // Mapping cannot be static, otherwise the parent would be uncompilable, too
-        .filter(m -> !m.isAddition() && !m.isStatic())
-        .map(Mapping::source)
-        // If file tree does not exist in parent, this is a repeated compilation failure despite changes, try again later
-        .filter(file -> parentWorkspaces.get(file.parentIndex()).getFileSymbols().containsKey(file.filePath()))
-        .findFirstAsOption();
-      return switch (nonAdditionChangeSource) {
-        case Some<ParentFile> some -> {
-          var file = some.getOrThrow();
-          var parentWorkspace = parentWorkspaces.get(file.parentIndex());
-          var fileTree = parentWorkspace.getFileSymbols().get(file.filePath()); // must exist by above precondition
-          var parentPackage = establishPackageHierarchyByName(targetRoot, fileTree);
-          spoonUnit = parentWorkspace.getFileSpoonUnits().get(file.filePath());
-          yield new TargetEntry(parentPackage, fileTree.copy(), spoonUnit);
-        }
-        // If we get here, the file is a strict addition, just skip it, and try again after further changes
-        case None<?> _n2 -> null;
-      };
-    }
-    var parentPackage = establishPackageHierarchyByPath(targetRoot, spoonUnit);
-    var fileTree = Symbolizer.symbolizeFileType(spoonUnit.getMainType(), parentPackage.value());
-    return new TargetEntry(parentPackage, fileTree, spoonUnit);
   }
 
   private TreeNode<Symbol> establishPackageHierarchyByName(TreeNode<Symbol> targetRoot, TreeNode<Symbol> fileNode) {
@@ -200,6 +164,44 @@ public class TargetWorkspace {
         });
     }
     return currentParent;
+  }
+
+  private static @Nullable TargetEntry getNewlyParsedTargetEntry(Array<SymbolWorkspace> parentWorkspaces,
+                                                                 Repository repository, String targetFilePath,
+                                                                 DiffEntry changeMetadata,
+                                                                 List<Mapping<ParentFile, String, FileChange>> sourceMappings,
+                                                                 TreeNode<Symbol> targetRoot) {
+    var newContents = repository.readFile(changeMetadata, Side.NEW).getSuccess().orElseThrow();
+    var virtualFile = new VirtualFile(newContents, targetFilePath);
+    CtCompilationUnit spoonUnit = null;
+    try {
+      spoonUnit = Spoon.parse(virtualFile);
+    } catch (CompilationException e) {
+      e.printStackTrace();
+      // TODO: Figure out better last resort error handling than taking first valid parent's state
+      var nonAdditionChangeSource = AnStream.from(sourceMappings)
+        // Mapping cannot be static, otherwise the parent would be uncompilable, too
+        .filter(m -> !m.isAddition() && !m.isStatic())
+        .map(Mapping::source)
+        // If file tree does not exist in parent, this is a repeated compilation failure despite changes, try again later
+        .filter(file -> parentWorkspaces.get(file.parentIndex()).getFileSymbols().containsKey(file.filePath()))
+        .findFirstAsOption();
+      return switch (nonAdditionChangeSource) {
+        case Some<ParentFile> some -> {
+          var file = some.getOrThrow();
+          var parentWorkspace = parentWorkspaces.get(file.parentIndex());
+          var fileTree = parentWorkspace.getFileSymbols().get(file.filePath()); // must exist by above precondition
+          var parentPackage = establishPackageHierarchyByName(targetRoot, fileTree);
+          spoonUnit = parentWorkspace.getFileSpoonUnits().get(file.filePath());
+          yield new TargetEntry(parentPackage, fileTree.copy(), spoonUnit);
+        }
+        // If we get here, the file is a strict addition, just skip it, and try again after further changes
+        case None<?> _n2 -> null;
+      };
+    }
+    var parentPackage = establishPackageHierarchyByPath(targetRoot, spoonUnit);
+    var fileTree = Symbolizer.symbolizeFileType(spoonUnit.getMainType(), parentPackage.value());
+    return new TargetEntry(parentPackage, fileTree, spoonUnit);
   }
 
   private TreeNode<Symbol> getTargetRoot(Array<SymbolWorkspace> parentWorkspaces) {

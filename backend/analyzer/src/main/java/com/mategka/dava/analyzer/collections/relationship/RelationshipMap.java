@@ -18,6 +18,20 @@ public class RelationshipMap<S, T, M> {
   Map<S, Mapping<@NotNull S, T, M>> deletions = new HashMap<>();
   Table<T, S, Mapping<@NotNull S, @NotNull T, M>> mappings = HashBasedTable.create();
 
+  @CanIgnoreReturnValue
+  public boolean clearAdditions() {
+    var changed = !additions.isEmpty();
+    additions.clear();
+    return changed;
+  }
+
+  @CanIgnoreReturnValue
+  public boolean clearDeletions() {
+    var changed = !deletions.isEmpty();
+    deletions.clear();
+    return changed;
+  }
+
   @Unmodifiable
   public @NotNull Collection<@NotNull Mapping<S, T, M>> getBySource(@Nullable S source) {
     if (deletions.containsKey(source)) {
@@ -65,7 +79,8 @@ public class RelationshipMap<S, T, M> {
     if (mapping.isDeletion()) {
       return removeBySource(mapping.source()) | deletions.put(mapping.source(), mapping) != null;
     }
-    return removeExternals(mapping.source(), mapping.target()) | mappings.put(mapping.target(), mapping.source(), mapping) != null;
+    return removeExternals(mapping.source(), mapping.target())
+      | mappings.put(mapping.target(), mapping.source(), mapping) != null;
   }
 
   @CanIgnoreReturnValue
@@ -130,27 +145,9 @@ public class RelationshipMap<S, T, M> {
   }
 
   @CanIgnoreReturnValue
-  public boolean clearAdditions() {
-    var changed = !additions.isEmpty();
-    additions.clear();
-    return changed;
-  }
-
-  private boolean removeExternals(@NotNull S source, @NotNull T target) {
-    return additions.remove(target) != null || deletions.remove(source) != null;
-  }
-
-  @CanIgnoreReturnValue
   public boolean removeBySource(@NotNull S source) {
     var changed = hasSource(source);
     mappings.column(source).clear();
-    return changed;
-  }
-
-  @CanIgnoreReturnValue
-  public boolean clearDeletions() {
-    var changed = !deletions.isEmpty();
-    deletions.clear();
     return changed;
   }
 
@@ -169,6 +166,10 @@ public class RelationshipMap<S, T, M> {
   @UnmodifiableView
   public @NotNull Set<T> targets() {
     return Collections.unmodifiableSet(mappings.rowKeySet());
+  }
+
+  private boolean removeExternals(@NotNull S source, @NotNull T target) {
+    return additions.remove(target) != null || deletions.remove(source) != null;
   }
 
 }

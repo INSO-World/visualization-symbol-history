@@ -1,7 +1,7 @@
 package com.mategka.dava.analyzer.diff.file;
 
 import com.mategka.dava.analyzer.collections.Array;
-import com.mategka.dava.analyzer.collections.ManyToOneMap;
+import com.mategka.dava.analyzer.collections.ManyToManyMap;
 
 import lombok.experimental.UtilityClass;
 
@@ -12,7 +12,7 @@ public class FileDiff {
 
   public FileMapping getMapping(Array<Map<String, FileChange>> diffsPerParent,
                                 Array<Map<String, FileChange>> additionsPerParent) {
-    var mapping = new ManyToOneMap<ParentFile, String, FileChange>();
+    var mapping = new ManyToManyMap<ParentFile, String, FileChange>();
     for (var parentEntry : diffsPerParent.withIndex()) {
       int parentIndex = parentEntry.left();
       var diffs = parentEntry.right();

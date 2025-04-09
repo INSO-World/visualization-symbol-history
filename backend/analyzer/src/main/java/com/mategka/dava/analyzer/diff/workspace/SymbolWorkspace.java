@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.diff.symbol;
+package com.mategka.dava.analyzer.diff.workspace;
 
 import com.mategka.dava.analyzer.collections.Array;
 import com.mategka.dava.analyzer.extension.struct.TreeNode;

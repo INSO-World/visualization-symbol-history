@@ -1,0 +1,163 @@
+package com.mategka.dava.analyzer.diff.workspace;
+
+import com.mategka.dava.analyzer.collections.Array;
+import com.mategka.dava.analyzer.collections.Mapping;
+import com.mategka.dava.analyzer.collections.Stack;
+import com.mategka.dava.analyzer.diff.file.FileMapping;
+import com.mategka.dava.analyzer.diff.file.ParentFile;
+import com.mategka.dava.analyzer.extension.CollectorsX;
+import com.mategka.dava.analyzer.extension.ListsX;
+import com.mategka.dava.analyzer.extension.option.None;
+import com.mategka.dava.analyzer.extension.option.Options;
+import com.mategka.dava.analyzer.extension.option.Some;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
+import com.mategka.dava.analyzer.extension.struct.Pair;
+import com.mategka.dava.analyzer.extension.struct.TreeNode;
+import com.mategka.dava.analyzer.git.Repository;
+import com.mategka.dava.analyzer.git.Side;
+import com.mategka.dava.analyzer.spoon.CompilationException;
+import com.mategka.dava.analyzer.spoon.CtEqPath;
+import com.mategka.dava.analyzer.spoon.Spoon;
+import com.mategka.dava.analyzer.struct.pipeline.Symbolizer;
+import com.mategka.dava.analyzer.struct.property.PathProperty;
+import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
+import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
+import com.mategka.dava.analyzer.struct.property.value.Kind;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
+
+import lombok.experimental.UtilityClass;
+import spoon.reflect.declaration.CtCompilationUnit;
+import spoon.reflect.declaration.CtPackage;
+import spoon.support.compiler.VirtualFile;
+
+import java.util.*;
+
+@UtilityClass
+public class TargetWorkspace {
+
+  public SymbolWorkspace create(Array<SymbolWorkspace> parentWorkspaces, FileMapping fileMapping,
+                                Repository repository) throws CompilationException {
+    final var targetRoot = getTargetRoot(parentWorkspaces);
+    final Map<String, TreeNode<Symbol>> fileSymbols = new TreeMap<>();
+    final Map<String, CtCompilationUnit> fileSpoonUnits = new TreeMap<>();
+    final Array<Set<Symbol>> unchangedFromParent = Array.fromSupplier(parentWorkspaces.length, HashSet::new);
+    for (var targetFilePath : fileMapping.getMappings().targets()) {
+      if (targetFilePath == null) {
+        continue; // Ignore deletions
+      }
+      var sourceMappings = fileMapping.getMappings().getByTarget(targetFilePath);
+      var unchangedSources = AnStream.from(sourceMappings)
+        .filter(Mapping::isStatic)
+        .map(Mapping::source)
+        .toTypedArray();
+      // NOTE: Since the subtree is unchanged for all unchangedSources, we can take any one of them
+      TargetEntry entryData = switch (Options.getFirst(unchangedSources)) {
+        case Some<ParentFile> some -> {
+          var file = some.getOrThrow();
+          var fileTree = parentWorkspaces.get(file.parentIndex()).getFileSymbols().get(file.filePath());
+          var parentPackage = establishPackageHierarchyByName(targetRoot, fileTree);
+          var spoonUnit = parentWorkspaces.get(file.parentIndex()).getFileSpoonUnits().get(file.filePath());
+          yield new TargetEntry(parentPackage, fileTree.copy(), spoonUnit);
+        }
+        case None<?> _n -> {
+          var changedSource = sourceMappings.getFirst().metadata().diffEntry(); // must exist since target exists
+          var newContents = repository.readFile(changedSource, Side.NEW).getSuccess().orElseThrow();
+          var virtualFile = new VirtualFile(targetFilePath, newContents);
+          var spoonUnit = Spoon.parse(virtualFile);
+          var parentPackage = establishPackageHierarchyByPath(targetRoot, spoonUnit);
+          var fileTree = Symbolizer.symbolizeFileType(spoonUnit.getMainType(), parentPackage.value());
+          yield new TargetEntry(parentPackage, fileTree, spoonUnit);
+        }
+      };
+      for (var file : unchangedSources) {
+        for (var node : entryData.fileTree()) {
+          unchangedFromParent.get(file.parentIndex()).add(node.value());
+        }
+      }
+      entryData.packageNode().add(entryData.fileTree());
+      fileSymbols.put(targetFilePath, entryData.fileTree());
+      fileSpoonUnits.put(targetFilePath, entryData.spoonUnit());
+    }
+    Symbolizer.augmentParentProperty(targetRoot);
+    Map<CtEqPath, TreeNode<Symbol>> locatedSymbols = targetRoot.stream()
+      .map(Pair.fromRight(n -> n.value().getPath()))
+      .collect(CollectorsX.pairsToMutableMap(TreeMap::new));
+    return new SymbolWorkspace(targetRoot, fileSymbols, fileSpoonUnits, locatedSymbols, unchangedFromParent);
+  }
+
+  private TreeNode<Symbol> establishPackageHierarchyByName(TreeNode<Symbol> targetRoot, TreeNode<Symbol> fileNode) {
+    var packageStack = new Stack<Symbol>();
+    var currentPackageNode = fileNode.parent().getOrThrow();
+    while (!currentPackageNode.isRoot()) {
+      packageStack.push(currentPackageNode.value());
+      currentPackageNode = currentPackageNode.parent().getOrThrow();
+    }
+    return establishPackageHierarchyByName(targetRoot, packageStack);
+  }
+
+  private TreeNode<Symbol> establishPackageHierarchyByName(TreeNode<Symbol> targetRoot, Stack<Symbol> packageStack) {
+    var currentParent = targetRoot;
+    while (!packageStack.isEmpty()) {
+      var packageSymbol = packageStack.pop();
+      final TreeNode<Symbol> finalCurrentParent = currentParent;
+      currentParent = ListsX.find(
+          currentParent.children(),
+          m -> m.value().getName().equals(packageSymbol.getName()) && m.value().getKind() == Kind.PACKAGE
+        )
+        .getOrCompute(() -> finalCurrentParent.addByValue(packageSymbol.clone()));
+    }
+    return currentParent;
+  }
+
+  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, CtCompilationUnit spoonUnit) {
+    var spoonPackage = spoonUnit.getPackageDeclaration().getReference().getDeclaration();
+    var packageStack = new Stack<CtPackage>();
+    var currentPackage = spoonPackage;
+    while (!Spoon.isRootPackage(currentPackage)) {
+      packageStack.push(currentPackage);
+      currentPackage = currentPackage.getDeclaringPackage();
+    }
+    // Set root path in case it is unset
+    targetRoot.value().putProperty(PathProperty.fromElement(currentPackage));
+    return establishPackageHierarchyByPath(targetRoot, packageStack);
+  }
+
+  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, Stack<CtPackage> packageStack) {
+    var currentParent = targetRoot;
+    while (!packageStack.isEmpty()) {
+      var spoonPackage = packageStack.pop();
+      final TreeNode<Symbol> finalCurrentParent = currentParent;
+      currentParent = ListsX.find(
+          currentParent.children(),
+          m -> m.value().getPath().equals(CtEqPath.of(spoonPackage)) && m.value().getKind() == Kind.PACKAGE
+        )
+        .getOrCompute(() -> {
+          var properties = PropertyMap.builder()
+            .property(Kind.PACKAGE.toProperty())
+            .property(SimpleNameProperty.fromElement(spoonPackage))
+            .property(PathProperty.fromElement(spoonPackage))
+            .build();
+          var packageSymbol = Symbol.withPropertyMap(properties);
+          return finalCurrentParent.addByValue(packageSymbol);
+        });
+    }
+    return currentParent;
+  }
+
+  private TreeNode<Symbol> getTargetRoot(Array<SymbolWorkspace> parentWorkspaces) {
+    var inheritedRoot = Options.getFirst(parentWorkspaces)
+      .map(SymbolWorkspace::getTree)
+      .map(TreeNode::value);
+    var properties = PropertyMap.builder()
+      .property(SimpleNameProperty.forRootPackage())
+      .property(Kind.PACKAGE.toProperty())
+      .property(inheritedRoot.map(s -> s.getProperty(PathProperty.class)).getOrElse(PathProperty.EMPTY))
+      .build();
+    return new TreeNode<>(Symbol.withPropertyMap(properties));
+  }
+
+  private record TargetEntry(TreeNode<Symbol> packageNode, TreeNode<Symbol> fileTree, CtCompilationUnit spoonUnit) {
+
+  }
+
+}

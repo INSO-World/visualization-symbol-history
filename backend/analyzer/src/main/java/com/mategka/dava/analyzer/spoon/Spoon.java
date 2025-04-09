@@ -69,18 +69,23 @@ public class Spoon {
     return launcher;
   }
 
-  public CtCompilationUnit parse(VirtualFile virtualFile) {
-    var launcher = newLauncher();
-    launcher.addInputResource(virtualFile);
-    var model = launcher.buildModel();
-    var units = getCompilationUnits(model);
-    if (units.isEmpty()) {
-      throw new IllegalStateException("Virtual file contains no compilation unit");
+  public CtCompilationUnit parse(VirtualFile virtualFile) throws CompilationException {
+    try {
+      var launcher = newLauncher();
+      launcher.addInputResource(virtualFile);
+      var model = launcher.buildModel();
+      var units = getCompilationUnits(model);
+      if (units.isEmpty()) {
+        throw new IllegalStateException("Virtual file contains no compilation unit");
+      }
+      if (units.size() > 1) {
+        throw new IllegalStateException("Virtual file contains more than one compilation unit");
+      }
+      return units.getFirst();
+    } catch (Exception e) {
+      // TODO: Incrementally upgrade parser until file compiles; only throw at LATEST level
+      throw new CompilationException("Could not compile file: " + virtualFile.getName(), e);
     }
-    if (units.size() > 1) {
-      throw new IllegalStateException("Virtual file contains more than one compilation unit");
-    }
-    return units.getFirst();
   }
 
   public String simpleNameOf(Class<? extends CtElement> clazz) {

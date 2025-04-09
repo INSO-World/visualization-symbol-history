@@ -20,12 +20,11 @@ import java.util.Map;
 public class Symbolizer {
 
   @Contract(mutates = "param")
-  public @NotNull TreeNode<Symbol> augmentParentProperty(@NotNull TreeNode<Symbol> root) {
+  public void augmentParentProperty(@NotNull TreeNode<Symbol> root) {
     //noinspection CodeBlock2Expr
     root.iterator().forEachRemaining(node -> {
       node.parent().ifSome(p -> node.value().putProperty(ParentProperty.fromSymbol(p.value())));
     });
-    return root;
   }
 
   public TreeNode<Symbol> symbolize(@NotNull CtElement rootElement, @NotNull Symbol baseParent) {

@@ -19,7 +19,8 @@ public class ManyToOneMap<S, T, M> implements RelationshipMap<S, T, M> {
 
   @Override
   public @NotNull List<Mapping<S, T, M>> getBySource(S source) {
-    return List.of(sourceMap.get(source));
+    var target = sourceMap.get(source);
+    return target == null ? Collections.emptyList() : List.of(target);
   }
 
   @Override

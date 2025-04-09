@@ -20,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public final class Symbol implements PropertyIndexable {
@@ -101,6 +102,21 @@ public final class Symbol implements PropertyIndexable {
     return SimpleNameProperty.ROOT_PACKAGE_NAME.equals(name.getOrThrow()) && Kind.PACKAGE.equals(kind.getOrThrow());
   }
 
+  public int looseHashCode() {
+    return context.fold(c -> Objects.hash(c, predecessors), properties::hashCode);
+  }
+
+  public boolean looselyEquals(Object o) {
+    if (!(o instanceof Symbol symbol)) return false;
+    if (context.isNone() != symbol.context.isNone()) return false;
+    if (context.isNone()) {
+      return properties.equals(symbol.properties);
+    }
+    var thisContext = context.getOrThrow();
+    var thatContext = symbol.context.getOrThrow();
+    return Objects.equals(thisContext, thatContext) && Objects.equals(predecessors, symbol.predecessors);
+  }
+
   public void putProperty(Property property) {
     properties.put(property);
   }
@@ -119,25 +135,6 @@ public final class Symbol implements PropertyIndexable {
   public String toString() {
     return getDisplayName();
   }
-
-  /*
-  @Override
-  public boolean equals(Object o) {
-    if (!(o instanceof Symbol2 symbol)) return false;
-    if (context.isNone() != symbol.context.isNone()) return false;
-    if (context.isNone()) {
-      return properties.equals(symbol.properties);
-    }
-    var thisContext = context.getOrThrow();
-    var thatContext = symbol.context.getOrThrow();
-    return Objects.equals(thisContext, thatContext) && Objects.equals(predecessors, symbol.predecessors);
-  }
-
-  @Override
-  public int hashCode() {
-    return context.fold(c -> Objects.hash(c, predecessors), properties::hashCode);
-  }
-  */
 
   public record Context(@NonNull SymbolKey key, @NonNull Hash commit) {
 

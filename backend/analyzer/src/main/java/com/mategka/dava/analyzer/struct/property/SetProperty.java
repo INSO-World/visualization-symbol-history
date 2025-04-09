@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.struct.property;
 
+import com.mategka.dava.analyzer.extension.Covariant;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
@@ -13,7 +15,7 @@ public sealed interface SetProperty<T> extends TypedProperty<Set<? extends T>>
   }
 
   default boolean containsAll(@NotNull Collection<? extends T> c) {
-    return value().containsAll(c);
+    return value().containsAll(Covariant.collection(c));
   }
 
   default boolean isEmpty() {
@@ -24,6 +26,6 @@ public sealed interface SetProperty<T> extends TypedProperty<Set<? extends T>>
     return value().size();
   }
 
-  @NotNull Set<? extends T> value();
+  @NotNull Set<T> value();
 
 }

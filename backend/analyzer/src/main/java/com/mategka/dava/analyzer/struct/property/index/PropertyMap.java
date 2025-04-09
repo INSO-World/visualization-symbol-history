@@ -5,6 +5,7 @@ import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.SimpleProperty;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
 
@@ -78,6 +79,7 @@ public class PropertyMap extends HashMap<String, Property> {
     return get(propertyClass).map(SimpleProperty::value).getOrElse(defaultValue);
   }
 
+  @CanIgnoreReturnValue
   public Property put(Property property) {
     return super.put(property.getKey(), property);
   }

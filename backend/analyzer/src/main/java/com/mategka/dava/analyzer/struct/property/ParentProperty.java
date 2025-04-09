@@ -14,10 +14,6 @@ public record ParentProperty(KnownType value) implements NullableProperty<KnownT
     return new ParentProperty(KnownType.of(id));
   }
 
-  public static ParentProperty fromSymbol(@NotNull Symbol symbol) {
-    return fromId(symbol.getKey().symbolId());
-  }
-
   @Contract("_ -> new")
   public static @NotNull ParentProperty fromSymbol(@NotNull Symbol symbol) {
     return fromId(symbol.getKey().symbolId());

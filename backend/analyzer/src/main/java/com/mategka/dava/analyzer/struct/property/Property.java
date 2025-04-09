@@ -19,6 +19,7 @@ public sealed interface Property permits TypedProperty {
     return PropertyKeys.get(getClass());
   }
 
+  @SuppressWarnings("EmptyMethod")
   Object value();
 
   String toString();

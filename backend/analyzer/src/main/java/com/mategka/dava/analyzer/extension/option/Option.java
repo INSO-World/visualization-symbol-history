@@ -66,8 +66,8 @@ public sealed interface Option<T> extends Comparable<Option<T>> permits None, So
 
   @NotNull Option<T> or(@NotNull Supplier<Option<T>> alternative);
 
-  default <R> OptionSwitch<T, R> switchMap() {
-    return new OptionSwitch<>(this);
+  default OptionSwitch2.SomeStage<T> switchMap() {
+    return OptionSwitch2.of(this);
   }
 
   default Option<T> tap(@NotNull Consumer<T> consumer) {

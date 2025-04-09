@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.collections;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.experimental.Delegate;
@@ -47,6 +48,7 @@ public class IndexMap<K, V> implements Map<K, V> {
     return map.put(actualKey, value);
   }
 
+  @CanIgnoreReturnValue
   public @Nullable V put(V value) {
     return map.put(keyExtractor.apply(value), value);
   }

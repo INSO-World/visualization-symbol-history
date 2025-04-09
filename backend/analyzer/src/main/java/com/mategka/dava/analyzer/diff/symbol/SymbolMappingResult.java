@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.diff.symbol;
 
+import com.mategka.dava.analyzer.diff.workspace.SymbolWorkspace;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolUpdate;
 

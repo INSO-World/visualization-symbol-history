@@ -8,4 +8,9 @@ public record AnalyzerLevelProperty(AnalyzerLevel value) implements SimpleProper
 
   public static final AnalyzerLevelProperty CURRENT = new AnalyzerLevelProperty(AnalyzerLevel.V1);
 
+  @Override
+  public String toString() {
+    return value.toString();
+  }
+
 }

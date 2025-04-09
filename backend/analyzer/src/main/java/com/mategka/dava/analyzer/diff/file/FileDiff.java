@@ -18,6 +18,10 @@ public class FileDiff {
       var diffs = parentEntry.right();
       for (var sourcePath : diffs.keySet()) {
         var fileChange = diffs.get(sourcePath);
+        if (fileChange.getNewPath() == null) {
+          // Ignore mappings for deletions
+          continue;
+        }
         var parentFile = new ParentFile(parentIndex, sourcePath);
         mapping.put(parentFile, fileChange.getNewPath(), fileChange);
       }

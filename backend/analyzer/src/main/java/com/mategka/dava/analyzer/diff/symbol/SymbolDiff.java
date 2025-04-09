@@ -13,9 +13,7 @@ import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.spoon.Spoon;
-import com.mategka.dava.analyzer.struct.property.BodyHashProperty;
-import com.mategka.dava.analyzer.struct.property.KindProperty;
-import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
+import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
 import com.mategka.dava.analyzer.struct.symbol.*;
@@ -136,8 +134,14 @@ public class SymbolDiff {
         updates.add(new SymbolUpdate(sourceSymbol.getKey(), symbolContext, propertyDiff, flags));
       }
     }
-    return new SymbolMappingResult(
-      targetWorkspace, externalMappings.additions(), externalMappings.deletions(), updates);
+    // 5. Add parent property (only possible after all target symbols had their context assigned)
+    for (var targetNode : Using.iterator(targetWorkspace.getTree(), TreeOrder.PREORDER)) {
+      if (targetNode.isRoot()) {
+        continue;
+      }
+      targetNode.value().putProperty(ParentProperty.fromSymbol(targetNode.parent().getOrThrow().value()));
+    }
+    return new SymbolMappingResult(externalMappings.additions(), externalMappings.deletions(), updates);
   }
 
   private static Set<Symbol> computeAdditions(Array<SymbolWorkspace> parentWorkspaces, List<Symbol> targetSymbols,
@@ -225,6 +229,7 @@ public class SymbolDiff {
                                       SymbolWorkspace targetWorkspace) {
     var comparator = new AstComparator();
     for (var mapping : fileMapping.getMappings().mappings()) {
+      // TODO: The deletion check should be redundant?
       if (FileMapping.isFileAddition(mapping) || mapping.isDeletion()) {
         continue;
       }

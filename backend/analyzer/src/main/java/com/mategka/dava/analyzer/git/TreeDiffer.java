@@ -29,7 +29,7 @@ public class TreeDiffer {
 
   public DiffFormatter newFormatter() {
     DiffFormatter formatter = new DiffFormatter(NullOutputStream.INSTANCE);
-    formatter.setRepository(repository.getSpoonRepository());
+    formatter.setRepository(repository.getJgitRepository());
     formatter.setContext(0);
     formatter.setDetectRenames(true);
     formatter.setDiffAlgorithm(DiffAlgorithm.getAlgorithm(DiffAlgorithm.SupportedAlgorithm.MYERS));

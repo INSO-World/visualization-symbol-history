@@ -23,6 +23,7 @@ import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtWildcardReference;
 
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -62,13 +63,13 @@ public class PropertyCapture {
       // TODO: Replace with known type where applicable (may be generic type parameter)
       builder.property(new TypeProperty(parseUnknownType(typedElement.getType())));
     }
-    if (element instanceof CtFormalTypeDeclarer formalTypeDeclarer) {
+    if (element instanceof CtFormalTypeDeclarer formalTypeDeclarer && !formalTypeDeclarer.getFormalCtTypeParameters().isEmpty()) {
       var typeParameters = ListsX.map(
         formalTypeDeclarer.getFormalCtTypeParameters(), PropertyCapture::parseTypeParameter);
       builder.property(new TypeParametersProperty(typeParameters));
     }
     if (element instanceof CtExecutable<?> executable) {
-      builder.property(BodyHashProperty.fromString(executable.getBody().toString()));
+      builder.property(BodyHashProperty.fromString(Objects.toString(executable.getBody())));
     }
     return builder;
   }

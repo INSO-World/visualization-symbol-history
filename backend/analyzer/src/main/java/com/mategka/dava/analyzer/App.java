@@ -10,7 +10,6 @@ import com.mategka.dava.analyzer.diff.workspace.TargetWorkspace;
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.*;
-import com.mategka.dava.analyzer.spoon.CompilationException;
 import com.mategka.dava.analyzer.struct.CommitDiff;
 import com.mategka.dava.analyzer.struct.History;
 import com.mategka.dava.analyzer.struct.Strand;
@@ -68,7 +67,7 @@ public class App {
           fileMapping.addUnchangedMappings(pathsPerParent, commitPaths);
           var targetWorkspace = TargetWorkspace.create(parentWorkspaces, fileMapping, repository);
           var symbolMapping = SymbolDiff.getMapping(targetWorkspace, parentWorkspaces, fileMapping, context);
-          workspaces.put(strand.getId(), symbolMapping.workspace());
+          workspaces.put(strand.getId(), targetWorkspace);
           CommitDiff diff = CommitDiff.builder()
             .commitData(commit)
             .additions(symbolMapping.additions())
@@ -78,9 +77,6 @@ public class App {
             .build();
           strand.getCommitDiffs().add(diff);
         }
-      } catch (CompilationException e) {
-        // TODO: Error handling in case of compilation errors
-        throw new RuntimeException(e);
       }
       System.out.println("Done!");
       var time = benchmark.end();

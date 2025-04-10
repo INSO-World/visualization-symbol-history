@@ -39,12 +39,161 @@ public class SymbolDiff {
     Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps = Array.fromSupplier(
       parentWorkspaces.length, ManyToManyMap::new);
     // 1. Map packages to each other
-    mapPackageSymbols(parentWorkspaces, symbolMaps, targetWorkspace);
+    step1mapPackageSymbols(parentWorkspaces, symbolMaps, targetWorkspace);
     // 2. Map file symbols to each other
-    mapInnerSymbols(parentWorkspaces, fileMapping, symbolMaps, targetWorkspace);
+    step2mapInnerSymbols(parentWorkspaces, fileMapping, symbolMaps, targetWorkspace);
     // 3. Identify (global) deletions and additions
-    ExternalMappingSets externalMappings = computeExternalMappings(parentWorkspaces, targetWorkspace, symbolMaps);
+    ExternalMappingSets externalMappings = step3computeExternalMappings(parentWorkspaces, targetWorkspace, symbolMaps);
     // 4. Choose suitable Context for all target symbols based on all sources, set predecessors, create prop updates
+    List<SymbolUpdate> updates = step4processSymbolMappings(
+      targetWorkspace, parentWorkspaces, context, externalMappings, symbolMaps);
+    // 5. Add parent property (only possible after all target symbols had their context assigned)
+    step5augmentParentProperties(targetWorkspace);
+    return new SymbolMappingResult(externalMappings.additions(), externalMappings.deletions(), updates);
+  }
+
+  private boolean isFileSymbol(Symbol symbol, Symbol parentSymbol) {
+    return parentSymbol.getKind() == Kind.PACKAGE && symbol.getKind() != Kind.PACKAGE;
+  }
+
+  private @NotNull Map<CtEqPath, @NotNull TreeNode<Symbol>> step1getPathIndex(TreeNode<Symbol> matchingPair) {
+    return AnStream.from(matchingPair.children())
+      .allow(n -> n.value().getKind() == Kind.PACKAGE)
+      .collect(Collectors.toMap(n -> n.value().getPath(), Function.identity()));
+  }
+
+  private static void step1mapPackageSymbols(Array<SymbolWorkspace> parentWorkspaces,
+                                             Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
+                                             SymbolWorkspace targetWorkspace) {
+    // TODO: For now, packages are mapped 1:1 and moves/renames are not detected
+    for (var parentWorkspaceTuple : parentWorkspaces.withIndex()) {
+      var parentIndex = parentWorkspaceTuple.left();
+      var symbolMap = symbolMaps.get(parentIndex);
+      var parentWorkspace = parentWorkspaceTuple.right();
+      Queue<Pair<TreeNode<Symbol>, TreeNode<Symbol>>> packageMatchingQueue = new ArrayDeque<>();
+      packageMatchingQueue.add(Pair.of(parentWorkspace.getTree(), targetWorkspace.getTree()));
+      while (!packageMatchingQueue.isEmpty()) {
+        var matchingPair = packageMatchingQueue.remove();
+        symbolMap.put(matchingPair.left().value(), matchingPair.right().value(), null);
+        Map<CtEqPath, TreeNode<Symbol>> sourceMap = step1getPathIndex(matchingPair.left());
+        Map<CtEqPath, TreeNode<Symbol>> targetMap = step1getPathIndex(matchingPair.right());
+        Set<CtEqPath> commonPaths = SetsX.intersection(sourceMap.keySet(), targetMap.keySet());
+        for (CtEqPath commonPath : commonPaths) {
+          packageMatchingQueue.add(Pair.of(sourceMap.get(commonPath), targetMap.get(commonPath)));
+        }
+      }
+    }
+  }
+
+  private @NotNull BiMap<CtElement, CtElement> step2extractMappings(Diff astDiff, CtElement oldMainType,
+                                                                    CtElement newMainType, Set<CtEqPath> sourcePaths,
+                                                                    Set<CtEqPath> targetPaths) {
+    var result = AnStream.from(astDiff.getMappingsComp().asSet())
+      .map(m -> Pair.of(m.first, m.second))
+      .filter(Pair.filtering(t -> !t.isRoot() && !t.getType().isEmpty()))
+      .map(Pair.mapping(Spoon::getMetaElement))
+      .filter(Pair.filtering(e -> !(e instanceof CtWrapper<?>)))
+      .filter(Pair.filtering(
+        e -> sourcePaths.contains(CtEqPath.of(e)),
+        e -> targetPaths.contains(CtEqPath.of(e))
+      ))
+      .collect(CollectorsX.toBiMap());
+    var mainTypeTarget = result.get(oldMainType);
+    if (mainTypeTarget != newMainType) {
+      result.forcePut(oldMainType, newMainType);
+    }
+    return result;
+  }
+
+  private static void step2mapInnerSymbols(Array<SymbolWorkspace> parentWorkspaces, FileMapping fileMapping,
+                                           Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
+                                           SymbolWorkspace targetWorkspace) {
+    var comparator = new AstComparator();
+    for (var mapping : fileMapping.getMappings().mappings()) {
+      // TODO: The deletion check should be redundant?
+      if (FileMapping.isFileAddition(mapping) || mapping.isDeletion()) {
+        continue;
+      }
+      var file = mapping.source();
+      var parentIndex = file.parentIndex();
+      var symbolMap = symbolMaps.get(parentIndex);
+      var sourceWorkspace = parentWorkspaces.get(parentIndex);
+      var oldPath = file.filePath();
+      var newPath = mapping.target();
+      var oldMainType = sourceWorkspace.getFileSpoonUnits().get(oldPath).getMainType();
+      var newMainType = targetWorkspace.getFileSpoonUnits().get(newPath).getMainType();
+      var astDiff = comparator.compare(oldMainType, newMainType);
+      var astMappings = step2extractMappings(
+        astDiff, oldMainType, newMainType, sourceWorkspace.pathSet(), targetWorkspace.pathSet());
+      var oldLocations = sourceWorkspace.getLocatedSymbols();
+      var newLocations = targetWorkspace.getLocatedSymbols();
+      var astSymbolMappings = astMappings.entrySet().stream()
+        .map(Pair::fromEntry)
+        .map(Pair.mapping(CtEqPath::of))
+        .map(Pair.mapping(oldLocations::get, newLocations::get))
+        .map(Pair.mapping(TreeNode::value))
+        .toList();
+      for (var pair : astSymbolMappings) {
+        symbolMap.put(pair.left(), pair.right(), null);
+      }
+    }
+  }
+
+  private static Set<Symbol> step3computeAdditions(Array<SymbolWorkspace> parentWorkspaces, List<Symbol> targetSymbols,
+                                                   CountingMap<Symbol> additionCounter) {
+    if (parentWorkspaces.isEmpty()) {
+      return new HashSet<>(targetSymbols);
+    } else {
+      return AnStream.from(additionCounter)
+        .filter(e -> e.getValue() == parentWorkspaces.length)
+        .map(Map.Entry::getKey)
+        .toSet();
+    }
+  }
+
+  private static @NotNull Set<Symbol> step3computeDeletions(Array<SymbolWorkspace> parentWorkspaces,
+                                                            Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
+                                                            List<Symbol> targetSymbols,
+                                                            CountingMap<Symbol> additionCounter) {
+    Set<Symbol> deletions = new HashSet<>();
+    for (var parentWorkspaceTuple : parentWorkspaces.withIndex()) {
+      var parentIndex = parentWorkspaceTuple.left();
+      var parentWorkspace = parentWorkspaceTuple.right();
+      var symbolMap = symbolMaps.get(parentIndex);
+      var sourceSymbols = ListsX.map(parentWorkspace.getLocatedSymbols().values(), TreeNode::value);
+      deletions.addAll(symbolMap.getUnmappedSources(sourceSymbols));
+      for (var unmappedTarget : symbolMap.getUnmappedTargets(targetSymbols)) {
+        additionCounter.increment(unmappedTarget);
+      }
+    }
+    return deletions;
+  }
+
+  private static @NotNull ExternalMappingSets step3computeExternalMappings(Array<SymbolWorkspace> parentWorkspaces,
+                                                                           SymbolWorkspace targetWorkspace,
+                                                                           Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps) {
+    var targetSymbols = ListsX.map(targetWorkspace.getLocatedSymbols().values(), TreeNode::value);
+    var additionCounter = new CountingMap<Symbol>();
+    Set<Symbol> deletions = step3computeDeletions(parentWorkspaces, symbolMaps, targetSymbols, additionCounter);
+    Set<Symbol> additions = step3computeAdditions(parentWorkspaces, targetSymbols, additionCounter);
+    return new ExternalMappingSets(deletions, additions);
+  }
+
+  private static List<ParentSymbol> step4getAllSourceSymbols(
+    Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps, Symbol target) {
+    return AnStream.fromIndexed(symbolMaps)
+      .map(Pair.mappingLeft(m -> m.getByTarget(target)))
+      .flatMap(p -> p.left().stream()
+        .map(m -> new ParentSymbol(p.right(), m.source()))
+      )
+      .toList();
+  }
+
+  private static @NotNull List<SymbolUpdate> step4processSymbolMappings(SymbolWorkspace targetWorkspace,
+                                                                        Array<SymbolWorkspace> parentWorkspaces,
+                                                                        SymbolCreationContext context,
+                                                                        ExternalMappingSets externalMappings,
+                                                                        Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps) {
     List<SymbolUpdate> updates = new ArrayList<>();
     Set<Symbol> movedTargetSymbols = new HashSet<>();
     for (var targetNode : Using.iterator(targetWorkspace.getTree(), TreeOrder.PREORDER)) {
@@ -60,7 +209,7 @@ public class SymbolDiff {
 
       Symbol ID can be kept if all mapped parents (others are addition links) share the same symbol ID
        */
-      var sourceRecords = getAllSourceSymbols(symbolMaps, targetSymbol);
+      var sourceRecords = step4getAllSourceSymbols(symbolMaps, targetSymbol);
       assert !sourceRecords.isEmpty(); // If no sources existed, the target would be an addition, which gets handled above
       var parentContexts = AnStream.from(sourceRecords)
         .map(ParentSymbol::symbol)
@@ -134,150 +283,15 @@ public class SymbolDiff {
         updates.add(new SymbolUpdate(sourceSymbol.getKey(), symbolContext, propertyDiff, flags));
       }
     }
-    // 5. Add parent property (only possible after all target symbols had their context assigned)
+    return updates;
+  }
+
+  private static void step5augmentParentProperties(SymbolWorkspace targetWorkspace) {
     for (var targetNode : Using.iterator(targetWorkspace.getTree(), TreeOrder.PREORDER)) {
       if (targetNode.isRoot()) {
         continue;
       }
       targetNode.value().putProperty(ParentProperty.fromSymbol(targetNode.parent().getOrThrow().value()));
-    }
-    return new SymbolMappingResult(externalMappings.additions(), externalMappings.deletions(), updates);
-  }
-
-  private static Set<Symbol> computeAdditions(Array<SymbolWorkspace> parentWorkspaces, List<Symbol> targetSymbols,
-                                              CountingMap<Symbol> additionCounter) {
-    if (parentWorkspaces.isEmpty()) {
-      return new HashSet<>(targetSymbols);
-    } else {
-      return AnStream.from(additionCounter)
-        .filter(e -> e.getValue() == parentWorkspaces.length)
-        .map(Map.Entry::getKey)
-        .toSet();
-    }
-  }
-
-  private static @NotNull Set<Symbol> computeDeletions(Array<SymbolWorkspace> parentWorkspaces,
-                                                       Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
-                                                       List<Symbol> targetSymbols,
-                                                       CountingMap<Symbol> additionCounter) {
-    Set<Symbol> deletions = new HashSet<>();
-    for (var parentWorkspaceTuple : parentWorkspaces.withIndex()) {
-      var parentIndex = parentWorkspaceTuple.left();
-      var parentWorkspace = parentWorkspaceTuple.right();
-      var symbolMap = symbolMaps.get(parentIndex);
-      var sourceSymbols = ListsX.map(parentWorkspace.getLocatedSymbols().values(), TreeNode::value);
-      deletions.addAll(symbolMap.getUnmappedSources(sourceSymbols));
-      for (var unmappedTarget : symbolMap.getUnmappedTargets(targetSymbols)) {
-        additionCounter.increment(unmappedTarget);
-      }
-    }
-    return deletions;
-  }
-
-  private static @NotNull ExternalMappingSets computeExternalMappings(Array<SymbolWorkspace> parentWorkspaces,
-                                                                      SymbolWorkspace targetWorkspace,
-                                                                      Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps) {
-    var targetSymbols = ListsX.map(targetWorkspace.getLocatedSymbols().values(), TreeNode::value);
-    var additionCounter = new CountingMap<Symbol>();
-    Set<Symbol> deletions = computeDeletions(parentWorkspaces, symbolMaps, targetSymbols, additionCounter);
-    Set<Symbol> additions = computeAdditions(parentWorkspaces, targetSymbols, additionCounter);
-    return new ExternalMappingSets(deletions, additions);
-  }
-
-  private @NotNull BiMap<CtElement, CtElement> extractMappings(Diff astDiff, CtElement oldMainType,
-                                                               CtElement newMainType, Set<CtEqPath> sourcePaths,
-                                                               Set<CtEqPath> targetPaths) {
-    var result = AnStream.from(astDiff.getMappingsComp().asSet())
-      .map(m -> Pair.of(m.first, m.second))
-      .filter(Pair.filtering(t -> !t.isRoot() && !t.getType().isEmpty()))
-      .map(Pair.mapping(Spoon::getMetaElement))
-      .filter(Pair.filtering(e -> !(e instanceof CtWrapper<?>)))
-      .filter(Pair.filtering(
-        e -> sourcePaths.contains(CtEqPath.of(e)),
-        e -> targetPaths.contains(CtEqPath.of(e))
-      ))
-      .collect(CollectorsX.toBiMap());
-    var mainTypeTarget = result.get(oldMainType);
-    if (mainTypeTarget != newMainType) {
-      result.forcePut(oldMainType, newMainType);
-    }
-    return result;
-  }
-
-  private static List<ParentSymbol> getAllSourceSymbols(
-    Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps, Symbol target) {
-    return AnStream.fromIndexed(symbolMaps)
-      .map(Pair.mappingLeft(m -> m.getByTarget(target)))
-      .flatMap(p -> p.left().stream()
-        .map(m -> new ParentSymbol(p.right(), m.source()))
-      )
-      .toList();
-  }
-
-  private @NotNull Map<CtEqPath, @NotNull TreeNode<Symbol>> getPathIndex(TreeNode<Symbol> matchingPair) {
-    return AnStream.from(matchingPair.children())
-      .allow(n -> n.value().getKind() == Kind.PACKAGE)
-      .collect(Collectors.toMap(n -> n.value().getPath(), Function.identity()));
-  }
-
-  private boolean isFileSymbol(Symbol symbol, Symbol parentSymbol) {
-    return parentSymbol.getKind() == Kind.PACKAGE && symbol.getKind() != Kind.PACKAGE;
-  }
-
-  private static void mapInnerSymbols(Array<SymbolWorkspace> parentWorkspaces, FileMapping fileMapping,
-                                      Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
-                                      SymbolWorkspace targetWorkspace) {
-    var comparator = new AstComparator();
-    for (var mapping : fileMapping.getMappings().mappings()) {
-      // TODO: The deletion check should be redundant?
-      if (FileMapping.isFileAddition(mapping) || mapping.isDeletion()) {
-        continue;
-      }
-      var file = mapping.source();
-      var parentIndex = file.parentIndex();
-      var symbolMap = symbolMaps.get(parentIndex);
-      var sourceWorkspace = parentWorkspaces.get(parentIndex);
-      var oldPath = file.filePath();
-      var newPath = mapping.target();
-      var oldMainType = sourceWorkspace.getFileSpoonUnits().get(oldPath).getMainType();
-      var newMainType = targetWorkspace.getFileSpoonUnits().get(newPath).getMainType();
-      var astDiff = comparator.compare(oldMainType, newMainType);
-      var astMappings = extractMappings(
-        astDiff, oldMainType, newMainType, sourceWorkspace.pathSet(), targetWorkspace.pathSet());
-      var oldLocations = sourceWorkspace.getLocatedSymbols();
-      var newLocations = targetWorkspace.getLocatedSymbols();
-      var astSymbolMappings = astMappings.entrySet().stream()
-        .map(Pair::fromEntry)
-        .map(Pair.mapping(CtEqPath::of))
-        .map(Pair.mapping(oldLocations::get, newLocations::get))
-        .map(Pair.mapping(TreeNode::value))
-        .toList();
-      for (var pair : astSymbolMappings) {
-        symbolMap.put(pair.left(), pair.right(), null);
-      }
-    }
-  }
-
-  private static void mapPackageSymbols(Array<SymbolWorkspace> parentWorkspaces,
-                                        Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
-                                        SymbolWorkspace targetWorkspace) {
-    // TODO: For now, packages are mapped 1:1 and moves/renames are not detected
-    for (var parentWorkspaceTuple : parentWorkspaces.withIndex()) {
-      var parentIndex = parentWorkspaceTuple.left();
-      var symbolMap = symbolMaps.get(parentIndex);
-      var parentWorkspace = parentWorkspaceTuple.right();
-      Queue<Pair<TreeNode<Symbol>, TreeNode<Symbol>>> packageMatchingQueue = new ArrayDeque<>();
-      packageMatchingQueue.add(Pair.of(parentWorkspace.getTree(), targetWorkspace.getTree()));
-      while (!packageMatchingQueue.isEmpty()) {
-        var matchingPair = packageMatchingQueue.remove();
-        symbolMap.put(matchingPair.left().value(), matchingPair.right().value(), null);
-        Map<CtEqPath, TreeNode<Symbol>> sourceMap = getPathIndex(matchingPair.left());
-        Map<CtEqPath, TreeNode<Symbol>> targetMap = getPathIndex(matchingPair.right());
-        Set<CtEqPath> commonPaths = SetsX.intersection(sourceMap.keySet(), targetMap.keySet());
-        for (CtEqPath commonPath : commonPaths) {
-          packageMatchingQueue.add(Pair.of(sourceMap.get(commonPath), targetMap.get(commonPath)));
-        }
-      }
     }
   }
 

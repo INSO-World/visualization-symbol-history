@@ -28,11 +28,10 @@ import java.util.stream.Collectors;
 public class App {
 
   public static void main(String[] args) {
-    System.out.println("Hello World!");
     // ?REPO
     // ?REPO
     try (Repository repository = Repository.open("?REPO")) {
-      Ref mainBranch = repository.resolveRef("main").getOrThrow();
+      Ref mainBranch = repository.resolveRef("HEAD").getOrThrow();
       var benchmark = Benchmark.start();
       var history = History.emptyOfBranch(repository, mainBranch);
       var strandMapping = history.getStrandMapping();
@@ -42,6 +41,10 @@ public class App {
       Map<@NotNull Long, SymbolWorkspace> workspaces = new HashMap<>();
       try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (Commit commit : commitWalk) {
+          if (Math.random() > 0) {
+            System.out.println("Commit: " + commit.hash());
+            continue;
+          }
           var strand = strandMapping.get(commit.hash());
           var commitPaths = repository.readRelevantPaths(commit);
           System.out.print(commit.hash().minimal() + " ");

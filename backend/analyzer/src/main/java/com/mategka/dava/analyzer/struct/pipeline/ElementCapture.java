@@ -1,8 +1,6 @@
 package com.mategka.dava.analyzer.struct.pipeline;
 
 import com.mategka.dava.analyzer.collections.ClassSet;
-import com.mategka.dava.analyzer.collections.Stack;
-import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.struct.symbol.Subject;
@@ -13,10 +11,7 @@ import spoon.reflect.code.CtLambda;
 import spoon.reflect.code.CtLocalVariable;
 import spoon.reflect.declaration.*;
 
-import java.util.ArrayDeque;
 import java.util.Map;
-import java.util.Queue;
-import java.util.stream.Collectors;
 
 @UtilityClass
 public class ElementCapture {
@@ -31,111 +26,6 @@ public class ElementCapture {
     CtLocalVariable.class
   );
 
-  private final ClassSet INVALID_PARENT_NODE_CLASSES = ClassSet.of(
-    CtField.class,
-    CtLocalVariable.class,
-    CtParameter.class,
-    CtLambda.class
-  );
-
-  private final ClassSet VALID_TYPE_MEMBER_NODE_CLASSES = ClassSet.of(
-    CtMethod.class,
-    CtConstructor.class,
-    CtType.class
-  );
-
-  private final ClassSet VALID_PARENT_NODE_CLASSES = ClassSet.of(
-    CtPackage.class,
-    CtType.class,
-    CtMethod.class,
-    CtConstructor.class
-  );
-
-  public Option<CtElement> getNearestSubjectElement(CtElement node) {
-    CtElement current = node;
-    Stack<CtElement> parents = new Stack<>();
-    do {
-      if (!current.isParentInitialized()) {
-        // No parent available, abort (should not occur since node must not be at package level or above)
-        return Option.None();
-      }
-      current = current.getParent();
-      if (current == null) {
-        // Invalid parent, abort
-        return Option.None();
-      }
-      parents.push(current);
-    } while (!(current instanceof CtPackage));
-    current = parents.pop();
-    while (!parents.isEmpty()) {
-      var next = parents.pop();
-      var relevantChildren = relevantChildrenOf(current).collect(Collectors.toSet());
-      if (relevantChildren.stream().noneMatch(next::equals)) {
-        // If the next parent is not part of the relevant children of the parent's parent, then we found the LCA
-        if (current instanceof CtExecutable<?> && next instanceof CtBodyHolder && !(next instanceof CtLambda<?>)) {
-          // However, if we have a CtExecutable-to-CtBodyHolder parent sequence, a variable declaration may be the LCA
-          if (relevantChildren.contains(node)) {
-            // If the node itself IS one of these variable declarations, then its parent is the previous parent
-            return Option.Some(current);
-          }
-          // Otherwise, the declaration among the relevantChildren would have to be among the remaining parents
-          var variableDeclaration = AnStream.from(parents)
-            .filter(relevantChildren::contains)
-            .findFirstAsOption();
-          if (variableDeclaration.isSome()) {
-            // If it is, then that is the correct parent (and node is a child of it)
-            return variableDeclaration;
-          }
-          // Otherwise, we fall back to the default behavior if a parent sequence disparity is found
-        }
-        return Option.Some(current);
-      }
-      current = next;
-    }
-    return Option.None();
-  }
-
-  public Option<CtElement> getNearestValidParent(CtElement node) {
-    CtElement current = node;
-    Queue<CtElement> parents = new ArrayDeque<>();
-    boolean expectingType = VALID_TYPE_MEMBER_NODE_CLASSES.containsClassOf(current);
-    while (true) {
-      if (!current.isParentInitialized()) {
-        // No parent available (should not occur since node must not be at package level or above)
-        return Option.None();
-      }
-      current = current.getParent();
-      if (current == null) {
-        // Invalid parent, abort
-        return Option.None();
-      }
-      parents.add(current);
-      if (current instanceof CtPackage) {
-        // Previous type was main type of .java file, all parents collected
-        break;
-      }
-      if (expectingType && !(current instanceof CtType<?>)) {
-        // Was expecting type but parent was not, abort
-        return Option.None();
-      }
-      if (INVALID_PARENT_NODE_CLASSES.containsClassOf(current)) {
-        // Invalid parent type, abort (symbols under these are never added)
-        return Option.None();
-      }
-      if (current instanceof CtConstructor<?> constructor && !Spoon.isRegularConstructor(constructor)) {
-        // Invalid parent type, abort (only symbols under explicit, regular constructors are ever captured)
-        return Option.None();
-      }
-      if (VALID_TYPE_MEMBER_NODE_CLASSES.containsClassOf(current)) {
-        // Expect main type or type declared in main type (e.g., not an anonymous class)
-        expectingType = true;
-      }
-    }
-    return AnStream.from(parents)
-      .filter(VALID_PARENT_NODE_CLASSES::containsClassOf)
-      .findFirstAsOption();
-  }
-
   public AnStream<Subject> parseElement(CtElement element, CtElement parent) {
     if (!CLASSES_TO_CAPTURE.containsClassOf(element)) {
       return AnStream.empty();
@@ -148,21 +38,6 @@ public class ElementCapture {
       Subject.of(element, parent),
       relevantChildrenOf(element).flatMap(m -> parseElement(m, element))
     );
-  }
-
-  public AnStream<Subject> parseFreeElement(CtElement element, CtElement parent) {
-    if (parent instanceof CtPackage || parent instanceof CtType<?>) {
-      return parseElement(element, parent);
-    } else if (parent instanceof CtConstructor<?> || parent instanceof CtMethod<?>) {
-      if (element instanceof CtParameter<?> || element instanceof CtLocalVariable<?>) {
-        return parseElement(element, parent);
-      }
-      if (element instanceof CtBodyHolder bodyHolder) {
-        return getVariables(bodyHolder).flatMap(e -> parseElement(e, parent));
-      }
-      return AnStream.empty();
-    }
-    throw new IllegalArgumentException("Given parent constitutes an illegal symbol parent");
   }
 
   private AnStream<CtElement> getVariables(CtBodyHolder element) {

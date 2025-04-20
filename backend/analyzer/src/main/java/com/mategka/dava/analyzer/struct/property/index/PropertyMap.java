@@ -17,9 +17,9 @@ import java.util.stream.Stream;
 public class PropertyMap extends HashMap<String, Property> {
 
   private static final Set<String> ABBREVIATED_PROPERTIES = Stream.of(
-    CtPathProperty.class,
-    InitialValueProperty.class,
-    BodyHashProperty.class
+      CtPathProperty.class,
+      InitialValueProperty.class,
+      BodyHashProperty.class
     )
     .map(PropertyKeys::get)
     .collect(Collectors.toSet());
@@ -113,17 +113,17 @@ public class PropertyMap extends HashMap<String, Property> {
     return toBuilder().property(property).build();
   }
 
-  @Override
-  public String toString() {
-    return "{ %s }".formatted(values().stream()
-      .map(p -> "%s%s".formatted(p.getKey(), propertyToValueString(p)))
-      .collect(Collectors.joining(", ")));
-  }
-
   @SuppressWarnings("MethodDoesntCallSuperMethod")
   @Override
   public PropertyMap clone() {
     return toBuilder().build();
+  }
+
+  @Override
+  public String toString() {
+    return "{ %s }".formatted(values().stream()
+                                .map(p -> "%s%s".formatted(p.getKey(), propertyToValueString(p)))
+                                .collect(Collectors.joining(", ")));
   }
 
   public static class Builder {
@@ -142,7 +142,8 @@ public class PropertyMap extends HashMap<String, Property> {
       return this;
     }
 
-    public <E, T extends Collection<E>> Builder property(@NonNull Function<T, TypedProperty<T>> propertyMapper, @NotNull T collection) {
+    public <E, T extends Collection<E>> Builder property(@NonNull Function<T, TypedProperty<T>> propertyMapper,
+                                                         @NotNull T collection) {
       return property(propertyMapper, Options.fromSized(collection));
     }
 

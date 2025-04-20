@@ -1,28 +1,18 @@
 package com.mategka.dava.analyzer.spoon;
 
 import com.mategka.dava.analyzer.extension.option.Options;
-import com.mategka.dava.analyzer.extension.stream.AnStream;
 
 import com.github.gumtreediff.tree.Tree;
 import lombok.experimental.UtilityClass;
 import org.apache.commons.io.FileSystem;
 import org.jetbrains.annotations.NotNull;
-import spoon.Launcher;
-import spoon.compiler.Environment;
-import spoon.reflect.CtModel;
 import spoon.reflect.CtModelImpl;
 import spoon.reflect.declaration.*;
-import spoon.support.compiler.VirtualFile;
-
-import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 @UtilityClass
 public class Spoon {
 
   public final String METADATA_KEY = "spoon_object";
-
-  public final CtModel EMPTY_MODEL = newLauncher().getModel();
 
   public String descriptorOf(CtElement element) {
     return "%s %s".formatted(
@@ -35,13 +25,6 @@ public class Spoon {
 
   public String filePathOf(CtCompilationUnit unit) {
     return FileSystem.LINUX.normalizeSeparators(unit.getFile().getPath());
-  }
-
-  public List<? extends CtCompilationUnit> getCompilationUnits(CtModel model) {
-    return AnStream.from(model.getAllModules())
-      .flatMap(module -> module.getFactory().CompilationUnit().getMap().values().stream())
-      .filter(unit -> unit.getUnitType() == CtCompilationUnit.UNIT_TYPE.TYPE_DECLARATION)
-      .toList();
   }
 
   public CtElement getMetaElement(@NotNull Tree tree) {
@@ -58,46 +41,6 @@ public class Spoon {
 
   public boolean isRootPackage(CtPackage pakkage) {
     return pakkage instanceof CtModelImpl.CtRootPackage;
-  }
-
-  public Launcher newLauncher() {
-    return newLauncher(JavaSyntax.LTS21);
-  }
-
-  public Launcher newLauncher(JavaSyntax syntax) {
-    Launcher launcher = new Launcher();
-    var env = launcher.getEnvironment();
-    env.setNoClasspath(true);
-    env.setComplianceLevel(syntax.getToVersion());
-    env.setPrettyPrintingMode(Environment.PRETTY_PRINTING_MODE.FULLYQUALIFIED);
-    env.setShouldCompile(false);
-    env.setTabulationSize(4);
-    env.setEncoding(StandardCharsets.UTF_8);
-    env.setPreserveLineNumbers(false);
-    env.setCommentEnabled(false); // ignore comments to avoid linking problems and redundant body update flags
-    env.disableConsistencyChecks(); // Avoid defensive programming for a slight performance boost
-    // env.setLevel(Level.OFF.name());
-    return launcher;
-  }
-
-  public CtCompilationUnit parse(VirtualFile virtualFile) throws CompilationException {
-    try {
-      var launcher = newLauncher();
-      launcher.addInputResource(virtualFile);
-      var model = launcher.buildModel();
-      new CtCaseHotfixProcessor().applyTo(model);
-      var units = getCompilationUnits(model);
-      if (units.isEmpty()) {
-        throw new IllegalStateException("Virtual file contains no compilation unit");
-      }
-      if (units.size() > 1) {
-        throw new IllegalStateException("Virtual file contains more than one compilation unit");
-      }
-      return units.getFirst();
-    } catch (Exception e) {
-      // TODO: Incrementally upgrade parser until file compiles; only throw at LATEST level
-      throw new CompilationException("Could not compile file: " + virtualFile.getName(), e);
-    }
   }
 
   public String simpleNameOf(Class<? extends CtElement> clazz) {

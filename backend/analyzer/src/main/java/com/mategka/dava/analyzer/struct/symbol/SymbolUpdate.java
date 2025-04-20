@@ -35,7 +35,7 @@ public class SymbolUpdate implements PropertyIndexable {
         .map(Objects::toString)
         .collect(Collectors.joining(", ")),
       properties
-      );
+    );
   }
 
 }

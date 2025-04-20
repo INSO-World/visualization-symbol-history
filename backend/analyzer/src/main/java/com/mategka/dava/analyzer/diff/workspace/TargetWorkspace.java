@@ -16,9 +16,7 @@ import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.struct.TreeNode;
 import com.mategka.dava.analyzer.git.Repository;
 import com.mategka.dava.analyzer.git.Side;
-import com.mategka.dava.analyzer.spoon.CompilationException;
-import com.mategka.dava.analyzer.spoon.CtEqPath;
-import com.mategka.dava.analyzer.spoon.Spoon;
+import com.mategka.dava.analyzer.spoon.*;
 import com.mategka.dava.analyzer.struct.pipeline.PropertyCapture;
 import com.mategka.dava.analyzer.struct.pipeline.Symbolizer;
 import com.mategka.dava.analyzer.struct.property.CtPathProperty;
@@ -82,7 +80,7 @@ public class TargetWorkspace {
           var spoonUnit = parentWorkspace.getFileSpoonUnits().get(file.filePath());
           yield new TargetEntry(parentPackage, fileTree.copy(), spoonUnit);
         }
-        case None<?> _n -> {
+        case None<?> ignored -> {
           var changeMetadata = sourceMappings.getFirst().metadata().diffEntry(); // must exist since target exists
           yield getNewlyParsedTargetEntry(
             parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot);
@@ -105,7 +103,7 @@ public class TargetWorkspace {
     targetPathsToUnlink.forEach(fileMapping::unlinkTarget);
     Map<CtEqPath, TreeNode<Symbol>> locatedSymbols = targetRoot.stream()
       .map(Pair.fromRight(n -> n.value().getPath()))
-      .collect(CollectorsX.pairsToMutableMap(TreeMap::new));
+      .collect(CollectorsX.pairsToMutableMap());
     return new SymbolWorkspace(targetRoot, fileSymbols, fileSpoonUnits, locatedSymbols, unchangedFromParent);
   }
 
@@ -167,9 +165,9 @@ public class TargetWorkspace {
                                                                  TreeNode<Symbol> targetRoot) {
     var newContents = repository.readFile(changeMetadata, Side.NEW).getSuccess().orElseThrow();
     var virtualFile = new VirtualFile(newContents, targetFilePath);
-    CtCompilationUnit spoonUnit = null;
+    CtCompilationUnit spoonUnit;
     try {
-      spoonUnit = Spoon.parse(virtualFile);
+      spoonUnit = Launcher.parse(virtualFile);
     } catch (CompilationException e) {
       e.printStackTrace();
       // TODO: Figure out better last resort error handling than taking first valid parent's state
@@ -190,7 +188,7 @@ public class TargetWorkspace {
           yield new TargetEntry(parentPackage, fileTree.copy(), spoonUnit);
         }
         // If we get here, the file is a strict addition, just skip it, and try again after further changes
-        case None<?> _n2 -> null;
+        case None<?> ignored -> null;
       };
     }
     var parentPackage = establishPackageHierarchyByPath(targetRoot, spoonUnit);

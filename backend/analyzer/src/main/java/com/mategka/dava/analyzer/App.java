@@ -74,7 +74,7 @@ public class App {
         }
       }
       var time = benchmark.end();
-      System.out.println("Done in %.1fs" + Math.round(time.toMillis() / 1000d));
+      System.out.printf("Done in %.1f seconds%n", time.toMillis() / 1000d);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

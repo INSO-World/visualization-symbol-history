@@ -37,13 +37,13 @@ public class Options {
     return (value != null) ? Option.Some(value) : Option.None();
   }
 
-  public <E, T extends Collection<E>> @NotNull Option<T> fromSized(@NotNull T value) {
-    return Options.when(!value.isEmpty(), () -> value);
-  }
-
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public <T> @NotNull Option<T> fromOptional(@NotNull Optional<T> optional) {
     return optional.map(Option::Some).orElseGet(Option::None);
+  }
+
+  public <E, T extends Collection<E>> @NotNull Option<T> fromSized(@NotNull T value) {
+    return Options.when(!value.isEmpty(), () -> value);
   }
 
   public <T> @NotNull Option<T> getFirst(@NotNull SequencedCollection<? extends T> collection) {

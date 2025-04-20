@@ -21,37 +21,8 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class IdentityBiMap<K, V> implements BiMap<K, V> {
 
-  @Accessors(fluent = true)
-  @Getter
-  @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-  @AllArgsConstructor(access = AccessLevel.PRIVATE)
-  private static class IdentityValue<T> {
-
-    @NotNull
-    T value;
-
-    @Override
-    public int hashCode() {
-      return System.identityHashCode(value);
-    }
-
-    @Override
-    public boolean equals(@Nullable Object o) {
-      if (o == this) return true;
-      if (!(o instanceof IdentityBiMap.IdentityValue<?> other)) return false;
-      return value == other.value;
-    }
-
-    @Override
-    public String toString() {
-      return Objects.toString(value);
-    }
-
-  }
-
   final BiMap<IdentityValue<K>, IdentityValue<V>> map;
   IdentityBiMap<V, K> inverseMap = null;
-
   public IdentityBiMap() {
     map = HashBiMap.create();
   }
@@ -66,13 +37,8 @@ public class IdentityBiMap<K, V> implements BiMap<K, V> {
   }
 
   @Override
-  public int size() {
-    return map.size();
-  }
-
-  @Override
-  public boolean isEmpty() {
-    return map.isEmpty();
+  public void clear() {
+    map.clear();
   }
 
   @Override
@@ -86,24 +52,11 @@ public class IdentityBiMap<K, V> implements BiMap<K, V> {
   }
 
   @Override
-  public V get(Object key) {
-    return unwrapOrNull(map.get(key));
-  }
-
-  @Override
-  public @Nullable V put(K key, V value) {
-    return unwrapOrNull(map.put(new IdentityValue<>(key), new IdentityValue<>(value)));
-  }
-
-  @Override
-  public V remove(Object key) {
-    return unwrapOrNull(map.remove(new IdentityValue<>(key)));
-  }
-
-  private <T> T unwrapOrNull(@Nullable IdentityValue<T> value) {
-    return Options.fromNullable(value)
-      .map(IdentityValue::value)
-      .getOrNull();
+  @Unmodifiable
+  public @NotNull Set<Entry<K, V>> entrySet() {
+    return AnStream.from(map.entrySet())
+      .map(e -> Map.entry(e.getKey().value(), e.getValue().value()))
+      .toSet();
   }
 
   @Override
@@ -112,21 +65,21 @@ public class IdentityBiMap<K, V> implements BiMap<K, V> {
   }
 
   @Override
-  public void putAll(Map<? extends K, ? extends V> map) {
-    //noinspection unchecked
-    this.map.putAll((Map<? extends IdentityValue<K>, ? extends IdentityValue<V>>) map.entrySet().stream()
-                      .collect(Collectors.toMap(
-                        e -> new IdentityValue<>(e.getKey()),
-                        e -> new IdentityValue<>(e.getValue()),
-                        (a, b) -> b,
-                        HashMap::new
-                      ))
-    );
+  public V get(Object key) {
+    return unwrapOrNull(map.get(key));
   }
 
   @Override
-  public void clear() {
-    map.clear();
+  public @NotNull IdentityBiMap<V, K> inverse() {
+    if (inverseMap == null) {
+      inverseMap = new IdentityBiMap<>(map.inverse());
+    }
+    return inverseMap;
+  }
+
+  @Override
+  public boolean isEmpty() {
+    return map.isEmpty();
   }
 
   @Override
@@ -136,25 +89,71 @@ public class IdentityBiMap<K, V> implements BiMap<K, V> {
   }
 
   @Override
+  public @Nullable V put(K key, V value) {
+    return unwrapOrNull(map.put(new IdentityValue<>(key), new IdentityValue<>(value)));
+  }
+
+  @Override
+  public void putAll(Map<? extends K, ? extends V> map) {
+    //noinspection unchecked
+    this.map.putAll((Map<? extends IdentityValue<K>, ? extends IdentityValue<V>>) map.entrySet().stream()
+      .collect(Collectors.toMap(
+        e -> new IdentityValue<>(e.getKey()),
+        e -> new IdentityValue<>(e.getValue()),
+        (a, b) -> b,
+        HashMap::new
+      ))
+    );
+  }
+
+  @Override
+  public V remove(Object key) {
+    return unwrapOrNull(map.remove(new IdentityValue<>(key)));
+  }
+
+  @Override
+  public int size() {
+    return map.size();
+  }
+
+  @Override
   @Unmodifiable
   public @NotNull Set<V> values() {
     return AnStream.from(map.values()).map(IdentityValue::value).toSet();
   }
 
-  @Override
-  @Unmodifiable
-  public @NotNull Set<Entry<K, V>> entrySet() {
-    return AnStream.from(map.entrySet())
-      .map(e -> Map.entry(e.getKey().value(), e.getValue().value()))
-      .toSet();
+  private <T> T unwrapOrNull(@Nullable IdentityValue<T> value) {
+    return Options.fromNullable(value)
+      .map(IdentityValue::value)
+      .getOrNull();
   }
 
-  @Override
-  public @NotNull IdentityBiMap<V, K> inverse() {
-    if (inverseMap == null) {
-      inverseMap = new IdentityBiMap<>(map.inverse());
+  @Accessors(fluent = true)
+  @Getter
+  @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+  @AllArgsConstructor(access = AccessLevel.PRIVATE)
+  private static class IdentityValue<T> {
+
+    @NotNull
+    T value;
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (o == this) return true;
+      if (!(o instanceof IdentityBiMap.IdentityValue<?> other)) return false;
+      return value == other.value;
     }
-    return inverseMap;
+
+    @Override
+    public int hashCode() {
+      return System.identityHashCode(value);
+    }
+
+    @Override
+    public String toString() {
+      return Objects.toString(value);
+    }
+
   }
 
 }

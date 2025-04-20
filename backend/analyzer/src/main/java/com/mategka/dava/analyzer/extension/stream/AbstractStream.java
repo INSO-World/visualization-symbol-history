@@ -207,6 +207,10 @@ public abstract class AbstractStream<T> implements Stream<T> {
     return toList(ArrayList::new);
   }
 
+  public Set<T> toMutableSet() {
+    return toSet(HashSet::new);
+  }
+
   public Set<T> toSet() {
     return stream.collect(Collectors.toSet());
   }

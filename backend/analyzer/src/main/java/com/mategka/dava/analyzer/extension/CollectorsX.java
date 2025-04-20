@@ -5,6 +5,7 @@ import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.google.common.collect.*;
 import lombok.experimental.UtilityClass;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -37,6 +38,10 @@ public class CollectorsX {
 
   public <K, V> Collector<Pair<K, V>, ?, Map<K, V>> pairsToMap2() {
     return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b);
+  }
+
+  public <K, V> Collector<Pair<K, V>, ?, HashMap<K, V>> pairsToMutableMap() {
+    return pairsToMutableMap(HashMap::new);
   }
 
   public <K, V, M extends Map<K, V>> Collector<Pair<K, V>, ?, M> pairsToMutableMap(Supplier<M> mapFactory) {

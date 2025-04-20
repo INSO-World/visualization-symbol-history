@@ -16,12 +16,15 @@ import spoon.reflect.path.CtPathException;
 import spoon.reflect.path.impl.CtPathImpl;
 
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor(staticName = "of")
 public class CtEqPath implements Comparable<CtEqPath> {
 
   public static final CtEqPath EMPTY = CtEqPath.of(new CtPathImpl());
+
+  private static final Pattern INDEX_PATTERN = Pattern.compile("index\\s*=\\s*\\d+(?=.*?])");
 
   CtPath path;
 
@@ -39,8 +42,19 @@ public class CtEqPath implements Comparable<CtEqPath> {
     return CollectionsX.firstOfType(path.evaluateOn(model.getRootPackage()), clazz);
   }
 
+  public String getPseudoParentString() {
+    var result = toUnorderedString();
+    var lastPoundIndex = result.lastIndexOf("#");
+    result = result.substring(0, lastPoundIndex);
+    return result;
+  }
+
   public boolean isEmpty() {
     return this == EMPTY;
+  }
+
+  public String toUnorderedString() {
+    return INDEX_PATTERN.matcher(getCachedStringRepresentation()).replaceAll("");
   }
 
   @Override

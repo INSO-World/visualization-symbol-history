@@ -4,9 +4,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public sealed interface ListProperty<T> extends TypedProperty<List<? extends T>>
+public sealed interface ListProperty<T> extends TypedProperty<List<T>>
   permits AnnotationsProperty, EnumArgumentsProperty, RealizationsProperty, SupertypesProperty, TypeParametersProperty {
 
-  @NotNull List<? extends T> value();
+  @NotNull List<T> value();
 
 }

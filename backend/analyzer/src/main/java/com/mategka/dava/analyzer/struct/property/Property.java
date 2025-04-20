@@ -22,6 +22,7 @@ public sealed interface Property permits TypedProperty {
   @SuppressWarnings("EmptyMethod")
   Object value();
 
+  @Override
   String toString();
 
 }

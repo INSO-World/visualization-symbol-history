@@ -8,11 +8,13 @@ import lombok.experimental.UtilityClass;
 import org.apache.commons.io.FileSystem;
 import org.jetbrains.annotations.NotNull;
 import spoon.Launcher;
+import spoon.compiler.Environment;
 import spoon.reflect.CtModel;
 import spoon.reflect.CtModelImpl;
 import spoon.reflect.declaration.*;
 import spoon.support.compiler.VirtualFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @UtilityClass
@@ -59,13 +61,22 @@ public class Spoon {
   }
 
   public Launcher newLauncher() {
-    return newLauncher(JavaSyntax.LTS17);
+    return newLauncher(JavaSyntax.LTS21);
   }
 
   public Launcher newLauncher(JavaSyntax syntax) {
     Launcher launcher = new Launcher();
-    launcher.getEnvironment().setNoClasspath(true);
-    launcher.getEnvironment().setComplianceLevel(syntax.getToVersion());
+    var env = launcher.getEnvironment();
+    env.setNoClasspath(true);
+    env.setComplianceLevel(syntax.getToVersion());
+    env.setPrettyPrintingMode(Environment.PRETTY_PRINTING_MODE.FULLYQUALIFIED);
+    env.setShouldCompile(false);
+    env.setTabulationSize(4);
+    env.setEncoding(StandardCharsets.UTF_8);
+    env.setPreserveLineNumbers(false);
+    env.setCommentEnabled(false); // ignore comments to avoid linking problems and redundant body update flags
+    env.disableConsistencyChecks(); // Avoid defensive programming for a slight performance boost
+    // env.setLevel(Level.OFF.name());
     return launcher;
   }
 
@@ -74,6 +85,7 @@ public class Spoon {
       var launcher = newLauncher();
       launcher.addInputResource(virtualFile);
       var model = launcher.buildModel();
+      new CtCaseHotfixProcessor().applyTo(model);
       var units = getCompilationUnits(model);
       if (units.isEmpty()) {
         throw new IllegalStateException("Virtual file contains no compilation unit");

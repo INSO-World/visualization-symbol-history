@@ -35,12 +35,20 @@ public class CollectorsX {
     return Collectors.toMap(Pair::left, Pair::right);
   }
 
+  public <K, V> Collector<Pair<K, V>, ?, Map<K, V>> pairsToMap2() {
+    return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b);
+  }
+
   public <K, V, M extends Map<K, V>> Collector<Pair<K, V>, ?, M> pairsToMutableMap(Supplier<M> mapFactory) {
     return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b, mapFactory);
   }
 
   public <A, B> Collector<Pair<A, B>, ?, BiMap<A, B>> toBiMap() {
-    return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b, HashBiMap::create);
+    return toBiMap(HashBiMap::create);
+  }
+
+  public <A, B> Collector<Pair<A, B>, ?, BiMap<A, B>> toBiMap(Supplier<BiMap<A, B>> mapSupplier) {
+    return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b, mapSupplier);
   }
 
   public <T, K, V> Collector<T, ?, Multimap<K, V>> toMultimap(

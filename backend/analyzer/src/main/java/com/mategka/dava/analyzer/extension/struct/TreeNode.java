@@ -201,6 +201,42 @@ public class TreeNode<T>
     return value;
   }
 
+  @Override
+  public String toString() {
+    var builder = new StringBuilder();
+    buildTreeString(this, builder, "", "");
+    return builder.toString();
+  }
+
+  private static <T> void buildTreeString(@NotNull TreeNode<T> node, StringBuilder builder, String prefix, String childPrefix) {
+    T nodeValue = node.value();
+    var nodeChildren = node.children();
+    if (nodeChildren.size() == 1) {
+      StringBuilder flattenedValue = new StringBuilder(Objects.toString(nodeValue));
+      var current = nodeChildren.getFirst();
+      while (current.children().size() == 1) {
+        flattenedValue.append(".").append(current.value());
+        current = current.children().getFirst();
+      }
+      builder.append(prefix).append(flattenedValue);
+      if (current.children().isEmpty()) {
+        builder.append(".").append(current.value()).append("\n");
+        return;
+      } else {
+        builder.append("\n");
+        nodeChildren = current.children();
+      }
+    } else {
+      builder.append(prefix).append(nodeValue).append("\n");
+    }
+    for (int i = 0; i < nodeChildren.size(); i++) {
+      boolean isLast = (i == nodeChildren.size() - 1);
+      String newPrefix = childPrefix + (isLast ? "`- " : "+- ");
+      String newChildPrefix = childPrefix + (isLast ? "   " : "|  ");
+      buildTreeString(nodeChildren.get(i), builder, newPrefix, newChildPrefix);
+    }
+  }
+
   private final class PreorderIterator implements Iterator<TreeNode<T>> {
 
     private final Stack<TreeNode<T>> stack = new Stack<>();

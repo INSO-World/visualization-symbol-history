@@ -6,6 +6,7 @@ import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.SequencedCollection;
 import java.util.concurrent.Callable;
@@ -34,6 +35,10 @@ public class Options {
 
   public <T> @NotNull Option<T> fromNullable(@Nullable T value) {
     return (value != null) ? Option.Some(value) : Option.None();
+  }
+
+  public <E, T extends Collection<E>> @NotNull Option<T> fromSized(@NotNull T value) {
+    return Options.when(!value.isEmpty(), () -> value);
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

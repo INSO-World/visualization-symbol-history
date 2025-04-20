@@ -2,21 +2,27 @@ package com.mategka.dava.analyzer.struct.property.index;
 
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.option.Options;
-import com.mategka.dava.analyzer.struct.property.Property;
-import com.mategka.dava.analyzer.struct.property.SimpleProperty;
+import com.mategka.dava.analyzer.struct.property.*;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class PropertyMap extends HashMap<String, Property> {
+
+  private static final Set<String> ABBREVIATED_PROPERTIES = Stream.of(
+    CtPathProperty.class,
+    InitialValueProperty.class,
+    BodyHashProperty.class
+    )
+    .map(PropertyKeys::get)
+    .collect(Collectors.toSet());
 
   public PropertyMap() {
     super();
@@ -53,6 +59,13 @@ public class PropertyMap extends HashMap<String, Property> {
     return Collectors.toMap(keyFunction, valueFunction, (older, newer) -> newer, PropertyMap::new);
   }
 
+  private static String propertyToValueString(@NotNull Property property) {
+    if (ABBREVIATED_PROPERTIES.contains(property.getKey())) {
+      return "";
+    }
+    return ": " + property;
+  }
+
   public boolean containsProperty(@NotNull Class<? extends Property> propertyClass) {
     return containsKey(PropertyKeys.get(propertyClass));
   }
@@ -62,7 +75,7 @@ public class PropertyMap extends HashMap<String, Property> {
       .filter(p -> Options.fromNullable(get(p.getKey()))
         .map(Property::value)
         .map(v -> !v.equals(p.value()))
-        .getOrElse(false)
+        .getOrElse(true)
       )
       .collect(PropertyMap.collectProperties());
   }
@@ -100,6 +113,13 @@ public class PropertyMap extends HashMap<String, Property> {
     return toBuilder().property(property).build();
   }
 
+  @Override
+  public String toString() {
+    return "{ %s }".formatted(values().stream()
+      .map(p -> "%s%s".formatted(p.getKey(), propertyToValueString(p)))
+      .collect(Collectors.joining(", ")));
+  }
+
   @SuppressWarnings("MethodDoesntCallSuperMethod")
   @Override
   public PropertyMap clone() {
@@ -120,6 +140,14 @@ public class PropertyMap extends HashMap<String, Property> {
     public Builder properties(@NonNull PropertyMap propertyMap) {
       this.propertyMap.putAll(propertyMap);
       return this;
+    }
+
+    public <E, T extends Collection<E>> Builder property(@NonNull Function<T, TypedProperty<T>> propertyMapper, @NotNull T collection) {
+      return property(propertyMapper, Options.fromSized(collection));
+    }
+
+    public <T> Builder property(@NonNull Function<T, TypedProperty<T>> propertyMapper, @NotNull Option<T> value) {
+      return value.fold(v -> property(propertyMapper.apply(v)), () -> this);
     }
 
     public Builder property(@NonNull Option<? extends Property> property) {

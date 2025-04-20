@@ -19,8 +19,9 @@ import com.mategka.dava.analyzer.git.Side;
 import com.mategka.dava.analyzer.spoon.CompilationException;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.spoon.Spoon;
+import com.mategka.dava.analyzer.struct.pipeline.PropertyCapture;
 import com.mategka.dava.analyzer.struct.pipeline.Symbolizer;
-import com.mategka.dava.analyzer.struct.property.PathProperty;
+import com.mategka.dava.analyzer.struct.property.CtPathProperty;
 import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
@@ -33,6 +34,7 @@ import spoon.reflect.declaration.CtCompilationUnit;
 import spoon.reflect.declaration.CtPackage;
 import spoon.support.compiler.VirtualFile;
 
+import javax.annotation.CheckForNull;
 import java.util.*;
 
 @UtilityClass
@@ -56,7 +58,7 @@ public class TargetWorkspace {
         .map(Mapping::source)
         .toTypedArray();
       // NOTE: Since the subtree is unchanged for all unchangedSources, we can take any one of them
-      TargetEntry entryData = switch (Options.getFirst(unchangedSources)) {
+      @CheckForNull TargetEntry entryData = switch (Options.getFirst(unchangedSources)) {
         case Some<ParentFile> some -> {
           var file = some.getOrThrow();
           var parentWorkspace = parentWorkspaces.get(file.parentIndex());
@@ -140,7 +142,7 @@ public class TargetWorkspace {
       currentPackage = currentPackage.getDeclaringPackage();
     }
     // Set root path in case it is unset
-    targetRoot.value().putProperty(PathProperty.fromElement(currentPackage));
+    targetRoot.value().putProperty(CtPathProperty.fromElement(currentPackage));
     return establishPackageHierarchyByPath(targetRoot, packageStack);
   }
 
@@ -153,15 +155,7 @@ public class TargetWorkspace {
           currentParent.children(),
           m -> m.value().getPath().equals(CtEqPath.of(spoonPackage)) && m.value().getKind() == Kind.PACKAGE
         )
-        .getOrCompute(() -> {
-          var properties = PropertyMap.builder()
-            .property(Kind.PACKAGE.toProperty())
-            .property(SimpleNameProperty.fromElement(spoonPackage))
-            .property(PathProperty.fromElement(spoonPackage))
-            .build();
-          var packageSymbol = Symbol.withPropertyMap(properties);
-          return finalCurrentParent.addByValue(packageSymbol);
-        });
+        .getOrCompute(() -> finalCurrentParent.addByValue(PropertyCapture.parsePackage(spoonPackage)));
     }
     return currentParent;
   }
@@ -211,7 +205,7 @@ public class TargetWorkspace {
     var properties = PropertyMap.builder()
       .property(SimpleNameProperty.forRootPackage())
       .property(Kind.PACKAGE.toProperty())
-      .property(inheritedRoot.map(s -> s.getProperty(PathProperty.class)).getOrElse(PathProperty.EMPTY))
+      .property(inheritedRoot.map(s -> s.getProperty(CtPathProperty.class)).getOrElse(CtPathProperty.EMPTY))
       .build();
     return new TreeNode<>(Symbol.withPropertyMap(properties));
   }

@@ -43,16 +43,27 @@ public class PropertyCapture {
     };
   }
 
+  public Symbol parsePackage(CtPackage pakkage) {
+    var properties = commonPropertiesBuilder(pakkage)
+      .property(Kind.PACKAGE.toProperty())
+      .build();
+    return Symbol.withPropertyMap(properties);
+  }
+
   private PropertyMap.Builder commonPropertiesBuilder(CtElement element) {
     var annotations = ListsX.map(
       element.getAnnotations(),
-      a -> UnknownType.of(a.getAnnotationType().getQualifiedName())
+      a -> (Type) UnknownType.of(a.getAnnotationType().getQualifiedName())
     );
+    var ctPathProperty = CtPathProperty.fromElement(element);
     var builder = PropertyMap.builder()
-      .property(AnalyzerLevelProperty.CURRENT)
-      .property(new AnnotationsProperty(annotations))
-      .property(LineRangeProperty.fromElement(element))
-      .property(PathProperty.fromElement(element));
+      //.property(AnalyzerLevelProperty.CURRENT)
+      .property(AnnotationsProperty::new, annotations)
+      .property(ctPathProperty)
+      .property(PathProperty.fromCtPathProperty(ctPathProperty));
+    if (element.getPosition().isValidPosition()) {
+      builder.property(LineRangeProperty.fromElement(element));
+    }
     if (element instanceof CtNamedElement namedElement) {
       builder.property(SimpleNameProperty.fromElement(namedElement));
     }
@@ -70,7 +81,15 @@ public class PropertyCapture {
       builder.property(new TypeParametersProperty(typeParameters));
     }
     if (element instanceof CtExecutable<?> executable) {
-      builder.property(BodyHashProperty.fromString(Objects.toString(executable.getBody())));
+      // TODO: FIX: Does not seem to hold equality checks (i.e., equal bodies don't always result in equal hashes)
+      String bodyString;
+      try {
+        bodyString = Objects.toString(executable.getBody());
+      } catch (Exception _ignored) {
+        // If the function body can - for some reason - not be parsed, treat it as empty
+        bodyString = "";
+      }
+      builder.property(BodyHashProperty.fromString(bodyString));
     }
     return builder;
   }
@@ -164,8 +183,8 @@ public class PropertyCapture {
     var properties = commonPropertiesBuilder(typeDeclaration)
       .property(KindProperty.fromType(typeDeclaration))
       .property(visibility.toProperty())
-      .property(new SupertypesProperty(supertypes))
-      .property(new RealizationsProperty(realizations))
+      .property(SupertypesProperty::new, supertypes)
+      .property(RealizationsProperty::new, realizations)
       .build();
     return Symbol.withPropertyMap(properties);
   }

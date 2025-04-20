@@ -36,22 +36,13 @@ public class App {
       var history = History.emptyOfBranch(repository, mainBranch);
       var strandMapping = history.getStrandMapping();
       var symbolIdCounter = new AtomicLong();
-      int offset = 0;
       var treeDiffer = repository.newTreeDiffer();
       Map<@NotNull Long, SymbolWorkspace> workspaces = new HashMap<>();
       try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (Commit commit : commitWalk) {
-          if (Math.random() > 0) {
-            System.out.println("Commit: " + commit.hash());
-            continue;
-          }
+          System.out.println("-".repeat(10) + commit.hash().abbreviated() + "-".repeat(10));
           var strand = strandMapping.get(commit.hash());
           var commitPaths = repository.readRelevantPaths(commit);
-          System.out.print(commit.hash().minimal() + " ");
-          if (++offset >= 18) {
-            offset = 0;
-            System.out.println();
-          }
           var parents = commit.parents();
           var parentWorkspaces = AnStream.from(parents)
             .map(Commit::hash)
@@ -78,12 +69,12 @@ public class App {
             .updates(symbolMapping.updates())
             .refactorings(Collections.emptyList())
             .build();
+          diff.printDebug();
           strand.getCommitDiffs().add(diff);
         }
       }
-      System.out.println("Done!");
       var time = benchmark.end();
-      System.out.println("Time (ms): " + time.toMillis());
+      System.out.println("Done in %.1fs" + Math.round(time.toMillis() / 1000d));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

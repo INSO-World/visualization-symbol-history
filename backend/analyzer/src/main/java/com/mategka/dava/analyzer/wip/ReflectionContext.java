@@ -76,8 +76,8 @@ public class ReflectionContext {
     while (clazz != null) {
       var fields = clazz.getDeclaredFields();
       for (var field : fields) {
-        field.setAccessible(true);
         try {
+          field.setAccessible(true);
           var value = field.get(object);
           if (value == null) {
             continue;

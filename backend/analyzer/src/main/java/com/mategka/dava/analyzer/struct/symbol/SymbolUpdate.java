@@ -6,7 +6,9 @@ import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import lombok.NonNull;
 import lombok.Value;
 
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Value
 public class SymbolUpdate implements PropertyIndexable {
@@ -22,5 +24,18 @@ public class SymbolUpdate implements PropertyIndexable {
 
   @NonNull
   Set<UpdateFlag> flags;
+
+  @Override
+  public String toString() {
+    var oldId = sourceKey.symbolId();
+    var newId = targetContext.key().symbolId();
+    return "%s [%s] %s".formatted(
+      (oldId == newId ? String.valueOf(oldId) : "%d -> %d".formatted(oldId, newId)),
+      flags.stream()
+        .map(Objects::toString)
+        .collect(Collectors.joining(", ")),
+      properties
+      );
+  }
 
 }

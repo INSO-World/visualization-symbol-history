@@ -4,6 +4,7 @@ import com.mategka.dava.analyzer.collections.*;
 import com.mategka.dava.analyzer.diff.file.FileMapping;
 import com.mategka.dava.analyzer.diff.workspace.SymbolWorkspace;
 import com.mategka.dava.analyzer.extension.*;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.struct.TreeNode;
@@ -47,8 +48,6 @@ public class SymbolDiff {
     // 4. Choose suitable Context for all target symbols based on all sources, set predecessors, create prop updates
     List<SymbolUpdate> updates = step4processSymbolMappings(
       targetWorkspace, parentWorkspaces, context, externalMappings, symbolMaps);
-    // 5. Add parent property (only possible after all target symbols had their context assigned)
-    step5augmentParentProperties(targetWorkspace);
     return new SymbolMappingResult(externalMappings.additions(), externalMappings.deletions(), updates);
   }
 
@@ -85,9 +84,32 @@ public class SymbolDiff {
     }
   }
 
-  private @NotNull BiMap<CtElement, CtElement> step2extractMappings(Diff astDiff, CtElement oldMainType,
+  private @NotNull BiMap<Id<CtElement>, Id<CtElement>> step2extractMappings(Diff astDiff, CtElement oldMainType,
                                                                     CtElement newMainType, Set<CtEqPath> sourcePaths,
                                                                     Set<CtEqPath> targetPaths) {
+    // TODO: Remove DEBUG code
+    /*var rawMappings = AnStream.from(astDiff.getMappingsComp().asSet())
+      .map(m -> Pair.of(m.first, m.second))
+      .filter(Pair.filtering(t -> !t.isRoot() && !t.getType().isEmpty()))
+      .map(Pair.mapping(Spoon::getMetaElement))
+      .filter(Pair.filtering(e -> !(e instanceof CtWrapper<?>)))
+      .filter(Pair.filtering(
+        e -> sourcePaths.contains(CtEqPath.of(e)),
+        e -> targetPaths.contains(CtEqPath.of(e))
+      ))
+      .toList();
+    var conflicts = AnStream.from(rawMappings)
+      .collect(Collectors.toMap(Pair::right, p -> Set.of(p.left()), SetsX::union, IdentityHashMap::new))
+      .entrySet().stream()
+      .filter(e -> e.getValue().size() > 1)
+      .collect(Collectors.toSet());
+    if (!conflicts.isEmpty()) {
+      throw new IllegalStateException(conflicts.size() + " conflicts in mappings detected!");
+    }*/
+    // TODO: Fix missing record mappings (implicit constructors, fields in general; but only implicit sources AND targets!)
+    // FIX NOTE: Cannot affect default or compact constructors as those are not captured
+    // FIX NOTE: For constructors, only map the first constructor and its parameters (the latter by name first, type second)
+    // FIX NOTE: For fields, map all implicit fields by name first, type second
     var result = AnStream.from(astDiff.getMappingsComp().asSet())
       .map(m -> Pair.of(m.first, m.second))
       .filter(Pair.filtering(t -> !t.isRoot() && !t.getType().isEmpty()))
@@ -97,10 +119,11 @@ public class SymbolDiff {
         e -> sourcePaths.contains(CtEqPath.of(e)),
         e -> targetPaths.contains(CtEqPath.of(e))
       ))
+      .map(Pair.mapping(Id::of))
       .collect(CollectorsX.toBiMap());
-    var mainTypeTarget = result.get(oldMainType);
+    var mainTypeTarget = Options.fromNullable(result.get(Id.of(oldMainType))).map(Id::value).getOrNull();
     if (mainTypeTarget != newMainType) {
-      result.forcePut(oldMainType, newMainType);
+      result.forcePut(Id.of(oldMainType), Id.of(newMainType));
     }
     return result;
   }
@@ -129,6 +152,7 @@ public class SymbolDiff {
       var newLocations = targetWorkspace.getLocatedSymbols();
       var astSymbolMappings = astMappings.entrySet().stream()
         .map(Pair::fromEntry)
+        .map(Pair.mapping(Id::value))
         .map(Pair.mapping(CtEqPath::of))
         .map(Pair.mapping(oldLocations::get, newLocations::get))
         .map(Pair.mapping(TreeNode::value))
@@ -198,6 +222,10 @@ public class SymbolDiff {
     Set<Symbol> movedTargetSymbols = new HashSet<>();
     for (var targetNode : Using.iterator(targetWorkspace.getTree(), TreeOrder.PREORDER)) {
       var targetSymbol = targetNode.value();
+      //noinspection CodeBlock2Expr
+      targetNode.parent().ifSome(parent -> {
+        targetSymbol.putProperty(ParentProperty.fromSymbol(parent.value()));
+      });
       if (externalMappings.additions().contains(targetSymbol)) {
         // Target is new, so there are no predecessors, and it is already in the additions set (no symbol update)
         targetSymbol.setContext(context.generateContext());
@@ -284,15 +312,6 @@ public class SymbolDiff {
       }
     }
     return updates;
-  }
-
-  private static void step5augmentParentProperties(SymbolWorkspace targetWorkspace) {
-    for (var targetNode : Using.iterator(targetWorkspace.getTree(), TreeOrder.PREORDER)) {
-      if (targetNode.isRoot()) {
-        continue;
-      }
-      targetNode.value().putProperty(ParentProperty.fromSymbol(targetNode.parent().getOrThrow().value()));
-    }
   }
 
   private record ExternalMappingSets(Set<Symbol> deletions, Set<Symbol> additions) {

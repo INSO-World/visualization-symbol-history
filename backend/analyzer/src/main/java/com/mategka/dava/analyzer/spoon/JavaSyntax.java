@@ -40,21 +40,13 @@ public enum JavaSyntax {
    * String templates, unnamed variables and patterns
    */
   V22(21, 22),
-  /**
-   * Module imports (first preview), primitive type patterns
-   */
-  V23(23, 23),
-  /**
-   * Placeholder for future versions
-   */
-  V24(24, 24),
   ;
 
   public static final JavaSyntax LTS8 = JavaSyntax.V8;
   public static final JavaSyntax LTS11 = JavaSyntax.V13;
   public static final JavaSyntax LTS17 = JavaSyntax.V20;
   public static final JavaSyntax LTS21 = JavaSyntax.V22;
-  public static final JavaSyntax LATEST = JavaSyntax.V23;
+  public static final JavaSyntax LATEST = JavaSyntax.V22;
 
   int fromVersion;
   int toVersion;

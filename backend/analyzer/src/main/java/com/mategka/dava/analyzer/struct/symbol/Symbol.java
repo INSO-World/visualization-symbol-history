@@ -80,7 +80,7 @@ public final class Symbol implements PropertyIndexable {
   }
 
   public @NotNull CtEqPath getPath() throws NoSuchElementException {
-    return getPropertyValue(PathProperty.class)
+    return getPropertyValue(CtPathProperty.class)
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
   }
 
@@ -133,7 +133,10 @@ public final class Symbol implements PropertyIndexable {
 
   @Override
   public String toString() {
-    return getDisplayName();
+    return getPropertyValue(KindProperty.class).map(Kind::toPseudoKeyword).getOrThrow()
+      + " " + getDisplayName()
+      + context.map(c -> " [%s] ".formatted(c.key.symbolId())).getOrElse(" ")
+      + properties;
   }
 
   public record Context(@NonNull SymbolKey key, @NonNull Hash commit) {

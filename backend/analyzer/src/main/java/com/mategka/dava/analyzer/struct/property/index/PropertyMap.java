@@ -70,18 +70,22 @@ public class PropertyMap extends HashMap<String, Property> {
     return containsKey(PropertyKeys.get(propertyClass));
   }
 
-  public PropertyMap diff(@NotNull Collection<Property> newProperties) {
-    return newProperties.stream()
+  public PropertyMapDiff diff(@NotNull Map<String, Property> newProperties) {
+    var overlay = newProperties.values().stream()
       .filter(p -> Options.fromNullable(get(p.getKey()))
         .map(Property::value)
         .map(v -> !v.equals(p.value()))
         .getOrElse(true)
       )
       .collect(PropertyMap.collectProperties());
+    var removedProperties = values().stream()
+      .filter(p -> !newProperties.containsKey(p.getKey()))
+      .collect(PropertyMap.collectProperties());
+    return new PropertyMapDiff(overlay, removedProperties);
   }
 
-  public PropertyMap diff(@NotNull PropertyIndexable newProperties) {
-    return diff(newProperties.getProperties().values());
+  public PropertyMapDiff diff(@NotNull PropertyIndexable newProperties) {
+    return diff(newProperties.getProperties());
   }
 
   public <T extends Property> Option<T> get(Class<T> propertyClass) {
@@ -124,6 +128,25 @@ public class PropertyMap extends HashMap<String, Property> {
     return "{ %s }".formatted(values().stream()
                                 .map(p -> "%s%s".formatted(p.getKey(), propertyToValueString(p)))
                                 .collect(Collectors.joining(", ")));
+  }
+
+  public record PropertyMapDiff(PropertyMap overlay, PropertyMap removedProperties) {
+
+    public Map<String, Property> coalesce() {
+      Map<String, Property> result = new HashMap<>();
+      overlay.values().forEach(p -> result.put(p.getKey(), p));
+      removedProperties.values().forEach(p -> result.put(p.getKey(), null));
+      return result;
+    }
+
+    public boolean containsProperty(@NotNull Class<? extends Property> propertyClass) {
+      return overlay.containsProperty(propertyClass) || removedProperties.containsProperty(propertyClass);
+    }
+
+    public boolean isEmpty() {
+      return overlay.isEmpty() && removedProperties.isEmpty();
+    }
+
   }
 
   public static class Builder {

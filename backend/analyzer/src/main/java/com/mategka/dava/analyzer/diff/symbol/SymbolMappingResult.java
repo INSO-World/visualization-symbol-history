@@ -9,6 +9,7 @@ import java.util.Set;
 public record SymbolMappingResult(
   Set<Symbol> additions,
   Set<Symbol> deletions,
+  Set<Symbol> successions,
   Collection<SymbolUpdate> updates
 ) {
 

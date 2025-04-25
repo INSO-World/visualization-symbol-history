@@ -88,6 +88,10 @@ public class AnStream<T> extends AbstractStreamAdapter<T, AnStream<T>> {
     return new AnStream<>(stream.flatMap(mapper));
   }
 
+  public <R> AnStream<R> flatMapCollection(Function<? super T, ? extends Collection<? extends R>> mapper) {
+    return new AnStream<>(stream.map(mapper).flatMap(Collection::stream));
+  }
+
   @Override
   public <R> AnStream<R> map(Function<? super T, ? extends R> mapper) {
     return new AnStream<>(stream.map(mapper));

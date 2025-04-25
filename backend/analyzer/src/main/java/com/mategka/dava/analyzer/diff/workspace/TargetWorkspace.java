@@ -39,7 +39,7 @@ import java.util.*;
 public class TargetWorkspace {
 
   public SymbolWorkspace create(Array<SymbolWorkspace> parentWorkspaces, FileMapping fileMapping,
-                                Repository repository) {
+                                Repository repository, boolean breakCommit) {
     final var targetRoot = getTargetRoot(parentWorkspaces);
     final Map<String, TreeNode<Symbol>> fileSymbols = new TreeMap<>();
     final Map<String, CtCompilationUnit> fileSpoonUnits = new TreeMap<>();
@@ -74,16 +74,16 @@ public class TargetWorkspace {
               .findFirstAsOption()
               .getOrThrow();
             yield getNewlyParsedTargetEntry(
-              parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot);
+              parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot, breakCommit);
           }
           var parentPackage = establishPackageHierarchyByName(targetRoot, fileTree);
           var spoonUnit = parentWorkspace.getFileSpoonUnits().get(file.filePath());
-          yield new TargetEntry(parentPackage, fileTree.copy(), spoonUnit);
+          yield new TargetEntry(parentPackage, copyTree(fileTree, breakCommit), spoonUnit);
         }
         case None<?> ignored -> {
           var changeMetadata = sourceMappings.getFirst().metadata().diffEntry(); // must exist since target exists
           yield getNewlyParsedTargetEntry(
-            parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot);
+            parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot, breakCommit);
         }
       };
       if (entryData == null) {
@@ -105,6 +105,10 @@ public class TargetWorkspace {
       .map(Pair.fromRight(n -> n.value().getPath()))
       .collect(CollectorsX.pairsToMutableMap());
     return new SymbolWorkspace(targetRoot, fileSymbols, fileSpoonUnits, locatedSymbols, unchangedFromParent);
+  }
+
+  private TreeNode<Symbol> copyTree(TreeNode<Symbol> tree, boolean deep) {
+    return deep ? TreeNode.deepCopy(tree) : tree.copy();
   }
 
   private TreeNode<Symbol> establishPackageHierarchyByName(TreeNode<Symbol> targetRoot, TreeNode<Symbol> fileNode) {
@@ -162,7 +166,7 @@ public class TargetWorkspace {
                                                                  Repository repository, String targetFilePath,
                                                                  DiffEntry changeMetadata,
                                                                  List<Mapping<ParentFile, String, FileChange>> sourceMappings,
-                                                                 TreeNode<Symbol> targetRoot) {
+                                                                 TreeNode<Symbol> targetRoot, boolean breakCommit) {
     var newContents = repository.readFile(changeMetadata, Side.NEW).getSuccess().orElseThrow();
     var virtualFile = new VirtualFile(newContents, targetFilePath);
     CtCompilationUnit spoonUnit;
@@ -185,7 +189,7 @@ public class TargetWorkspace {
           var fileTree = parentWorkspace.getFileSymbols().get(file.filePath()); // must exist by above precondition
           var parentPackage = establishPackageHierarchyByName(targetRoot, fileTree);
           spoonUnit = parentWorkspace.getFileSpoonUnits().get(file.filePath());
-          yield new TargetEntry(parentPackage, fileTree.copy(), spoonUnit);
+          yield new TargetEntry(parentPackage, copyTree(fileTree, breakCommit), spoonUnit);
         }
         // If we get here, the file is a strict addition, just skip it, and try again after further changes
         case None<?> ignored -> null;

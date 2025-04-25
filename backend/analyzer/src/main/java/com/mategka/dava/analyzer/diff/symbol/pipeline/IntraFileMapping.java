@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.diff.symbol.pipeline;
 
 import com.mategka.dava.analyzer.collections.Array;
+import com.mategka.dava.analyzer.collections.DefaultMap;
 import com.mategka.dava.analyzer.collections.ManyToManyMap;
 import com.mategka.dava.analyzer.diff.file.FileMapping;
 import com.mategka.dava.analyzer.diff.workspace.SymbolWorkspace;
@@ -8,7 +9,6 @@ import com.mategka.dava.analyzer.extension.*;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
-import com.mategka.dava.analyzer.extension.struct.TreeNode;
 import com.mategka.dava.analyzer.spoon.AstComparator;
 import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.spoon.Spoon;
@@ -25,6 +25,7 @@ import org.jetbrains.annotations.Nullable;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtNamedElement;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -33,11 +34,10 @@ public class IntraFileMapping {
 
   public void mapInnerSymbols(Array<SymbolWorkspace> parentWorkspaces, FileMapping fileMapping,
                                      Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
-                                     SymbolWorkspace targetWorkspace) {
+                                     SymbolWorkspace targetWorkspace, boolean breakCommit) {
     var comparator = new AstComparator();
     for (var mapping : fileMapping.getMappings().mappings()) {
-      // TODO: The deletion check should be redundant?
-      if (FileMapping.isFileAddition(mapping) || mapping.isDeletion()) {
+      if (FileMapping.isFileAddition(mapping)) {
         continue;
       }
       var file = mapping.source();
@@ -50,7 +50,7 @@ public class IntraFileMapping {
       var newMainType = targetWorkspace.getFileSpoonUnits().get(newPath).getMainType();
 
       // NOTE: This shortcut only works for copied file trees since elements such as methods are unordered
-      if (mapping.isStatic() && oldMainType == newMainType) {
+      if (mapping.isStatic() && targetWorkspace.getUnchangedFromParent(parentIndex).contains(targetWorkspace.locateSymbol(newMainType)) && !breakCommit) {
         for (var oldNode : sourceWorkspace.getFileSymbols().get(oldPath)) {
           var symbol = oldNode.value();
           symbolMap.put(symbol, symbol, null);
@@ -61,14 +61,10 @@ public class IntraFileMapping {
       var astDiff = comparator.compare(oldMainType, newMainType);
       var astMappings = extractMappings(
         astDiff, oldMainType, newMainType, sourceWorkspace.pathSet(), targetWorkspace.pathSet());
-      var oldLocations = sourceWorkspace.getLocatedSymbols();
-      var newLocations = targetWorkspace.getLocatedSymbols();
       var astSymbolMappings = astMappings.entrySet().stream()
         .map(Pair::fromEntry)
         .map(Pair.mapping(Id::value))
-        .map(Pair.mapping(CtEqPath::of))
-        .map(Pair.mapping(oldLocations::get, newLocations::get))
-        .map(Pair.mapping(TreeNode::value))
+        .map(Pair.mapping(sourceWorkspace::locateSymbol, targetWorkspace::locateSymbol))
         .toList();
       for (var pair : astSymbolMappings) {
         symbolMap.put(pair.left(), pair.right(), null);
@@ -80,44 +76,52 @@ public class IntraFileMapping {
                                                                        CtElement newMainType,
                                                                        Set<CtEqPath> sourcePaths,
                                                                        Set<CtEqPath> targetPaths) {
+    //noinspection MismatchedQueryAndUpdateOfCollection
+    final Map<CtElement, CtEqPath> pathCache = new DefaultMap<>(IdentityHashMap::new, CtEqPath::of);
+    //noinspection MismatchedQueryAndUpdateOfCollection
+    final Map<CtElement, Id<CtElement>> idCache = new DefaultMap<>(IdentityHashMap::new, Id::of);
+
     var result = AnStream.from(astDiff.getMappingsComp().asSet())
       .map(m -> Pair.of(m.first, m.second))
       .filter(Pair.filtering(t -> !t.isRoot() && !t.getType().isEmpty()))
       .map(Pair.mapping(Spoon::getMetaElement))
       .filter(Pair.filtering(e -> !(e instanceof CtWrapper<?>)))
       .filter(Pair.filtering(
-        e -> sourcePaths.contains(CtEqPath.of(e)),
-        e -> targetPaths.contains(CtEqPath.of(e))
+        e -> sourcePaths.contains(pathCache.get(e)),
+        e -> targetPaths.contains(pathCache.get(e))
       ))
-      .map(Pair.mapping(Id::of))
+      .map(Pair.mapping(idCache::get))
       .collect(CollectorsX.toBiMap());
 
     // Post Processing: If Spoon attempts to re-map the main type (e.g., to a nested class), override this behavior
-    var mainTypeTarget = Options.fromNullable(result.get(Id.of(oldMainType))).map(Id::value).getOrNull();
+    var mainTypeTarget = Options.fromNullable(result.get(idCache.get(oldMainType))).map(Id::value).getOrNull();
     if (mainTypeTarget != newMainType) {
-      result.forcePut(Id.of(oldMainType), Id.of(newMainType));
+      result.forcePut(idCache.get(oldMainType), idCache.get(newMainType));
     }
 
     // Post Processing: Map leftover implicit elements based on simple name and type heuristics
-    mapImplicitElements(oldMainType, newMainType, sourcePaths, targetPaths, result);
+    mapImplicitElements(oldMainType, newMainType, sourcePaths, targetPaths, result, pathCache, idCache);
+    pathCache.clear();
+    idCache.clear();
 
     return result;
   }
 
   private void mapImplicitElements(CtElement oldMainType, CtElement newMainType, Set<CtEqPath> sourcePaths,
-                                   Set<CtEqPath> targetPaths, BiMap<Id<CtElement>, Id<CtElement>> result) {
+                                   Set<CtEqPath> targetPaths, BiMap<Id<CtElement>, Id<CtElement>> result,
+                                   Map<CtElement, CtEqPath> pathCache, Map<CtElement, Id<CtElement>> idCache) {
     var unmappedSourceElementIds = AnStream.<CtElement>from(oldMainType.getElements(null))
       .filter(e -> !(e instanceof CtWrapper<?>))
-      .map(Pair.fromRight(CtEqPath::of))
+      .map(Pair.fromRight(pathCache::get))
       .filter(Pair.filteringLeft(sourcePaths::contains))
-      .map(Pair.mappingRight(Id::of))
+      .map(Pair.mappingRight(idCache::get))
       .filter(Pair.filteringRight(id -> !result.containsKey(id)))
       .collect(CollectorsX.pairsToMap());
     var unmappedTargetElementIds = AnStream.<CtElement>from(newMainType.getElements(null))
       .filter(e -> !(e instanceof CtWrapper<?>))
-      .map(Pair.fromRight(CtEqPath::of))
+      .map(Pair.fromRight(pathCache::get))
       .filter(Pair.filteringLeft(targetPaths::contains))
-      .map(Pair.mappingRight(Id::of))
+      .map(Pair.mappingRight(idCache::get))
       .filter(Pair.filteringRight(id -> !result.containsValue(id)))
       .collect(CollectorsX.pairsToMap());
     var identicalPaths = SetsX.intersection(unmappedSourceElementIds.keySet(), unmappedTargetElementIds.keySet());

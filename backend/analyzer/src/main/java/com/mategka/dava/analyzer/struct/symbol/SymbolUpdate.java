@@ -1,11 +1,12 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
+import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
-import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 
 import lombok.NonNull;
 import lombok.Value;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -20,7 +21,7 @@ public class SymbolUpdate implements PropertyIndexable {
   Symbol.Context targetContext;
 
   @NonNull
-  PropertyMap properties;
+  Map<String, Property> properties;
 
   @NonNull
   Set<UpdateFlag> flags;

@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer.extension.struct;
 
 import com.mategka.dava.analyzer.collections.Stack;
+import com.mategka.dava.analyzer.extension.Copyable;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
@@ -30,6 +31,10 @@ public class TreeNode<T>
 
   public TreeNode(T value) {
     this.value = value;
+  }
+
+  public static <T extends Copyable<T>> TreeNode<T> deepCopy(@NotNull TreeNode<T> node) {
+    return node.mapValues(Copyable::copy);
   }
 
   private static <T> void buildTreeString(@NotNull TreeNode<T> node, StringBuilder builder, String prefix,

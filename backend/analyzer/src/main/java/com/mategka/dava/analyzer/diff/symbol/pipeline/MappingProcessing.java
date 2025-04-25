@@ -72,13 +72,13 @@ public class MappingProcessing {
       var collectingMergePredecessors = context.hasStrandChange() && !consistentSymbolId;
       for (var sourceRecord : sourceRecords) {
         var parentIndex = sourceRecord.parentIndex();
-        var unchangedSymbols = targetWorkspace.getUnchangedFromParent().get(parentIndex);
+        var unchangedSymbols = targetWorkspace.getUnchangedFromParent(parentIndex);
         var sourceSymbol = sourceRecord.symbol();
         var sourceKey = sourceSymbol.getKey();
         if (collectingJoinPredecessors) {
           targetSymbol.addPredecessor(PrdRole.DIRECT, sourceKey);
         }
-        if (unchangedSymbols.contains(sourceSymbol)) {
+        if (unchangedSymbols.contains(targetSymbol)) {
           if (collectingMergePredecessors) {
             targetSymbol.addPredecessor(PrdRole.DIRECT, sourceKey);
           }
@@ -87,7 +87,7 @@ public class MappingProcessing {
         if (collectingMergePredecessors) {
           targetSymbol.addPredecessor(PrdRole.MERGED, sourceKey);
         }
-        PropertyMap propertyDiff = sourceSymbol.getProperties().diff(targetSymbol);
+        PropertyMap.PropertyMapDiff propertyDiff = sourceSymbol.getProperties().diff(targetSymbol);
         if (propertyDiff.isEmpty()) {
           continue;
         }
@@ -120,7 +120,7 @@ public class MappingProcessing {
             flags.add(UpdateFlag.REPLACED);
           }
         }
-        updates.add(new SymbolUpdate(sourceSymbol.getKey(), symbolContext, propertyDiff, flags));
+        updates.add(new SymbolUpdate(sourceSymbol.getKey(), symbolContext, propertyDiff.coalesce(), flags));
       }
     }
     return updates;

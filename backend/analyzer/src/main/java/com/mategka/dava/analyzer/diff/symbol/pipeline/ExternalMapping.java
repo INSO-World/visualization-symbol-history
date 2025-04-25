@@ -37,8 +37,7 @@ public class ExternalMapping {
       var parentIndex = parentWorkspaceTuple.left();
       var parentWorkspace = parentWorkspaceTuple.right();
       var symbolMap = symbolMaps.get(parentIndex);
-      var sourceSymbols = ListsX.map(parentWorkspace.getLocatedSymbols().values(), TreeNode::value);
-      deletions.addAll(symbolMap.getUnmappedSources(sourceSymbols));
+      deletions.addAll(symbolMap.getUnmappedSources(parentWorkspace.getAllSymbols()));
       for (var unmappedTarget : symbolMap.getUnmappedTargets(targetSymbols)) {
         additionCounter.increment(unmappedTarget);
       }

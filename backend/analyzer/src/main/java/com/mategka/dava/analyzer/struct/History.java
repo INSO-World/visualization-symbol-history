@@ -21,17 +21,21 @@ public class History {
 
   /**
    * Contains all symbols present at the HEAD commit with their final properties.
+   * @deprecated Will not be populated.
    */
   @NonNull
   @Builder.Default
+  @Deprecated
   List<Symbol> presentSymbols = new ArrayList<>();
 
   /**
    * Contains all symbols that were deleted at some point with their final properties.
    * Note that these may contain trace symbols with identical original symbols.
+   * @deprecated Will not be populated.
    */
   @NonNull
   @Builder.Default
+  @Deprecated
   List<Symbol> deletedSymbols = new ArrayList<>();
 
   /**

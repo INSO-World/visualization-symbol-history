@@ -1,6 +1,7 @@
 package com.mategka.dava.analyzer;
 
 import com.mategka.dava.analyzer.collections.Array;
+import com.mategka.dava.analyzer.collections.CountingMap;
 import com.mategka.dava.analyzer.diff.file.FileChange;
 import com.mategka.dava.analyzer.diff.file.FileDiff;
 import com.mategka.dava.analyzer.diff.file.FileMapping;
@@ -8,6 +9,7 @@ import com.mategka.dava.analyzer.diff.symbol.SymbolDiff;
 import com.mategka.dava.analyzer.diff.workspace.SymbolWorkspace;
 import com.mategka.dava.analyzer.diff.workspace.TargetWorkspace;
 import com.mategka.dava.analyzer.extension.ListsX;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.struct.CommitDiff;
@@ -16,6 +18,7 @@ import com.mategka.dava.analyzer.struct.Strand;
 import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
 import com.mategka.dava.analyzer.util.Benchmark;
 
+import com.google.common.graph.Graph;
 import org.eclipse.jgit.lib.Ref;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,6 +33,7 @@ public class App {
   public static void main(String[] args) {
     // ?REPO
     // ?REPO
+    // NOTE: Last profiling on analyzer repository took 99.4s with 93.12% = 92.6s Spoon time, and ~825MB memory
     try (Repository repository = Repository.open("?REPO")) {
       Ref mainBranch = repository.resolveRef("HEAD").getOrThrow();
       var benchmark = Benchmark.start();
@@ -37,21 +41,27 @@ public class App {
       var strandMapping = history.getStrandMapping();
       var symbolIdCounter = new AtomicLong();
       var treeDiffer = repository.newTreeDiffer();
+      CountingMap<@NotNull Long> workspaceCountdown = initWorkspaceCountdown(history.getStrandDag());
       Map<@NotNull Long, SymbolWorkspace> workspaces = new HashMap<>();
       try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (Commit commit : commitWalk) {
           System.out.println("-".repeat(10) + commit.hash().abbreviated() + "-".repeat(10));
           var strand = strandMapping.get(commit.hash());
+          var strandId = strand.getId();
           var commitPaths = repository.readRelevantPaths(commit);
           var parents = commit.parents();
-          var parentWorkspaces = AnStream.from(parents)
+          var parentStrandIds = parents.stream()
             .map(Commit::hash)
             .map(strandMapping::get)
             .map(Strand::getId)
+            .toList();
+          var parentWorkspaces = AnStream.from(parentStrandIds)
             .map(workspaces::get)
             .toTypedArray();
-          var breakCommit = !parents.isEmpty() && strandMapping.get(parents.getFirst().hash()) != strand;
-          var context = new SymbolCreationContext(symbolIdCounter, strand.getId(), commit.hash(), breakCommit);
+          var breakCommit = Options.getFirst(parentStrandIds)
+            .map(id -> id != strandId)
+            .getOrElse(false);
+          var context = new SymbolCreationContext(symbolIdCounter, strandId, commit.hash(), breakCommit);
 
           var fileMapping = extractFileMapping(commit, repository, treeDiffer);
           Array<Collection<String>> pathsPerParent = parentWorkspaces.stream()
@@ -59,9 +69,9 @@ public class App {
             .map(m -> (Collection<String>) m.keySet())
             .toTypedArray();
           fileMapping.addUnchangedMappings(pathsPerParent, commitPaths);
-          var targetWorkspace = TargetWorkspace.create(parentWorkspaces, fileMapping, repository);
+          var targetWorkspace = TargetWorkspace.create(parentWorkspaces, fileMapping, repository, breakCommit);
           var symbolMapping = SymbolDiff.getMapping(targetWorkspace, parentWorkspaces, fileMapping, context);
-          workspaces.put(strand.getId(), targetWorkspace);
+          workspaces.put(strandId, targetWorkspace);
           CommitDiff diff = CommitDiff.builder()
             .commitData(commit)
             .additions(symbolMapping.additions())
@@ -71,13 +81,48 @@ public class App {
             .build();
           diff.printDebug();
           strand.getCommitDiffs().add(diff);
+
+          if (breakCommit) {
+            boolean changed = false;
+            for (var parentStrandId : parentStrandIds) {
+              var remainingSuccessors = workspaceCountdown.decrementAndGet(parentStrandId);
+              if (remainingSuccessors == 0) {
+                workspaces.remove(parentStrandId);
+                workspaceCountdown.remove(parentStrandId);
+                changed = true;
+              }
+            }
+            if (changed) {
+              System.gc();
+            }
+          }
         }
       }
       var time = benchmark.end();
+      mainBranch = null;
+      benchmark = null;
+      symbolIdCounter = null;
+      treeDiffer = null;
+      workspaceCountdown.clear();
+      workspaces.clear();
+      workspaces = null;
+      System.gc();
       System.out.printf("Done in %.1f seconds%n", time.toMillis() / 1000d);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @SuppressWarnings("UnstableApiUsage")
+  private static CountingMap<@NotNull Long> initWorkspaceCountdown(@NotNull Graph<Strand> strandDag) {
+    var workspaceCountdown = new CountingMap<@NotNull Long>();
+    for (var strand : strandDag.nodes()) {
+      var successorCount = strandDag.successors(strand).size();
+      if (successorCount > 0) {
+        workspaceCountdown.put(strand.getId(), successorCount);
+      }
+    }
+    return workspaceCountdown;
   }
 
   private static FileMapping extractFileMapping(Commit commit, Repository repository, TreeDiffer treeDiffer)

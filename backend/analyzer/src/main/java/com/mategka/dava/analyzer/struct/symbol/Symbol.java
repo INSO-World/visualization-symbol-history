@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
+import com.mategka.dava.analyzer.extension.Copyable;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.git.Hash;
@@ -23,7 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public final class Symbol implements PropertyIndexable {
+public final class Symbol implements PropertyIndexable, Copyable<Symbol> {
 
   final Multimap<PrdRole, SymbolKey> predecessors = HashMultimap.create(2, 2);
   @Getter
@@ -49,6 +50,11 @@ public final class Symbol implements PropertyIndexable {
 
   public void clearPredecessors() {
     predecessors.clear();
+  }
+
+  @Override
+  public @NotNull Symbol copy() {
+    return clone();
   }
 
   public @NotNull String getDisplayName() {

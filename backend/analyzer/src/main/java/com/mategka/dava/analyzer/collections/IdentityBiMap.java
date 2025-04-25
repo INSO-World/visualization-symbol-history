@@ -23,6 +23,7 @@ public class IdentityBiMap<K, V> implements BiMap<K, V> {
 
   final BiMap<IdentityValue<K>, IdentityValue<V>> map;
   IdentityBiMap<V, K> inverseMap = null;
+
   public IdentityBiMap() {
     map = HashBiMap.create();
   }

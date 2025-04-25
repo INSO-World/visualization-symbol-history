@@ -28,18 +28,6 @@ public class SymbolWorkspace {
 
   Array<Set<Symbol>> unchangedFromParent;
 
-  public Set<CtEqPath> pathSet() {
-    return locatedSymbols.keySet();
-  }
-
-  public Symbol locateSymbol(CtElement element) {
-    return locatedSymbols.get(CtEqPath.of(element)).value();
-  }
-
-  public Set<Symbol> getUnchangedFromParent(int index) {
-    return unchangedFromParent.get(index);
-  }
-
   public SequencedCollection<Symbol> getAllSymbols() {
     return ListsX.map(locatedSymbols.values(), TreeNode::value);
   }
@@ -49,6 +37,18 @@ public class SymbolWorkspace {
       .map(TreeNode::value)
       .filter(s -> !additions.contains(s))
       .collect(Collectors.toSet());
+  }
+
+  public Set<Symbol> getUnchangedFromParent(int index) {
+    return unchangedFromParent.get(index);
+  }
+
+  public Symbol locateSymbol(CtElement element) {
+    return locatedSymbols.get(CtEqPath.of(element)).value();
+  }
+
+  public Set<CtEqPath> pathSet() {
+    return locatedSymbols.keySet();
   }
 
 }

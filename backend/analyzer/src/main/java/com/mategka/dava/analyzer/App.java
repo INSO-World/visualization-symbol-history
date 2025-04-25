@@ -113,18 +113,6 @@ public class App {
     }
   }
 
-  @SuppressWarnings("UnstableApiUsage")
-  private static CountingMap<@NotNull Long> initWorkspaceCountdown(@NotNull Graph<Strand> strandDag) {
-    var workspaceCountdown = new CountingMap<@NotNull Long>();
-    for (var strand : strandDag.nodes()) {
-      var successorCount = strandDag.successors(strand).size();
-      if (successorCount > 0) {
-        workspaceCountdown.put(strand.getId(), successorCount);
-      }
-    }
-    return workspaceCountdown;
-  }
-
   private static FileMapping extractFileMapping(Commit commit, Repository repository, TreeDiffer treeDiffer)
     throws IOException {
     var parents = commit.parents();
@@ -152,6 +140,18 @@ public class App {
         .toTypedArray();
     }
     return FileDiff.getMapping(relevantChangesPerParent, relevantAdditionsPerParent);
+  }
+
+  @SuppressWarnings("UnstableApiUsage")
+  private static CountingMap<@NotNull Long> initWorkspaceCountdown(@NotNull Graph<Strand> strandDag) {
+    var workspaceCountdown = new CountingMap<@NotNull Long>();
+    for (var strand : strandDag.nodes()) {
+      var successorCount = strandDag.successors(strand).size();
+      if (successorCount > 0) {
+        workspaceCountdown.put(strand.getId(), successorCount);
+      }
+    }
+    return workspaceCountdown;
   }
 
 }

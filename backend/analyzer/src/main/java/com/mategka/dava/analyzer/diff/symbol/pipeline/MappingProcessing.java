@@ -126,10 +126,6 @@ public class MappingProcessing {
     return updates;
   }
 
-  private boolean isFileSymbol(Symbol symbol, Symbol parentSymbol) {
-    return parentSymbol.getKind() == Kind.PACKAGE && symbol.getKind() != Kind.PACKAGE;
-  }
-
   private static List<ParentSymbol> getAllSourceSymbols(
     Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps, Symbol target) {
     return AnStream.fromIndexed(symbolMaps)
@@ -138,6 +134,10 @@ public class MappingProcessing {
         .map(m -> new ParentSymbol(p.right(), m.source()))
       )
       .toList();
+  }
+
+  private boolean isFileSymbol(Symbol symbol, Symbol parentSymbol) {
+    return parentSymbol.getKind() == Kind.PACKAGE && symbol.getKind() != Kind.PACKAGE;
   }
 
 }

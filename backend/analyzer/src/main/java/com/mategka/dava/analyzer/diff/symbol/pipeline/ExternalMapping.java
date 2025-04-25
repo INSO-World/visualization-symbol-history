@@ -28,6 +28,18 @@ public class ExternalMapping {
     return new ExternalMappingSets(deletions, additions);
   }
 
+  private Set<Symbol> computeAdditions(Array<SymbolWorkspace> parentWorkspaces, List<Symbol> targetSymbols,
+                                       CountingMap<Symbol> additionCounter) {
+    if (parentWorkspaces.isEmpty()) {
+      return new HashSet<>(targetSymbols);
+    } else {
+      return AnStream.from(additionCounter)
+        .filter(e -> e.getValue() == parentWorkspaces.length)
+        .map(Map.Entry::getKey)
+        .toSet();
+    }
+  }
+
   private @NotNull Set<Symbol> computeDeletions(Array<SymbolWorkspace> parentWorkspaces,
                                                 Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
                                                 List<Symbol> targetSymbols,
@@ -43,18 +55,6 @@ public class ExternalMapping {
       }
     }
     return deletions;
-  }
-
-  private Set<Symbol> computeAdditions(Array<SymbolWorkspace> parentWorkspaces, List<Symbol> targetSymbols,
-                                       CountingMap<Symbol> additionCounter) {
-    if (parentWorkspaces.isEmpty()) {
-      return new HashSet<>(targetSymbols);
-    } else {
-      return AnStream.from(additionCounter)
-        .filter(e -> e.getValue() == parentWorkspaces.length)
-        .map(Map.Entry::getKey)
-        .toSet();
-    }
   }
 
 }

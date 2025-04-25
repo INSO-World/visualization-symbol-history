@@ -33,8 +33,8 @@ import java.util.Set;
 public class IntraFileMapping {
 
   public void mapInnerSymbols(Array<SymbolWorkspace> parentWorkspaces, FileMapping fileMapping,
-                                     Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
-                                     SymbolWorkspace targetWorkspace, boolean breakCommit) {
+                              Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
+                              SymbolWorkspace targetWorkspace, boolean breakCommit) {
     var comparator = new AstComparator();
     for (var mapping : fileMapping.getMappings().mappings()) {
       if (FileMapping.isFileAddition(mapping)) {
@@ -50,7 +50,8 @@ public class IntraFileMapping {
       var newMainType = targetWorkspace.getFileSpoonUnits().get(newPath).getMainType();
 
       // NOTE: This shortcut only works for copied file trees since elements such as methods are unordered
-      if (mapping.isStatic() && targetWorkspace.getUnchangedFromParent(parentIndex).contains(targetWorkspace.locateSymbol(newMainType)) && !breakCommit) {
+      if (mapping.isStatic() && targetWorkspace.getUnchangedFromParent(parentIndex)
+        .contains(targetWorkspace.locateSymbol(newMainType)) && !breakCommit) {
         for (var oldNode : sourceWorkspace.getFileSymbols().get(oldPath)) {
           var symbol = oldNode.value();
           symbolMap.put(symbol, symbol, null);
@@ -107,6 +108,23 @@ public class IntraFileMapping {
     return result;
   }
 
+  private @NotNull Multimap<String, Id<CtElement>> getDiscriminatorMultimap(
+    Map<CtEqPath, Id<CtElement>> unmappedElementIds, Set<CtEqPath> identicalPaths) {
+    Multimap<String, Id<CtElement>> unmappedElementIdsByDiscriminator = HashMultimap.create();
+    for (var unmappedElement : unmappedElementIds.entrySet()) {
+      if (identicalPaths.contains(unmappedElement.getKey()) || !(unmappedElement.getValue()
+        .value() instanceof CtNamedElement namedElement)) {
+        continue;
+      }
+      var discriminator = "%s&%s&%s".formatted(
+        unmappedElement.getKey().getPseudoParentString(), namedElement.getClass().getSimpleName(),
+        namedElement.getSimpleName()
+      );
+      unmappedElementIdsByDiscriminator.put(discriminator, unmappedElement.getValue());
+    }
+    return unmappedElementIdsByDiscriminator;
+  }
+
   private void mapImplicitElements(CtElement oldMainType, CtElement newMainType, Set<CtEqPath> sourcePaths,
                                    Set<CtEqPath> targetPaths, BiMap<Id<CtElement>, Id<CtElement>> result,
                                    Map<CtElement, CtEqPath> pathCache, Map<CtElement, Id<CtElement>> idCache) {
@@ -161,23 +179,6 @@ public class IntraFileMapping {
         }
       }
     }
-  }
-
-  private @NotNull Multimap<String, Id<CtElement>> getDiscriminatorMultimap(
-    Map<CtEqPath, Id<CtElement>> unmappedElementIds, Set<CtEqPath> identicalPaths) {
-    Multimap<String, Id<CtElement>> unmappedElementIdsByDiscriminator = HashMultimap.create();
-    for (var unmappedElement : unmappedElementIds.entrySet()) {
-      if (identicalPaths.contains(unmappedElement.getKey()) || !(unmappedElement.getValue()
-        .value() instanceof CtNamedElement namedElement)) {
-        continue;
-      }
-      var discriminator = "%s&%s&%s".formatted(
-        unmappedElement.getKey().getPseudoParentString(), namedElement.getClass().getSimpleName(),
-        namedElement.getSimpleName()
-      );
-      unmappedElementIdsByDiscriminator.put(discriminator, unmappedElement.getValue());
-    }
-    return unmappedElementIdsByDiscriminator;
   }
 
 }

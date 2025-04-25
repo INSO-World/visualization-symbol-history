@@ -21,6 +21,7 @@ public class History {
 
   /**
    * Contains all symbols present at the HEAD commit with their final properties.
+   *
    * @deprecated Will not be populated.
    */
   @NonNull
@@ -31,6 +32,7 @@ public class History {
   /**
    * Contains all symbols that were deleted at some point with their final properties.
    * Note that these may contain trace symbols with identical original symbols.
+   *
    * @deprecated Will not be populated.
    */
   @NonNull

@@ -1,19 +1,17 @@
 package com.mategka.dava.analyzer.diff.workspace;
 
 import com.mategka.dava.analyzer.collections.Array;
-import com.mategka.dava.analyzer.extension.ListsX;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.TreeNode;
-import com.mategka.dava.analyzer.spoon.CtEqPath;
+import com.mategka.dava.analyzer.extension.struct.TreeOrder;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import lombok.Value;
 import spoon.reflect.declaration.CtCompilationUnit;
-import spoon.reflect.declaration.CtElement;
 
 import java.util.Map;
 import java.util.SequencedCollection;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Value
 public class SymbolWorkspace {
@@ -24,30 +22,30 @@ public class SymbolWorkspace {
 
   Map<String, CtCompilationUnit> fileSpoonUnits;
 
-  Map<CtEqPath, TreeNode<Symbol>> locatedSymbols;
+  Map<String, TreeNode<Symbol>> locatedSymbols;
 
   Array<Set<Symbol>> unchangedFromParent;
 
   public SequencedCollection<Symbol> getAllSymbols() {
-    return ListsX.map(locatedSymbols.values(), TreeNode::value);
+    return tree.stream(TreeOrder.PREORDER).map(TreeNode::value).toList();
   }
 
   public Set<Symbol> getSuccessions(Set<Symbol> additions) {
-    return locatedSymbols.values().stream()
+    return AnStream.from(locatedSymbols.values())
       .map(TreeNode::value)
       .filter(s -> !additions.contains(s))
-      .collect(Collectors.toSet());
+      .toSet();
   }
 
   public Set<Symbol> getUnchangedFromParent(int index) {
     return unchangedFromParent.get(index);
   }
 
-  public Symbol locateSymbol(CtElement element) {
-    return locatedSymbols.get(CtEqPath.of(element)).value();
+  public Symbol locateSymbol(String path) {
+    return locatedSymbols.get(path).value();
   }
 
-  public Set<CtEqPath> pathSet() {
+  public Set<String> pathSet() {
     return locatedSymbols.keySet();
   }
 

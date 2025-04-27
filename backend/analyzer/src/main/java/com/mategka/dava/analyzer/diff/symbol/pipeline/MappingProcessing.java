@@ -4,6 +4,7 @@ import com.mategka.dava.analyzer.collections.Array;
 import com.mategka.dava.analyzer.collections.ManyToManyMap;
 import com.mategka.dava.analyzer.collections.Mapping;
 import com.mategka.dava.analyzer.diff.symbol.ParentSymbol;
+import com.mategka.dava.analyzer.diff.symbol.pipeline.struct.ExternalMappingSets;
 import com.mategka.dava.analyzer.diff.workspace.SymbolWorkspace;
 import com.mategka.dava.analyzer.extension.IterablesX;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
@@ -98,7 +99,7 @@ public class MappingProcessing {
         if (propertyDiff.containsProperty(BodyHashProperty.class)) {
           flags.add(UpdateFlag.BODY_UPDATED);
         }
-        var sourceNode = parentWorkspaces.get(parentIndex).getLocatedSymbols().get(sourceSymbol.getPath());
+        var sourceNode = parentWorkspaces.get(parentIndex).getLocatedSymbols().get(sourceSymbol.getSpoonPath());
         if (sourceNode.isRoot() != targetNode.isRoot()) {
           throw new IllegalStateException("Root nodes should match but do not");
         }

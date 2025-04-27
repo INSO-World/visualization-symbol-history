@@ -3,6 +3,7 @@ package com.mategka.dava.analyzer.diff.symbol.pipeline;
 import com.mategka.dava.analyzer.collections.Array;
 import com.mategka.dava.analyzer.collections.CountingMap;
 import com.mategka.dava.analyzer.collections.ManyToManyMap;
+import com.mategka.dava.analyzer.diff.symbol.pipeline.struct.ExternalMappingSets;
 import com.mategka.dava.analyzer.diff.workspace.SymbolWorkspace;
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.stream.AnStream;

@@ -22,13 +22,17 @@ import spoon.reflect.declaration.*;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtWildcardReference;
 
-import java.util.Collections;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
 @UtilityClass
 public class PropertyCapture {
+
+  private static final IdentityHashMap<CtElement, String> pathCache = new IdentityHashMap<>();
+
+  public static void clearPathCache() {
+    pathCache.clear();
+  }
 
   public Symbol parseElement(CtElement element) {
     return switch (element) {
@@ -55,12 +59,11 @@ public class PropertyCapture {
       element.getAnnotations(),
       a -> (Type) UnknownType.of(a.getAnnotationType().getQualifiedName())
     );
-    var ctPathProperty = CtPathProperty.fromElement(element);
+    var spoonPathProperty = SpoonPathProperty.fromElement(element, pathCache);
     var builder = PropertyMap.builder()
-      //.property(AnalyzerLevelProperty.CURRENT)
       .property(AnnotationsProperty::new, annotations)
-      .property(ctPathProperty)
-      .property(PathProperty.fromCtPathProperty(ctPathProperty));
+      .property(spoonPathProperty)
+      .property(PathProperty.fromSpoonPathProperty(spoonPathProperty));
     if (element.getPosition().isValidPosition()) {
       builder.property(LineRangeProperty.fromElement(element));
     }
@@ -82,14 +85,14 @@ public class PropertyCapture {
     }
     if (element instanceof CtExecutable<?> executable) {
       // TODO: FIX: Does not seem to hold equality checks (i.e., equal bodies don't always result in equal hashes)
-      String bodyString;
+      int bodyHash;
       try {
-        bodyString = Objects.toString(executable.getBody());
+        bodyHash = Objects.hashCode(executable.getBody());
       } catch (Exception _ignored) {
         // If the function body can - for some reason - not be parsed, treat it as empty
-        bodyString = "";
+        bodyHash = 0;
       }
-      builder.property(BodyHashProperty.fromString(bodyString));
+      builder.property(new BodyHashProperty(bodyHash));
     }
     return builder;
   }

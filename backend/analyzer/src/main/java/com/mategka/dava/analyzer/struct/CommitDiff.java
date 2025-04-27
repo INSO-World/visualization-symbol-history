@@ -5,7 +5,6 @@ import com.mategka.dava.analyzer.git.Commit;
 import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.property.LineRangeProperty;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKeys;
-import com.mategka.dava.analyzer.struct.refactoring.SymbolRefactoring;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolUpdate;
 
@@ -40,16 +39,20 @@ public class CommitDiff {
   ZonedDateTime commitDate;
 
   @NonNull
-  Collection<SymbolRefactoring> refactorings;
+  Collection<Symbol> additions;
 
   @NonNull
-  Collection<Symbol> additions;
+  Collection<Symbol> successions;
 
   @NonNull
   Collection<Symbol> deletions;
 
   @NonNull
   Collection<SymbolUpdate> updates;
+
+  public long size() {
+    return (long) additions.size() + successions.size() + deletions.size() + updates.size();
+  }
 
   public void printDebug() {
     additions.stream()

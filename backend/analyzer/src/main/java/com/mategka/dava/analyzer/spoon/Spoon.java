@@ -39,8 +39,9 @@ public class Spoon {
     return !isDefaultConstructor(constructor) && !constructor.isCompactConstructor();
   }
 
-  public boolean isRootPackage(CtPackage pakkage) {
-    return pakkage instanceof CtModelImpl.CtRootPackage;
+  @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+  public boolean isRootPackage(CtElement element) {
+    return element instanceof CtModelImpl.CtRootPackage;
   }
 
   public String simpleNameOf(Class<? extends CtElement> clazz) {

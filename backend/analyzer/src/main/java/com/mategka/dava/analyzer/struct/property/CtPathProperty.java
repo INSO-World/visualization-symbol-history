@@ -6,6 +6,10 @@ import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 import org.jetbrains.annotations.NotNull;
 import spoon.reflect.declaration.CtElement;
 
+/**
+ * @deprecated Use {@link SpoonPathProperty} instead.
+ */
+@Deprecated
 @PropertyKey("ctpath")
 public record CtPathProperty(CtEqPath value) implements SimpleProperty<CtEqPath> {
 

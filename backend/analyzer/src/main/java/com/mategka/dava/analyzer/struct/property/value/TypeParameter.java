@@ -8,6 +8,7 @@ import lombok.*;
 
 @RequiredArgsConstructor(staticName = "of")
 @AllArgsConstructor(staticName = "of")
+@EqualsAndHashCode
 public final class TypeParameter {
 
   @NonNull

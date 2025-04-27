@@ -29,6 +29,7 @@ public final class Symbol implements PropertyIndexable, Copyable<Symbol> {
   final Multimap<PrdRole, SymbolKey> predecessors = HashMultimap.create(2, 2);
   @Getter
   final PropertyMap properties;
+
   @Getter
   Option<Context> context = Option.None();
 
@@ -55,6 +56,12 @@ public final class Symbol implements PropertyIndexable, Copyable<Symbol> {
   @Override
   public @NotNull Symbol copy() {
     return clone();
+  }
+
+  public @NotNull Symbol copyWithContext() {
+    var result = copy();
+    result.context = context;
+    return result;
   }
 
   public @NotNull String getDisplayName() {
@@ -85,8 +92,17 @@ public final class Symbol implements PropertyIndexable, Copyable<Symbol> {
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
   }
 
+  /**
+   * @deprecated Use {@link #getSpoonPath()} instead.
+   */
+  @Deprecated
   public @NotNull CtEqPath getPath() throws NoSuchElementException {
     return getPropertyValue(CtPathProperty.class)
+      .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
+  }
+
+  public @NotNull String getSpoonPath() throws NoSuchElementException {
+    return getPropertyValue(SpoonPathProperty.class)
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
   }
 

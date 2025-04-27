@@ -9,9 +9,7 @@ import com.mategka.dava.analyzer.extension.*;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
-import com.mategka.dava.analyzer.spoon.AstComparator;
-import com.mategka.dava.analyzer.spoon.CtEqPath;
-import com.mategka.dava.analyzer.spoon.Spoon;
+import com.mategka.dava.analyzer.spoon.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import com.google.common.collect.BiMap;
@@ -40,6 +38,7 @@ public class IntraFileMapping {
       if (FileMapping.isFileAddition(mapping)) {
         continue;
       }
+      var pathCache = new IdentityHashMap<CtElement, String>();
       var file = mapping.source();
       var parentIndex = file.parentIndex();
       var symbolMap = symbolMaps.get(parentIndex);
@@ -48,10 +47,11 @@ public class IntraFileMapping {
       var newPath = mapping.target();
       var oldMainType = sourceWorkspace.getFileSpoonUnits().get(oldPath).getMainType();
       var newMainType = targetWorkspace.getFileSpoonUnits().get(newPath).getMainType();
+      var newMainTypePath = SpoonPathElement.getPath(newMainType, pathCache);
 
       // NOTE: This shortcut only works for copied file trees since elements such as methods are unordered
       if (mapping.isStatic() && targetWorkspace.getUnchangedFromParent(parentIndex)
-        .contains(targetWorkspace.locateSymbol(newMainType)) && !breakCommit) {
+        .contains(targetWorkspace.locateSymbol(newMainTypePath)) && !breakCommit) {
         for (var oldNode : sourceWorkspace.getFileSymbols().get(oldPath)) {
           var symbol = oldNode.value();
           symbolMap.put(symbol, symbol, null);
@@ -61,24 +61,25 @@ public class IntraFileMapping {
 
       var astDiff = comparator.compare(oldMainType, newMainType);
       var astMappings = extractMappings(
-        astDiff, oldMainType, newMainType, sourceWorkspace.pathSet(), targetWorkspace.pathSet());
+        astDiff, oldMainType, newMainType, sourceWorkspace.pathSet(), targetWorkspace.pathSet(), pathCache);
       var astSymbolMappings = astMappings.entrySet().stream()
         .map(Pair::fromEntry)
         .map(Pair.mapping(Id::value))
+        .map(Pair.mapping(e -> SpoonPathElement.getPath(e, pathCache)))
         .map(Pair.mapping(sourceWorkspace::locateSymbol, targetWorkspace::locateSymbol))
         .toList();
       for (var pair : astSymbolMappings) {
         symbolMap.put(pair.left(), pair.right(), null);
       }
+      pathCache.clear();
     }
   }
 
   private @NotNull BiMap<Id<CtElement>, Id<CtElement>> extractMappings(Diff astDiff, CtElement oldMainType,
                                                                        CtElement newMainType,
-                                                                       Set<CtEqPath> sourcePaths,
-                                                                       Set<CtEqPath> targetPaths) {
-    //noinspection MismatchedQueryAndUpdateOfCollection
-    final Map<CtElement, CtEqPath> pathCache = new DefaultMap<>(IdentityHashMap::new, CtEqPath::of);
+                                                                       Set<String> sourcePaths,
+                                                                       Set<String> targetPaths,
+                                                                       IdentityHashMap<CtElement, String> pathCache) {
     //noinspection MismatchedQueryAndUpdateOfCollection
     final Map<CtElement, Id<CtElement>> idCache = new DefaultMap<>(IdentityHashMap::new, Id::of);
 
@@ -88,8 +89,8 @@ public class IntraFileMapping {
       .map(Pair.mapping(Spoon::getMetaElement))
       .filter(Pair.filtering(e -> !(e instanceof CtWrapper<?>)))
       .filter(Pair.filtering(
-        e -> sourcePaths.contains(pathCache.get(e)),
-        e -> targetPaths.contains(pathCache.get(e))
+        e -> sourcePaths.contains(SpoonPathElement.getPath(e, pathCache)),
+        e -> targetPaths.contains(SpoonPathElement.getPath(e, pathCache))
       ))
       .map(Pair.mapping(idCache::get))
       .collect(CollectorsX.toBiMap());
@@ -102,14 +103,13 @@ public class IntraFileMapping {
 
     // Post Processing: Map leftover implicit elements based on simple name and type heuristics
     mapImplicitElements(oldMainType, newMainType, sourcePaths, targetPaths, result, pathCache, idCache);
-    pathCache.clear();
     idCache.clear();
 
     return result;
   }
 
   private @NotNull Multimap<String, Id<CtElement>> getDiscriminatorMultimap(
-    Map<CtEqPath, Id<CtElement>> unmappedElementIds, Set<CtEqPath> identicalPaths) {
+    Map<String, Id<CtElement>> unmappedElementIds, Set<String> identicalPaths) {
     Multimap<String, Id<CtElement>> unmappedElementIdsByDiscriminator = HashMultimap.create();
     for (var unmappedElement : unmappedElementIds.entrySet()) {
       if (identicalPaths.contains(unmappedElement.getKey()) || !(unmappedElement.getValue()
@@ -117,7 +117,7 @@ public class IntraFileMapping {
         continue;
       }
       var discriminator = "%s&%s&%s".formatted(
-        unmappedElement.getKey().getPseudoParentString(), namedElement.getClass().getSimpleName(),
+        SpoonPathElement.getParentPath(unmappedElement.getKey()), namedElement.getClass().getSimpleName(),
         namedElement.getSimpleName()
       );
       unmappedElementIdsByDiscriminator.put(discriminator, unmappedElement.getValue());
@@ -125,19 +125,19 @@ public class IntraFileMapping {
     return unmappedElementIdsByDiscriminator;
   }
 
-  private void mapImplicitElements(CtElement oldMainType, CtElement newMainType, Set<CtEqPath> sourcePaths,
-                                   Set<CtEqPath> targetPaths, BiMap<Id<CtElement>, Id<CtElement>> result,
-                                   Map<CtElement, CtEqPath> pathCache, Map<CtElement, Id<CtElement>> idCache) {
+  private void mapImplicitElements(CtElement oldMainType, CtElement newMainType, Set<String> sourcePaths,
+                                   Set<String> targetPaths, BiMap<Id<CtElement>, Id<CtElement>> result,
+                                   IdentityHashMap<CtElement, String> pathCache, Map<CtElement, Id<CtElement>> idCache) {
     var unmappedSourceElementIds = AnStream.<CtElement>from(oldMainType.getElements(null))
       .filter(e -> !(e instanceof CtWrapper<?>))
-      .map(Pair.fromRight(pathCache::get))
+      .map(Pair.fromRight(e -> SpoonPathElement.getPath(e, pathCache)))
       .filter(Pair.filteringLeft(sourcePaths::contains))
       .map(Pair.mappingRight(idCache::get))
       .filter(Pair.filteringRight(id -> !result.containsKey(id)))
       .collect(CollectorsX.pairsToMap());
     var unmappedTargetElementIds = AnStream.<CtElement>from(newMainType.getElements(null))
       .filter(e -> !(e instanceof CtWrapper<?>))
-      .map(Pair.fromRight(pathCache::get))
+      .map(Pair.fromRight(e -> SpoonPathElement.getPath(e, pathCache)))
       .filter(Pair.filteringLeft(targetPaths::contains))
       .map(Pair.mappingRight(idCache::get))
       .filter(Pair.filteringRight(id -> !result.containsValue(id)))
@@ -157,9 +157,9 @@ public class IntraFileMapping {
   }
 
   private void mapSimilarImplicitElements(BiMap<Id<CtElement>, Id<CtElement>> result,
-                                          Map<CtEqPath, Id<CtElement>> unmappedSourceElementIds,
-                                          Set<CtEqPath> identicalPaths,
-                                          Map<CtEqPath, Id<CtElement>> unmappedTargetElementIds) {
+                                          Map<String, Id<CtElement>> unmappedSourceElementIds,
+                                          Set<String> identicalPaths,
+                                          Map<String, Id<CtElement>> unmappedTargetElementIds) {
     Multimap<String, Id<CtElement>> unmappedSourceElementIdsByDiscriminator = getDiscriminatorMultimap(
       unmappedSourceElementIds, identicalPaths);
     Multimap<String, Id<CtElement>> unmappedTargetElementIdsByDiscriminator = getDiscriminatorMultimap(

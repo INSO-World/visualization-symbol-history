@@ -4,6 +4,8 @@ import com.mategka.dava.analyzer.collections.Array;
 import com.mategka.dava.analyzer.collections.ManyToManyMap;
 import com.mategka.dava.analyzer.diff.file.FileMapping;
 import com.mategka.dava.analyzer.diff.symbol.pipeline.*;
+import com.mategka.dava.analyzer.diff.symbol.pipeline.struct.BaseSymbolSets;
+import com.mategka.dava.analyzer.diff.symbol.pipeline.struct.ExternalMappingSets;
 import com.mategka.dava.analyzer.diff.workspace.SymbolWorkspace;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
@@ -13,9 +15,7 @@ import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 @UtilityClass
 public class SymbolDiff {
@@ -36,11 +36,11 @@ public class SymbolDiff {
     // 4. Choose suitable Context for all target symbols based on all sources, set predecessors, create prop updates
     List<SymbolUpdate> updates = MappingProcessing.processSymbolMappings(
       targetWorkspace, parentWorkspaces, context, externalMappings, symbolMaps);
-    // 5. Identify succession symbols, needed for serialization
-    Set<Symbol> successions = breakCommit
-      ? targetWorkspace.getSuccessions(externalMappings.additions())
-      : Collections.emptySet();
-    return new SymbolMappingResult(externalMappings.additions(), externalMappings.deletions(), successions, updates);
+    // 5. Identify succession symbols (needed for serialization), and copy additions and successions for a snapshot
+    BaseSymbolSets baseSymbols = BaseSymbolExtraction.extractBaseSymbolSets(
+      targetWorkspace, externalMappings, breakCommit);
+    return new SymbolMappingResult(
+      baseSymbols.additions(), externalMappings.deletions(), baseSymbols.successions(), updates);
   }
 
 }

@@ -7,6 +7,7 @@ import com.mategka.dava.analyzer.struct.property.*;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.NonNull;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Function;
@@ -18,8 +19,10 @@ public class PropertyMap extends HashMap<String, Property> {
 
   private static final Set<String> ABBREVIATED_PROPERTIES = Stream.of(
       CtPathProperty.class,
+      SpoonPathProperty.class,
       InitialValueProperty.class,
-      BodyHashProperty.class
+      BodyHashProperty.class,
+      PathProperty.class
     )
     .map(PropertyKeys::get)
     .collect(Collectors.toSet());
@@ -59,7 +62,10 @@ public class PropertyMap extends HashMap<String, Property> {
     return Collectors.toMap(keyFunction, valueFunction, (older, newer) -> newer, PropertyMap::new);
   }
 
-  private static String propertyToValueString(@NotNull Property property) {
+  private static @NotNull String propertyToValueString(@Nullable Property property) {
+    if (property == null) {
+      return "<removed>";
+    }
     if (ABBREVIATED_PROPERTIES.contains(property.getKey())) {
       return "";
     }
@@ -125,16 +131,15 @@ public class PropertyMap extends HashMap<String, Property> {
 
   @Override
   public String toString() {
-    return "{ %s }".formatted(values().stream()
-                                .map(p -> "%s%s".formatted(p.getKey(), propertyToValueString(p)))
+    return "{ %s }".formatted(entrySet().stream()
+                                .map(e -> "%s%s".formatted(e.getKey(), propertyToValueString(e.getValue())))
                                 .collect(Collectors.joining(", ")));
   }
 
   public record PropertyMapDiff(PropertyMap overlay, PropertyMap removedProperties) {
 
     public Map<String, Property> coalesce() {
-      Map<String, Property> result = new HashMap<>();
-      overlay.values().forEach(p -> result.put(p.getKey(), p));
+      Map<String, Property> result = overlay;
       removedProperties.values().forEach(p -> result.put(p.getKey(), null));
       return result;
     }

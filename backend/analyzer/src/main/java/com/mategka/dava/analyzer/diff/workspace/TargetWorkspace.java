@@ -19,8 +19,8 @@ import com.mategka.dava.analyzer.git.Side;
 import com.mategka.dava.analyzer.spoon.*;
 import com.mategka.dava.analyzer.struct.pipeline.PropertyCapture;
 import com.mategka.dava.analyzer.struct.pipeline.Symbolizer;
-import com.mategka.dava.analyzer.struct.property.CtPathProperty;
 import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
+import com.mategka.dava.analyzer.struct.property.SpoonPathProperty;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
@@ -29,6 +29,7 @@ import lombok.experimental.UtilityClass;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.jetbrains.annotations.Nullable;
 import spoon.reflect.declaration.CtCompilationUnit;
+import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtPackage;
 import spoon.support.compiler.VirtualFile;
 
@@ -41,15 +42,12 @@ public class TargetWorkspace {
   public SymbolWorkspace create(Array<SymbolWorkspace> parentWorkspaces, FileMapping fileMapping,
                                 Repository repository, boolean breakCommit) {
     final var targetRoot = getTargetRoot(parentWorkspaces);
+    final var packagePathCache = new IdentityHashMap<CtElement, String>();
     final Map<String, TreeNode<Symbol>> fileSymbols = new TreeMap<>();
     final Map<String, CtCompilationUnit> fileSpoonUnits = new TreeMap<>();
     final Array<Set<Symbol>> unchangedFromParent = Array.fromSupplier(parentWorkspaces.length, HashSet::new);
     Set<String> targetPathsToUnlink = new HashSet<>();
     for (var targetFilePath : fileMapping.getMappings().targets()) {
-      // TODO: This deletion check should be redundant?
-      if (targetFilePath == null) {
-        continue; // Ignore deletions
-      }
       var sourceMappings = fileMapping.getMappings().getByTarget(targetFilePath);
       var unchangedSources = AnStream.from(sourceMappings)
         .filter(Mapping::isStatic)
@@ -74,7 +72,7 @@ public class TargetWorkspace {
               .findFirstAsOption()
               .getOrThrow();
             yield getNewlyParsedTargetEntry(
-              parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot, breakCommit);
+              parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot, packagePathCache, breakCommit);
           }
           var parentPackage = establishPackageHierarchyByName(targetRoot, fileTree);
           var spoonUnit = parentWorkspace.getFileSpoonUnits().get(file.filePath());
@@ -83,7 +81,7 @@ public class TargetWorkspace {
         case None<?> ignored -> {
           var changeMetadata = sourceMappings.getFirst().metadata().diffEntry(); // must exist since target exists
           yield getNewlyParsedTargetEntry(
-            parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot, breakCommit);
+            parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot, packagePathCache, breakCommit);
         }
       };
       if (entryData == null) {
@@ -101,8 +99,8 @@ public class TargetWorkspace {
       fileSpoonUnits.put(targetFilePath, entryData.spoonUnit());
     }
     targetPathsToUnlink.forEach(fileMapping::unlinkTarget);
-    Map<CtEqPath, TreeNode<Symbol>> locatedSymbols = targetRoot.stream()
-      .map(Pair.fromRight(n -> n.value().getPath()))
+    Map<String, TreeNode<Symbol>> locatedSymbols = targetRoot.stream()
+      .map(Pair.fromRight(n -> n.value().getSpoonPath()))
       .collect(CollectorsX.pairsToMutableMap());
     return new SymbolWorkspace(targetRoot, fileSymbols, fileSpoonUnits, locatedSymbols, unchangedFromParent);
   }
@@ -135,7 +133,7 @@ public class TargetWorkspace {
     return currentParent;
   }
 
-  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, CtCompilationUnit spoonUnit) {
+  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, CtCompilationUnit spoonUnit, IdentityHashMap<CtElement, String> packagePathCache) {
     var spoonPackage = spoonUnit.getPackageDeclaration().getReference().getDeclaration();
     var packageStack = new Stack<CtPackage>();
     var currentPackage = spoonPackage;
@@ -144,18 +142,18 @@ public class TargetWorkspace {
       currentPackage = currentPackage.getDeclaringPackage();
     }
     // Set root path in case it is unset
-    targetRoot.value().putProperty(CtPathProperty.fromElement(currentPackage));
-    return establishPackageHierarchyByPath(targetRoot, packageStack);
+    targetRoot.value().putProperty(SpoonPathProperty.fromElement(currentPackage, packagePathCache));
+    return establishPackageHierarchyByPath(targetRoot, packageStack, packagePathCache);
   }
 
-  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, Stack<CtPackage> packageStack) {
+  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, Stack<CtPackage> packageStack, IdentityHashMap<CtElement, String> packagePathCache) {
     var currentParent = targetRoot;
     while (!packageStack.isEmpty()) {
       var spoonPackage = packageStack.pop();
       final TreeNode<Symbol> finalCurrentParent = currentParent;
       currentParent = ListsX.find(
           currentParent.children(),
-          m -> m.value().getPath().equals(CtEqPath.of(spoonPackage)) && m.value().getKind() == Kind.PACKAGE
+          m -> m.value().getSpoonPath().equals(SpoonPathElement.getPath(spoonPackage, packagePathCache)) && m.value().getKind() == Kind.PACKAGE
         )
         .getOrCompute(() -> finalCurrentParent.addByValue(PropertyCapture.parsePackage(spoonPackage)));
     }
@@ -166,7 +164,7 @@ public class TargetWorkspace {
                                                                  Repository repository, String targetFilePath,
                                                                  DiffEntry changeMetadata,
                                                                  List<Mapping<ParentFile, String, FileChange>> sourceMappings,
-                                                                 TreeNode<Symbol> targetRoot, boolean breakCommit) {
+                                                                 TreeNode<Symbol> targetRoot, IdentityHashMap<CtElement, String> packagePathCache, boolean breakCommit) {
     var newContents = repository.readFile(changeMetadata, Side.NEW).getSuccess().orElseThrow();
     var virtualFile = new VirtualFile(newContents, targetFilePath);
     CtCompilationUnit spoonUnit;
@@ -195,7 +193,7 @@ public class TargetWorkspace {
         case None<?> ignored -> null;
       };
     }
-    var parentPackage = establishPackageHierarchyByPath(targetRoot, spoonUnit);
+    var parentPackage = establishPackageHierarchyByPath(targetRoot, spoonUnit, packagePathCache);
     var fileTree = Symbolizer.symbolizeFileType(spoonUnit.getMainType(), parentPackage.value());
     return new TargetEntry(parentPackage, fileTree, spoonUnit);
   }
@@ -207,7 +205,7 @@ public class TargetWorkspace {
     var properties = PropertyMap.builder()
       .property(SimpleNameProperty.forRootPackage())
       .property(Kind.PACKAGE.toProperty())
-      .property(inheritedRoot.map(s -> s.getProperty(CtPathProperty.class)).getOrElse(CtPathProperty.EMPTY))
+      .property(inheritedRoot.map(s -> s.getProperty(SpoonPathProperty.class)).getOrElse(SpoonPathProperty.ROOT))
       .build();
     return new TreeNode<>(Symbol.withPropertyMap(properties));
   }

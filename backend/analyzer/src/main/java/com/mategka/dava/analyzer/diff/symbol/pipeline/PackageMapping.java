@@ -7,7 +7,6 @@ import com.mategka.dava.analyzer.extension.SetsX;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.struct.TreeNode;
-import com.mategka.dava.analyzer.spoon.CtEqPath;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
@@ -35,20 +34,20 @@ public class PackageMapping {
       while (!packageMatchingQueue.isEmpty()) {
         var matchingPair = packageMatchingQueue.remove();
         symbolMap.put(matchingPair.left().value(), matchingPair.right().value(), null);
-        Map<CtEqPath, TreeNode<Symbol>> sourceMap = getPathIndex(matchingPair.left());
-        Map<CtEqPath, TreeNode<Symbol>> targetMap = getPathIndex(matchingPair.right());
-        Set<CtEqPath> commonPaths = SetsX.intersection(sourceMap.keySet(), targetMap.keySet());
-        for (CtEqPath commonPath : commonPaths) {
+        Map<String, TreeNode<Symbol>> sourceMap = getPathIndex(matchingPair.left());
+        Map<String, TreeNode<Symbol>> targetMap = getPathIndex(matchingPair.right());
+        Set<String> commonPaths = SetsX.intersection(sourceMap.keySet(), targetMap.keySet());
+        for (String commonPath : commonPaths) {
           packageMatchingQueue.add(Pair.of(sourceMap.get(commonPath), targetMap.get(commonPath)));
         }
       }
     }
   }
 
-  private @NotNull Map<CtEqPath, @NotNull TreeNode<Symbol>> getPathIndex(TreeNode<Symbol> matchingPair) {
+  private @NotNull Map<String, @NotNull TreeNode<Symbol>> getPathIndex(TreeNode<Symbol> matchingPair) {
     return AnStream.from(matchingPair.children())
       .allow(n -> n.value().getKind() == Kind.PACKAGE)
-      .collect(Collectors.toMap(n -> n.value().getPath(), Function.identity()));
+      .collect(Collectors.toMap(n -> n.value().getSpoonPath(), Function.identity()));
   }
 
 }

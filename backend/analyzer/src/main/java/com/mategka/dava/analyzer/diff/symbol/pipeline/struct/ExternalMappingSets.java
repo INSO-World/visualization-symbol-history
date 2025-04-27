@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.diff.symbol.pipeline;
+package com.mategka.dava.analyzer.diff.symbol.pipeline.struct;
 
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 

@@ -8,6 +8,10 @@ import org.jetbrains.annotations.NotNull;
 @PropertyKey("body")
 public record BodyHashProperty(@NotNull Integer value) implements SimpleProperty<@NotNull Integer> {
 
+  /**
+   * @deprecated Use {@link #BodyHashProperty(Integer)} instead.
+   */
+  @Deprecated
   @Contract("_ -> new")
   public static @NotNull BodyHashProperty fromString(String string) {
     return new BodyHashProperty(("/~" + string + "~/").hashCode());

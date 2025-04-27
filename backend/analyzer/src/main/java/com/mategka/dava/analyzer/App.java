@@ -33,7 +33,8 @@ public class App {
   public static void main(String[] args) {
     // ?REPO
     // ?REPO
-    // NOTE: Last profiling on analyzer repository took 99.4s with 93.12% = 92.6s Spoon time, and ~825MB memory
+    // NOTE: Previous best profiling on analyzer repository took 99.4s with 93.12% = 92.6s Spoon time, and ~825MB memory
+    // NOTE: Last profiling on analyzer repository took 84.3s with 94.46% = 79.6s Spoon time, and ~575MB memory
     try (Repository repository = Repository.open("?REPO")) {
       Ref mainBranch = repository.resolveRef("HEAD").getOrThrow();
       var benchmark = Benchmark.start();
@@ -75,9 +76,9 @@ public class App {
           CommitDiff diff = CommitDiff.builder()
             .commitData(commit)
             .additions(symbolMapping.additions())
+            .successions(symbolMapping.successions())
             .deletions(symbolMapping.deletions())
             .updates(symbolMapping.updates())
-            .refactorings(Collections.emptyList())
             .build();
           diff.printDebug();
           strand.getCommitDiffs().add(diff);

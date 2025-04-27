@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.extension;
 
+import com.mategka.dava.analyzer.extension.stream.AnStream;
+
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 
@@ -9,6 +11,14 @@ import java.util.stream.Collectors;
 
 @UtilityClass
 public class SetsX {
+
+  public <E extends Copyable<E>> Set<E> copy(Set<E> set) {
+    return AnStream.from(set).map(Copyable::copy).toSet();
+  }
+
+  public <E> Set<E> copy(Set<E> set, Function<E, E> copyFn) {
+    return AnStream.from(set).map(copyFn).toSet();
+  }
 
   public <E> Set<E> difference(Set<E> minuend, Set<?> @NotNull ... subtrahends) {
     if (subtrahends.length == 0) {

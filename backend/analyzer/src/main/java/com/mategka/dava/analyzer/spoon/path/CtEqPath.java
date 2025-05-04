@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.spoon;
+package com.mategka.dava.analyzer.spoon.path;
 
 import com.mategka.dava.analyzer.extension.CollectionsX;
 import com.mategka.dava.analyzer.extension.option.Option;
@@ -55,7 +55,7 @@ public class CtEqPath implements Comparable<CtEqPath> {
   }
 
   public String toUnorderedString() {
-    return SpoonPathElement.INDEX_PATTERN.matcher(getCachedStringRepresentation()).replaceAll("");
+    return SpoonPaths.INDEX_PATTERN.matcher(getCachedStringRepresentation()).replaceAll("");
   }
 
   @Override

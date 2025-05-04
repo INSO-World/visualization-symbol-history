@@ -6,6 +6,7 @@ import com.mategka.dava.analyzer.struct.property.value.argument.TypeArgument;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +16,9 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @EqualsAndHashCode
 public final class KnownType implements Type {
+
+  @Serial
+  private static final long serialVersionUID = 6779881295485194585L;
 
   final long symbolId;
 

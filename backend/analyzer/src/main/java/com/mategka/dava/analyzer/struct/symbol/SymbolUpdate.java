@@ -5,6 +5,7 @@ import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 
 import lombok.NonNull;
 import lombok.Value;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.Objects;
@@ -21,7 +22,7 @@ public class SymbolUpdate implements PropertyIndexable {
   Symbol.Context targetContext;
 
   @NonNull
-  Map<String, Property> properties;
+  Map<String, @Nullable Property> properties;
 
   @NonNull
   Set<UpdateFlag> flags;

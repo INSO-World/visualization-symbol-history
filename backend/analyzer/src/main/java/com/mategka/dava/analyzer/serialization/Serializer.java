@@ -1,0 +1,258 @@
+package com.mategka.dava.analyzer.serialization;
+
+import com.mategka.dava.analyzer.collections.Stack;
+import com.mategka.dava.analyzer.extension.CollectorsX;
+import com.mategka.dava.analyzer.extension.IterablesX;
+import com.mategka.dava.analyzer.extension.ListsX;
+import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.stream.AnStream;
+import com.mategka.dava.analyzer.extension.struct.Pair;
+import com.mategka.dava.analyzer.git.CommitInfo;
+import com.mategka.dava.analyzer.git.Hash;
+import com.mategka.dava.analyzer.serialization.model.*;
+import com.mategka.dava.analyzer.struct.History;
+import com.mategka.dava.analyzer.struct.Strand;
+import com.mategka.dava.analyzer.struct.property.KindProperty;
+import com.mategka.dava.analyzer.struct.property.ParentProperty;
+import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
+import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
+import com.mategka.dava.analyzer.struct.symbol.SymbolKey;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.MutableGraph;
+import lombok.experimental.UtilityClass;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.time.YearMonth;
+import java.util.*;
+
+@UtilityClass
+public class Serializer {
+
+  @SuppressWarnings("UnstableApiUsage")
+  public void writeJson(@NotNull History history, List<CommitInfo> commits, @NotNull String path) throws IOException {
+    var strandMapping = history.getStrandMapping();
+    Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex = AnStream.fromIndexed(commits)
+      .collect(CollectorsX.mapToKey(p -> p.left().hash()));
+    commits.clear();
+    List<CommitDto> commitDtos = new ArrayList<>();
+    for (var commitTuple : commitIndex.values()) {
+      var commit = commitTuple.left();
+      var commitDto = CommitDto.builder()
+        .id(commitTuple.right())
+        .hash(commit.hash())
+        .date(commit.date())
+        .summary(commit.summary())
+        .desc(commit.description())
+        .parents(ListsX.map(commit.parents(), h -> commitIndex.get(h).right()))
+        .strand(strandMapping.get(commit.hash()).getId())
+        .build();
+      commitDtos.add(commitDto);
+    }
+    commitDtos.sort(Comparator.comparing(CommitDto::getId));
+    long idCounter = 0;
+    Map<@NotNull SymbolKey, @NotNull Long> keysToIds = new HashMap<>();
+    var strands = history.getStrandDag().nodes();
+    var expectedNodeCount = AnStream.from(strands)
+      .flatMapCollection(Strand::getCommitDiffs)
+      .mapToInt(d -> d.getAdditions().size())
+      .sum();
+    // NOTE: Needs to be a graph structure to support both forward and backward linking in one go
+    MutableGraph<SymbolKey> symbolKeyGraph = GraphBuilder.undirected().expectedNodeCount(expectedNodeCount).build();
+    for (var strand : strands) {
+      for (var diff : strand.getCommitDiffs()) {
+        for (var startSymbol : diff.getStartSymbols()) {
+          var key = startSymbol.getKey();
+          if (startSymbol.getPredecessors().isEmpty()) {
+            symbolKeyGraph.addNode(key);
+            continue;
+          }
+          for (var predecessor : startSymbol.getPredecessors()) {
+            symbolKeyGraph.putEdge(predecessor.right(), key);
+          }
+        }
+      }
+    }
+    Set<SymbolKey> visited = new HashSet<>();
+    for (var firstKey : symbolKeyGraph.nodes()) {
+      if (!visited.contains(firstKey)) {
+        long id = idCounter++;
+        Stack<SymbolKey> stack = new Stack<>();
+        stack.push(firstKey);
+        while (!stack.isEmpty()) {
+          var nodeKey = stack.pop();
+          visited.add(nodeKey);
+          keysToIds.put(nodeKey, id);
+          for (var neighbor : symbolKeyGraph.adjacentNodes(nodeKey)) {
+            if (!visited.contains(neighbor)) {
+              stack.push(neighbor);
+            }
+          }
+        }
+      }
+    }
+    /*
+      NOTE: On each strand, a connected symbol (Symbol instances belonging to the same abstract symbol)
+            can occur at most twice:
+            - A. Once for the entirety of the strand, as an addition or succession that gets succeeded or deleted
+            - B. Once at the start, as an addition or succession that then gets deleted mid-strand
+            - C. Once at the end, as an addition that then gets succeeded or deleted
+            - D. Twice, when both B. and C. apply
+
+            This is because, if a string of Symbol instances belonged to an abstract symbol it is not connected to
+            mid-strand, it would have to connect via a different "branch", which would contradict the fact that
+            the given string of commits belongs to the same strand (since strands can, by definition, not be
+            interrupted).
+     */
+    Set<@NotNull Long> deletedIds = new HashSet<>();
+    var symbolStates = ArrayListMultimap.<@NotNull Long, StateDto>create();
+    Map<@NotNull Long, @NotNull PropertyMap> lastSeenProperties = new HashMap<>();
+    for (var strand : strands) {
+      for (var diff : IterablesX.consuming(strand.getCommitDiffs())) {
+        var commitId = commitIndex.get(diff.getCommit()).right();
+        Map<@NotNull Long, @NotNull Symbol> pureSuccessions = new HashMap<>();
+        for (var addition : diff.getAdditions()) {
+          var id = keysToIds.get(addition.getKey());
+          lastSeenProperties.put(id, addition.getProperties());
+          var stateProperties = addition.getProperties().clone();
+          var stateDto = StateDto.builder()
+            .cause(ChangeCause.ADDED)
+            .commit(commitId)
+            .key(addition.getKey())
+            .properties(stateProperties)
+            //.updated(stateProperties.keySet())
+            .build();
+          symbolStates.put(id, stateDto);
+          deletedIds.remove(id);
+        }
+        for (var succession : diff.getSuccessions()) {
+          var id = keysToIds.get(succession.getKey());
+          lastSeenProperties.put(id, succession.getProperties());
+          pureSuccessions.put(id, succession);
+        }
+        for (var deletion : diff.getDeletions()) {
+          var id = keysToIds.get(deletion.getKey());
+          lastSeenProperties.remove(id);
+          var stateProperties = deletion.getProperties();
+          var stateDto = StateDto.builder()
+            .cause(ChangeCause.DELETED)
+            .commit(commitId)
+            .key(deletion.getKey())
+            .properties(stateProperties)
+            .build();
+          symbolStates.put(id, stateDto);
+          deletedIds.add(id);
+        }
+        for (var update : diff.getUpdates()) {
+          var key = update.getTargetContext().key();
+          var id = keysToIds.get(key);
+          var hasSuccession = pureSuccessions.remove(id) != null;
+
+          var properties = lastSeenProperties.get(id);
+          if (!hasSuccession) {
+            properties.applyUpdate(update.getProperties());
+          }
+          var stateProperties = properties.clone();
+          var stateDto = StateDto.builder()
+            .cause(hasSuccession ? ChangeCause.SUCCEEDED_CHANGED : ChangeCause.CHANGED)
+            .commit(commitId)
+            .key(key)
+            .properties(stateProperties)
+            .updated(update.getProperties().keySet())
+            .flags(update.getFlags())
+            .build();
+          symbolStates.put(id, stateDto);
+        }
+        for (var successionEntry : pureSuccessions.entrySet()) {
+          var id = successionEntry.getKey();
+          var succession = successionEntry.getValue();
+          var stateProperties = succession.getProperties().clone();
+          var stateDto = StateDto.builder()
+            .cause(ChangeCause.SUCCEEDED_PURE)
+            .commit(commitId)
+            .key(succession.getKey())
+            .properties(stateProperties)
+            .build();
+          symbolStates.put(id, stateDto);
+        }
+      }
+    }
+    List<SymbolDto> symbolDtos = new ArrayList<>();
+    for (var stateEntry : symbolStates.asMap().entrySet()) {
+      var id = stateEntry.getKey();
+      var states = stateEntry.getValue();
+      var sortedStates = states.stream().sorted(
+        Comparator.comparing(s -> commitDtos.get(s.getCommit()).getDate())
+      ).toList();
+      SortedMap<@NotNull YearMonth, List<StateDto>> groupedStates = new TreeMap<>();
+      for (var state : sortedStates) {
+        var yearMonth = YearMonth.from(commitDtos.get(state.getCommit()).getDate());
+        groupedStates.computeIfAbsent(yearMonth, k -> new ArrayList<>()).add(state);
+      }
+      List<KeyDto> keyDtos = new ArrayList<>();
+      Map<Hash, KeyDto> openKeyDtos = new HashMap<>();
+      for (var state : sortedStates) {
+        final var commitDto = commitDtos.get(state.getCommit());
+        var date = commitDto.getDate();
+        var commitHash = commitDto.getHash();
+        Set<Hash> visited2 = new HashSet<>();
+        Queue<Hash> queue = new ArrayDeque<>(commitIndex.get(commitHash).left().parents());
+        while (!queue.isEmpty()) {
+          var hash = queue.poll();
+          if (visited2.contains(hash)) {
+            continue;
+          }
+          visited2.add(hash);
+          if (openKeyDtos.containsKey(hash)) {
+            openKeyDtos.remove(hash).setTo(date);
+          }
+          queue.addAll(commitIndex.get(hash).left().parents());
+        }
+        var properties = state.getProperties();
+        Option<@NotNull Long> parentId = properties.getPropertyValue(ParentProperty.class)
+          .map(symbolId -> new SymbolKey(symbolId, commitDto.getStrand()))
+          .map(keysToIds::get);
+        ParentDto parentDto = new ParentDto(parentId.getOrNull(), -1); // TODO
+        var keyDto = KeyDto.builder()
+          .from(date)
+          .kind(properties.getPropertyValue(KindProperty.class).getOrThrow())
+          .name(properties.getPropertyValue(SimpleNameProperty.class).getOrThrow())
+          .parent(parentDto)
+          .build();
+        keyDtos.add(keyDto);
+        openKeyDtos.put(commitHash, keyDto);
+      }
+      var symbolDto = SymbolDto.builder()
+        .id(id)
+        .deleted(deletedIds.contains(id))
+        .states(groupedStates)
+        .keys(keyDtos)
+        .build();
+      symbolDtos.add(symbolDto);
+    }
+    var rootDto = RootDto.builder()
+      .commits(commitDtos)
+      .symbols(symbolDtos)
+      //.indices(null) // TODO: Indices
+      .build();
+    try (FileOutputStream fos = new FileOutputStream(path)) {
+      getObjectMapper().writeValue(fos, rootDto);
+    }
+  }
+
+  private @NotNull ObjectMapper getObjectMapper() {
+    var mapper = new ObjectMapper();
+    mapper.registerModule(new JavaTimeModule());
+    mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    mapper.enable(SerializationFeature.INDENT_OUTPUT);
+    return mapper;
+  }
+
+}

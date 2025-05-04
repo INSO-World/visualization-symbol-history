@@ -17,6 +17,7 @@ import com.mategka.dava.analyzer.extension.struct.TreeNode;
 import com.mategka.dava.analyzer.git.Repository;
 import com.mategka.dava.analyzer.git.Side;
 import com.mategka.dava.analyzer.spoon.*;
+import com.mategka.dava.analyzer.spoon.path.SpoonPaths;
 import com.mategka.dava.analyzer.struct.pipeline.PropertyCapture;
 import com.mategka.dava.analyzer.struct.pipeline.Symbolizer;
 import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
@@ -153,7 +154,7 @@ public class TargetWorkspace {
       final TreeNode<Symbol> finalCurrentParent = currentParent;
       currentParent = ListsX.find(
           currentParent.children(),
-          m -> m.value().getSpoonPath().equals(SpoonPathElement.getPath(spoonPackage, packagePathCache)) && m.value().getKind() == Kind.PACKAGE
+          m -> m.value().getSpoonPath().equals(SpoonPaths.getPath(spoonPackage, packagePathCache)) && m.value().getKind() == Kind.PACKAGE
         )
         .getOrCompute(() -> finalCurrentParent.addByValue(PropertyCapture.parsePackage(spoonPackage)));
     }
@@ -205,7 +206,7 @@ public class TargetWorkspace {
     var properties = PropertyMap.builder()
       .property(SimpleNameProperty.forRootPackage())
       .property(Kind.PACKAGE.toProperty())
-      .property(inheritedRoot.map(s -> s.getProperty(SpoonPathProperty.class)).getOrElse(SpoonPathProperty.ROOT))
+      .property(inheritedRoot.flatMap(s -> s.getProperty(SpoonPathProperty.class)).getOrElse(SpoonPathProperty.ROOT))
       .build();
     return new TreeNode<>(Symbol.withPropertyMap(properties));
   }

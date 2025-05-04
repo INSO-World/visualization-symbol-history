@@ -10,6 +10,7 @@ import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.spoon.*;
+import com.mategka.dava.analyzer.spoon.path.SpoonPaths;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import com.google.common.collect.BiMap;
@@ -47,7 +48,7 @@ public class IntraFileMapping {
       var newPath = mapping.target();
       var oldMainType = sourceWorkspace.getFileSpoonUnits().get(oldPath).getMainType();
       var newMainType = targetWorkspace.getFileSpoonUnits().get(newPath).getMainType();
-      var newMainTypePath = SpoonPathElement.getPath(newMainType, pathCache);
+      var newMainTypePath = SpoonPaths.getPath(newMainType, pathCache);
 
       // NOTE: This shortcut only works for copied file trees since elements such as methods are unordered
       if (mapping.isStatic() && targetWorkspace.getUnchangedFromParent(parentIndex)
@@ -65,7 +66,7 @@ public class IntraFileMapping {
       var astSymbolMappings = astMappings.entrySet().stream()
         .map(Pair::fromEntry)
         .map(Pair.mapping(Id::value))
-        .map(Pair.mapping(e -> SpoonPathElement.getPath(e, pathCache)))
+        .map(Pair.mapping(e -> SpoonPaths.getPath(e, pathCache)))
         .map(Pair.mapping(sourceWorkspace::locateSymbol, targetWorkspace::locateSymbol))
         .toList();
       for (var pair : astSymbolMappings) {
@@ -89,8 +90,8 @@ public class IntraFileMapping {
       .map(Pair.mapping(Spoon::getMetaElement))
       .filter(Pair.filtering(e -> !(e instanceof CtWrapper<?>)))
       .filter(Pair.filtering(
-        e -> sourcePaths.contains(SpoonPathElement.getPath(e, pathCache)),
-        e -> targetPaths.contains(SpoonPathElement.getPath(e, pathCache))
+        e -> sourcePaths.contains(SpoonPaths.getPath(e, pathCache)),
+        e -> targetPaths.contains(SpoonPaths.getPath(e, pathCache))
       ))
       .map(Pair.mapping(idCache::get))
       .collect(CollectorsX.toBiMap());
@@ -117,7 +118,7 @@ public class IntraFileMapping {
         continue;
       }
       var discriminator = "%s&%s&%s".formatted(
-        SpoonPathElement.getParentPath(unmappedElement.getKey()), namedElement.getClass().getSimpleName(),
+        SpoonPaths.getParentPath(unmappedElement.getKey()), namedElement.getClass().getSimpleName(),
         namedElement.getSimpleName()
       );
       unmappedElementIdsByDiscriminator.put(discriminator, unmappedElement.getValue());
@@ -130,14 +131,14 @@ public class IntraFileMapping {
                                    IdentityHashMap<CtElement, String> pathCache, Map<CtElement, Id<CtElement>> idCache) {
     var unmappedSourceElementIds = AnStream.<CtElement>from(oldMainType.getElements(null))
       .filter(e -> !(e instanceof CtWrapper<?>))
-      .map(Pair.fromRight(e -> SpoonPathElement.getPath(e, pathCache)))
+      .map(Pair.fromRight(e -> SpoonPaths.getPath(e, pathCache)))
       .filter(Pair.filteringLeft(sourcePaths::contains))
       .map(Pair.mappingRight(idCache::get))
       .filter(Pair.filteringRight(id -> !result.containsKey(id)))
       .collect(CollectorsX.pairsToMap());
     var unmappedTargetElementIds = AnStream.<CtElement>from(newMainType.getElements(null))
       .filter(e -> !(e instanceof CtWrapper<?>))
-      .map(Pair.fromRight(e -> SpoonPathElement.getPath(e, pathCache)))
+      .map(Pair.fromRight(e -> SpoonPaths.getPath(e, pathCache)))
       .filter(Pair.filteringLeft(targetPaths::contains))
       .map(Pair.mappingRight(idCache::get))
       .filter(Pair.filteringRight(id -> !result.containsValue(id)))

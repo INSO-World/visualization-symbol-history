@@ -8,17 +8,23 @@ import com.mategka.dava.analyzer.struct.property.index.PropertyKeys;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolUpdate;
 
+import com.google.common.collect.Iterables;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Value
 @Builder
-public class CommitDiff {
+public class CommitDiff implements Serializable {
+
+  @Serial
+  private static final long serialVersionUID = 4511490283001393772L;
 
   /**
    * The commit SHAs of all parents compared with.
@@ -52,6 +58,10 @@ public class CommitDiff {
 
   public long size() {
     return (long) additions.size() + successions.size() + deletions.size() + updates.size();
+  }
+
+  public Iterable<Symbol> getStartSymbols() {
+    return Iterables.concat(additions, successions);
   }
 
   public void printDebug() {

@@ -5,7 +5,7 @@ import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 import spoon.reflect.declaration.CtNamedElement;
 
 @PropertyKey("simpleName")
-public record SimpleNameProperty(String value) implements SimpleProperty<String> {
+public record SimpleNameProperty(String value) implements StringProperty {
 
   public static final String ROOT_PACKAGE_NAME = "ROOT";
 

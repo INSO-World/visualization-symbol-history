@@ -3,9 +3,11 @@ package com.mategka.dava.analyzer.struct.property.value.type;
 import com.mategka.dava.analyzer.extension.CollectorsX;
 import com.mategka.dava.analyzer.struct.property.value.argument.TypeArgument;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,9 +18,13 @@ import java.util.List;
 @EqualsAndHashCode
 public final class UnknownType implements Type {
 
+  @Serial
+  private static final long serialVersionUID = 1302856928484918722L;
+
   @NonNull
   final String qualifiedName;
 
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
   List<TypeArgument> typeArguments = new ArrayList<>();
 
   @Override

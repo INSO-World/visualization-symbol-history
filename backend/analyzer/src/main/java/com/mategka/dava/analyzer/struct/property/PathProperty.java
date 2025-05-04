@@ -1,13 +1,13 @@
 package com.mategka.dava.analyzer.struct.property;
 
-import com.mategka.dava.analyzer.spoon.SpoonPathElement;
+import com.mategka.dava.analyzer.spoon.path.SpoonPaths;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 @PropertyKey("path")
-public record PathProperty(String value) implements SimpleProperty<String> {
+public record PathProperty(String value) implements StringProperty {
 
   @Deprecated
   public static PathProperty fromCtPathProperty(@NotNull CtPathProperty ctPathProperty) {
@@ -16,7 +16,7 @@ public record PathProperty(String value) implements SimpleProperty<String> {
 
   @Contract("_ -> new")
   public static @NotNull PathProperty fromSpoonPathProperty(@NotNull SpoonPathProperty spoonPathProperty) {
-    return new PathProperty(SpoonPathElement.simplify(spoonPathProperty.value()));
+    return new PathProperty(SpoonPaths.simplify(spoonPathProperty.value()));
   }
 
   @Override

@@ -4,29 +4,33 @@ import com.mategka.dava.analyzer.extension.Copyable;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.git.Hash;
-import com.mategka.dava.analyzer.spoon.CtEqPath;
+import com.mategka.dava.analyzer.spoon.path.CtEqPath;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
-import com.mategka.dava.analyzer.struct.property.value.type.KnownType;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public final class Symbol implements PropertyIndexable, Copyable<Symbol> {
+public final class Symbol implements PropertyIndexable, Copyable<Symbol>, Serializable {
 
-  final Multimap<PrdRole, SymbolKey> predecessors = HashMultimap.create(2, 2);
+  @Serial
+  private static final long serialVersionUID = 3653794549169386469L;
+
+  final HashMultimap<PrdRole, SymbolKey> predecessors = HashMultimap.create(2, 2);
+
   @Getter
   final PropertyMap properties;
 
@@ -87,7 +91,6 @@ public final class Symbol implements PropertyIndexable, Copyable<Symbol> {
 
   public @NotNull SymbolKey getParentKey() throws NoSuchElementException {
     return getPropertyValue(ParentProperty.class)
-      .map(KnownType::getSymbolId)
       .map(symbolId -> new SymbolKey(symbolId, getKey().strandId()))
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
   }

@@ -4,10 +4,11 @@ import com.mategka.dava.analyzer.extension.Covariant;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Set;
 
-public sealed interface SetProperty<T> extends TypedProperty<Set<? extends T>>
+public sealed interface SetProperty<T extends Serializable> extends CollectionProperty<T>
   permits ModifiersProperty {
 
   default boolean contains(T o) {

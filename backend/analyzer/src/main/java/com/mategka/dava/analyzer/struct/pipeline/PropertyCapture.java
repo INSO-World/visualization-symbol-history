@@ -123,7 +123,7 @@ public class PropertyCapture {
       .toList();
     var properties = commonPropertiesBuilder(enumConstant)
       .property(Kind.ENUM_CONSTANT.toProperty())
-      .property(new EnumArgumentsProperty(arguments))
+      .property(EnumArgumentsProperty::new, arguments)
       .build();
     return Symbol.withPropertyMap(properties);
   }

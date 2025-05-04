@@ -1,12 +1,10 @@
 package com.mategka.dava.analyzer.struct;
 
+import com.mategka.dava.analyzer.collections.DAG;
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
-import com.google.common.graph.Graph;
-import com.google.common.graph.GraphBuilder;
-import com.google.common.graph.MutableGraph;
 import lombok.*;
 import org.eclipse.jgit.lib.Ref;
 import org.jetbrains.annotations.NotNull;
@@ -27,7 +25,7 @@ public class History {
   @NonNull
   @Builder.Default
   @Deprecated
-  List<Symbol> presentSymbols = new ArrayList<>();
+  List<Symbol> presentSymbols = Collections.emptyList();
 
   /**
    * Contains all symbols that were deleted at some point with their final properties.
@@ -38,7 +36,7 @@ public class History {
   @NonNull
   @Builder.Default
   @Deprecated
-  List<Symbol> deletedSymbols = new ArrayList<>();
+  List<Symbol> deletedSymbols = Collections.emptyList();
 
   /**
    * Contains all strands with initial commits (source nodes in the {@linkplain #getStrandDag() strand DAG}).
@@ -47,8 +45,7 @@ public class History {
   Set<Strand> baseStrands;
 
   @NonNull
-  @SuppressWarnings("UnstableApiUsage")
-  Graph<Strand> strandDag;
+  DAG<Strand> strandDag;
 
   @NonNull
   Map<Hash, Strand> strandMapping;
@@ -68,7 +65,7 @@ public class History {
   @SuppressWarnings("UnstableApiUsage")
   public static History emptyOfBranch(@NotNull Repository repository, Ref head) throws IOException {
     Set<Strand> baseStrands = new HashSet<>();
-    MutableGraph<Strand> strandDag = GraphBuilder.directed().allowsSelfLoops(false).build();
+    var strandDag = new DAG<Strand>();
     Map<Hash, Strand> strandMapping = new HashMap<>();
     Set<Hash> parentCommits = new HashSet<>();
     Set<Hash> multiChildCommits = new HashSet<>();
@@ -95,7 +92,10 @@ public class History {
         var hasMultiChildParent = parentHashes.stream().anyMatch(multiChildCommits::contains);
         var parentStrands = ListsX.map(parentHashes, strandMapping::get);
         if (hasMultiChildParent || parentHashes.size() != 1) {
-          var strand = Strand.builder().id(strandDag.nodes().size()).name(commitMessage).build();
+          var strand = Strand.builder()
+            .id(strandDag.nodes().size())
+            .name(commitMessage)
+            .build();
           strandDag.addNode(strand);
           strandMapping.put(hash, strand);
           if (parentStrands.isEmpty()) {

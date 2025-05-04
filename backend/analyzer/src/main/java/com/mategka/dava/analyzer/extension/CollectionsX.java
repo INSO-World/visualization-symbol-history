@@ -15,6 +15,16 @@ import java.util.stream.Collectors;
 @UtilityClass
 public class CollectionsX {
 
+  public <T> boolean isMutable(@NotNull Collection<T> collection) {
+    try {
+      collection.addAll(Collections.emptyList());
+      collection.removeAll(Collections.<T>emptyList());
+      return true;
+    } catch (UnsupportedOperationException e) {
+      return false;
+    }
+  }
+
   public <T, U extends T> Option<U> firstOfType(SequencedCollection<T> collection, Class<U> clazz) {
     return AnStream.from(collection).allow(clazz).findFirstAsOption();
   }

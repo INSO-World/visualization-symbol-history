@@ -3,23 +3,34 @@ package com.mategka.dava.analyzer.extension.struct;
 import com.mategka.dava.analyzer.collections.MapEntry;
 import com.mategka.dava.analyzer.extension.ComparatorsX;
 
-import lombok.*;
-import lombok.experimental.FieldDefaults;
+import com.fasterxml.jackson.annotation.JsonValue;
+import lombok.AllArgsConstructor;
+import lombok.Value;
+import lombok.experimental.Accessors;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Accessors(fluent = true)
 @AllArgsConstructor(staticName = "of")
-@ToString
-@EqualsAndHashCode
-public class Pair<L, R> implements Comparable<Pair<L, R>> {
+@Value
+public class Pair<L, R> implements Comparable<Pair<L, R>>, Serializable {
+
+  @Serial
+  private static final long serialVersionUID = 5470731141196099799L;
 
   L left;
   R right;
+
+  @JsonValue
+  public Object[] toArray() {
+    return new Object[] { left, right };
+  }
 
   public static <L, R> Predicate<Pair<? extends L, ? extends R>> filtering(
     Predicate<? super L> filter1, Predicate<? super R> filter2) {
@@ -91,10 +102,6 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
     return new Pair<>(right, left);
   }
 
-  public L left() {
-    return left;
-  }
-
   public <L2, R2> Pair<L2, R2> map(Function<? super L, ? extends L2> mapper1,
                                    Function<? super R, ? extends R2> mapper2) {
     return new Pair<>(mapper1.apply(left), mapper2.apply(right));
@@ -106,10 +113,6 @@ public class Pair<L, R> implements Comparable<Pair<L, R>> {
 
   public <R2> Pair<L, R2> mapRight(Function<? super R, ? extends R2> mapper2) {
     return map(Function.identity(), mapper2);
-  }
-
-  public R right() {
-    return right;
   }
 
   @Override

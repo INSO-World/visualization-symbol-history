@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.extension;
 
+import com.google.common.collect.Iterables;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 
@@ -24,6 +25,10 @@ public class IterablesX {
       throw new IllegalArgumentException("Iterable had more than one element");
     }
     return element;
+  }
+
+  public <T> Iterable<T> consuming(@NotNull @Mutable Iterable<T> iterable) {
+    return Iterables.consumingIterable(iterable);
   }
 
 }

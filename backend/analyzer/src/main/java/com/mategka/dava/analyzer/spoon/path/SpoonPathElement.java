@@ -1,53 +1,44 @@
-package com.mategka.dava.analyzer.spoon;
+package com.mategka.dava.analyzer.spoon.path;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import spoon.reflect.CtModelImpl;
-import spoon.reflect.declaration.*;
+import spoon.reflect.declaration.CtElement;
 import spoon.reflect.meta.RoleHandler;
 import spoon.reflect.meta.impl.RoleHandlerHelper;
+import spoon.reflect.path.CtElementPathBuilder;
 import spoon.reflect.path.CtPathException;
 import spoon.reflect.path.CtRole;
-import spoon.reflect.path.impl.CtRolePathElement;
-import spoon.reflect.reference.CtReference;
 
 import java.util.*;
-import java.util.regex.Pattern;
+
+import static com.mategka.dava.analyzer.spoon.path.SpoonPathConstants.*;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @AllArgsConstructor
 public final class SpoonPathElement {
-
-  private static final String PREFIX = CtRolePathElement.STRING;
-  private static final String ARGUMENTS_START = CtRolePathElement.ARGUMENT_START;
-  private static final String ARGUMENTS_END = CtRolePathElement.ARGUMENT_END;
-  private static final String ARGUMENT_ASSIGN = CtRolePathElement.ARGUMENT_NAME_SEPARATOR;
-  private static final String ARGUMENT_SEPARATOR = ";";
-
-  public static final String ROOT_PACKAGE_PATH = "";
-  static final Pattern INDEX_PATTERN = Pattern.compile("index\\s*=\\s*\\d+(?=[;\\]])");
 
   final TreeMap<String, String> arguments = new TreeMap<>();
 
   @Getter
   CtRole role;
 
-  public static @NotNull String getPath(@NotNull CtElement element, @NotNull IdentityHashMap<CtElement, String> memo) {
-    if (memo.containsKey(element)) {
-      return memo.get(element);
-    }
-    if (Spoon.isRootPackage(element)) {
-      return memo.computeIfAbsent(element, _e -> ROOT_PACKAGE_PATH);
-    }
-    var path = getPath(element.getParent(), memo) + forElement(element);
-    memo.put(element, path);
-    return path;
-  }
-
+  /**
+   * Retrieve the path element for a given {@link CtElement}.
+   * This method corresponds to {@link CtElementPathBuilder#fromElement(CtElement, CtElement)}, except that it does not
+   * iterate over parent elements. This allows for the (client-side) caching of path elements, speeding up lookup.
+   *
+   * @param element the element for which to retrieve corresponding path element
+   * @throws CtPathException if the relationship between the given element and its parent is unset, no handler for an
+   *                         existing relationship type could be found, its parent element does not have the given element as a child, or the
+   *                         given element lacks a name in a context where only named elements should be able to occur
+   */
+  @Contract("_ -> new")
   public static @NotNull SpoonPathElement forElement(@NotNull CtElement element) throws CtPathException {
     if (element instanceof CtModelImpl.CtRootPackage) {
       return new SpoonPathElement(null);
@@ -63,13 +54,14 @@ public final class SpoonPathElement {
     }
     var pathElement = new SpoonPathElement(role);
     switch (roleHandler.getContainerKind()) {
-      case SINGLE -> {}
+      case SINGLE -> {
+      }
       case LIST -> {
         var argument = Argument.forElement(element);
         List<CtElement> list = roleHandler.asList(parent);
         if (argument.value() != null) {
           if (!role.getSubRoles().isEmpty()) {
-            pathElement.setRole(role.getMatchingSubRoleFor(element));
+            pathElement.resetWithRole(role.getMatchingSubRoleFor(element));
           }
           pathElement.addArgument(argument);
           int matchCount = 0;
@@ -83,7 +75,7 @@ public final class SpoonPathElement {
             }
           }
           if (matchCount > 1 && index >= 0) {
-            pathElement.addArgument(Argument.KEY_INDEX, String.valueOf(index));
+            pathElement.addArgument(K_INDEX, String.valueOf(index));
           }
         } else {
           int index = 0;
@@ -93,15 +85,15 @@ public final class SpoonPathElement {
             }
             index++;
           }
-          pathElement.addArgument(Argument.KEY_INDEX, String.valueOf(index));
+          pathElement.addArgument(K_INDEX, String.valueOf(index));
         }
       }
       case SET -> {
-        String name = getName(element);
+        String name = SpoonPaths.getName(element);
         if (name == null) {
           throw new CtPathException();
         }
-        pathElement.addArgument(Argument.KEY_NAME, name);
+        pathElement.addArgument(K_NAME, name);
       }
       case MAP -> {
         Map<String, Object> map = roleHandler.asMap(parent);
@@ -110,29 +102,10 @@ public final class SpoonPathElement {
           .map(Map.Entry::getKey)
           .findFirst()
           .orElseThrow(CtPathException::new);
-        pathElement.addArgument(Argument.KEY_KEY, key);
+        pathElement.addArgument(K_KEY, key);
       }
     }
     return pathElement;
-  }
-
-  public static @NotNull String simplify(@NotNull String path) {
-    return INDEX_PATTERN.matcher(path).replaceAll("");
-  }
-
-  public static @NotNull String getParentPath(@NotNull String path) {
-    var result = simplify(path);
-    var lastPoundIndex = result.lastIndexOf("#");
-    result = result.substring(0, lastPoundIndex);
-    return result;
-  }
-
-  private static @Nullable String getName(@NotNull CtElement element) {
-    return switch (element) {
-      case CtNamedElement namedElement -> namedElement.getSimpleName();
-      case CtReference reference -> reference.getSimpleName();
-      default -> null;
-    };
   }
 
   public void addArgument(@NotNull String key, @Nullable String value) {
@@ -140,14 +113,14 @@ public final class SpoonPathElement {
   }
 
   public void addArgument(@NotNull Argument argument) {
-    arguments.put(argument.key, argument.value);
+    arguments.put(argument.key(), argument.value());
   }
 
   public void removeArgument(@NotNull String key) {
     arguments.remove(key);
   }
 
-  public void setRole(CtRole role) {
+  public void resetWithRole(CtRole role) {
     this.role = role;
     arguments.clear();
   }
@@ -155,7 +128,7 @@ public final class SpoonPathElement {
   @Override
   public String toString() {
     if (role == null) {
-      return ROOT_PACKAGE_PATH;
+      return SpoonPaths.ROOT_PACKAGE_PATH;
     }
     var argumentsString = "";
     if (!arguments.isEmpty()) {
@@ -166,26 +139,6 @@ public final class SpoonPathElement {
       argumentsString = argumentsStringJoiner.toString();
     }
     return PREFIX + role.toString() + argumentsString;
-  }
-
-  public record Argument(@NotNull String key, @Nullable String value) {
-
-    public static final String KEY_NAME = "name";
-    public static final String KEY_SIGNATURE = "signature";
-    public static final String KEY_INDEX = "index";
-    public static final String KEY_KEY = "key";
-
-    public static @NotNull Argument forElement(@NotNull CtElement element) {
-      if (element instanceof CtExecutable<?> executable) {
-        String signature = executable.getSignature();
-        if (executable instanceof CtConstructor) {
-          signature = signature.substring(signature.indexOf('('));
-        }
-        return new Argument(KEY_SIGNATURE, signature);
-      }
-      return new Argument(KEY_NAME, getName(element));
-    }
-
   }
 
 }

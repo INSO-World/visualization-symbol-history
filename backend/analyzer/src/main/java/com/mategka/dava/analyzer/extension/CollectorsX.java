@@ -60,8 +60,16 @@ public class CollectorsX {
     Function<? super T, K> keyMapper,
     Function<? super T, V> valueMapper
   ) {
+    return toMultimap(keyMapper, valueMapper, HashMultimap::create);
+  }
+
+  public <T, K, V, M extends Multimap<K, V>> Collector<T, ?, M> toMultimap(
+    Function<? super T, K> keyMapper,
+    Function<? super T, V> valueMapper,
+    Supplier<M> mapSupplier
+  ) {
     return Collector.of(
-      HashMultimap::create,
+      mapSupplier,
       (m, t) -> m.put(keyMapper.apply(t), valueMapper.apply(t)),
       (m1, m2) -> {
         m1.putAll(m2);

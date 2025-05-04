@@ -12,6 +12,7 @@ import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.*;
+import com.mategka.dava.analyzer.serialization.Serializer;
 import com.mategka.dava.analyzer.struct.CommitDiff;
 import com.mategka.dava.analyzer.struct.History;
 import com.mategka.dava.analyzer.struct.Strand;
@@ -42,12 +43,15 @@ public class App {
       var strandMapping = history.getStrandMapping();
       var symbolIdCounter = new AtomicLong();
       var treeDiffer = repository.newTreeDiffer();
+      List<CommitInfo> commits = new ArrayList<>(64);
       CountingMap<@NotNull Long> workspaceCountdown = initWorkspaceCountdown(history.getStrandDag());
       Map<@NotNull Long, SymbolWorkspace> workspaces = new HashMap<>();
       try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (Commit commit : commitWalk) {
-          System.out.println("-".repeat(10) + commit.hash().abbreviated() + "-".repeat(10));
-          var strand = strandMapping.get(commit.hash());
+          var hash = commit.hash();
+          commits.add(commit.info());
+          System.out.println("-".repeat(10) + hash.abbreviated() + "-".repeat(10));
+          var strand = strandMapping.get(hash);
           var strandId = strand.getId();
           var commitPaths = repository.readRelevantPaths(commit);
           var parents = commit.parents();
@@ -62,7 +66,7 @@ public class App {
           var breakCommit = Options.getFirst(parentStrandIds)
             .map(id -> id != strandId)
             .getOrElse(false);
-          var context = new SymbolCreationContext(symbolIdCounter, strandId, commit.hash(), breakCommit);
+          var context = new SymbolCreationContext(symbolIdCounter, strandId, hash, breakCommit);
 
           var fileMapping = extractFileMapping(commit, repository, treeDiffer);
           Array<Collection<String>> pathsPerParent = parentWorkspaces.stream()
@@ -100,15 +104,18 @@ public class App {
         }
       }
       var time = benchmark.end();
-      mainBranch = null;
-      benchmark = null;
-      symbolIdCounter = null;
-      treeDiffer = null;
-      workspaceCountdown.clear();
-      workspaces.clear();
-      workspaces = null;
-      System.gc();
+      {
+        mainBranch = null;
+        benchmark = null;
+        symbolIdCounter = null;
+        treeDiffer = null;
+        workspaceCountdown.clear();
+        workspaces.clear();
+        workspaces = null;
+        System.gc();
+      }
       System.out.printf("Done in %.1f seconds%n", time.toMillis() / 1000d);
+      Serializer.writeJson(history, commits, "debug.json");
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

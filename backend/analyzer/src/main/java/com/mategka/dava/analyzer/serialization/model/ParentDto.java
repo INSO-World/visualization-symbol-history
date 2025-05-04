@@ -6,7 +6,8 @@ import lombok.Value;
 @Value
 public class ParentDto {
 
-  @JsonValue Long id;
+  @JsonValue
+  Long id;
   long stateIndex;
 
 }

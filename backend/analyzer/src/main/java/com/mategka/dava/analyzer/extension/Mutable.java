@@ -16,7 +16,13 @@ import java.util.Iterator;
  * <p>
  * Note that this annotation does <b>not</b> indicate whether a field, parameter or variable is <i>reassignable</i>.
  */
-@Target({ ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE })
+@Target({
+  ElementType.FIELD,
+  ElementType.METHOD,
+  ElementType.PARAMETER,
+  ElementType.LOCAL_VARIABLE,
+  ElementType.TYPE_USE
+})
 @Retention(RetentionPolicy.SOURCE)
 @Documented
 public @interface Mutable {

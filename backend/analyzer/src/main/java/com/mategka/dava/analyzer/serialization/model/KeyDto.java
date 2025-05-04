@@ -14,10 +14,16 @@ import java.time.ZonedDateTime;
 @Builder
 public class KeyDto {
 
-  @NonNull final ParentDto parent;
-  @NonNull final ZonedDateTime from;
-  @Nullable @JsonInclude(JsonInclude.Include.NON_NULL) ZonedDateTime to;
-  @NonNull final String name;
-  @NonNull final Kind kind;
+  @NonNull
+  final ParentDto parent;
+  @NonNull
+  final ZonedDateTime from;
+  @NonNull
+  final String name;
+  @NonNull
+  final Kind kind;
+  @Nullable
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  ZonedDateTime to;
 
 }

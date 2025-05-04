@@ -16,7 +16,9 @@ import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.struct.TreeNode;
 import com.mategka.dava.analyzer.git.Repository;
 import com.mategka.dava.analyzer.git.Side;
-import com.mategka.dava.analyzer.spoon.*;
+import com.mategka.dava.analyzer.spoon.CompilationException;
+import com.mategka.dava.analyzer.spoon.Launcher;
+import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.spoon.path.SpoonPaths;
 import com.mategka.dava.analyzer.struct.pipeline.PropertyCapture;
 import com.mategka.dava.analyzer.struct.pipeline.Symbolizer;
@@ -73,7 +75,9 @@ public class TargetWorkspace {
               .findFirstAsOption()
               .getOrThrow();
             yield getNewlyParsedTargetEntry(
-              parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot, packagePathCache, breakCommit);
+              parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot,
+              packagePathCache, breakCommit
+            );
           }
           var parentPackage = establishPackageHierarchyByName(targetRoot, fileTree);
           var spoonUnit = parentWorkspace.getFileSpoonUnits().get(file.filePath());
@@ -82,7 +86,9 @@ public class TargetWorkspace {
         case None<?> ignored -> {
           var changeMetadata = sourceMappings.getFirst().metadata().diffEntry(); // must exist since target exists
           yield getNewlyParsedTargetEntry(
-            parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot, packagePathCache, breakCommit);
+            parentWorkspaces, repository, targetFilePath, changeMetadata, sourceMappings, targetRoot, packagePathCache,
+            breakCommit
+          );
         }
       };
       if (entryData == null) {
@@ -134,7 +140,8 @@ public class TargetWorkspace {
     return currentParent;
   }
 
-  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, CtCompilationUnit spoonUnit, IdentityHashMap<CtElement, String> packagePathCache) {
+  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, CtCompilationUnit spoonUnit,
+                                                           IdentityHashMap<CtElement, String> packagePathCache) {
     var spoonPackage = spoonUnit.getPackageDeclaration().getReference().getDeclaration();
     var packageStack = new Stack<CtPackage>();
     var currentPackage = spoonPackage;
@@ -147,14 +154,16 @@ public class TargetWorkspace {
     return establishPackageHierarchyByPath(targetRoot, packageStack, packagePathCache);
   }
 
-  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, Stack<CtPackage> packageStack, IdentityHashMap<CtElement, String> packagePathCache) {
+  private TreeNode<Symbol> establishPackageHierarchyByPath(TreeNode<Symbol> targetRoot, Stack<CtPackage> packageStack,
+                                                           IdentityHashMap<CtElement, String> packagePathCache) {
     var currentParent = targetRoot;
     while (!packageStack.isEmpty()) {
       var spoonPackage = packageStack.pop();
       final TreeNode<Symbol> finalCurrentParent = currentParent;
       currentParent = ListsX.find(
           currentParent.children(),
-          m -> m.value().getSpoonPath().equals(SpoonPaths.getPath(spoonPackage, packagePathCache)) && m.value().getKind() == Kind.PACKAGE
+          m -> m.value().getSpoonPath().equals(SpoonPaths.getPath(spoonPackage, packagePathCache))
+            && m.value().getKind() == Kind.PACKAGE
         )
         .getOrCompute(() -> finalCurrentParent.addByValue(PropertyCapture.parsePackage(spoonPackage)));
     }
@@ -165,7 +174,9 @@ public class TargetWorkspace {
                                                                  Repository repository, String targetFilePath,
                                                                  DiffEntry changeMetadata,
                                                                  List<Mapping<ParentFile, String, FileChange>> sourceMappings,
-                                                                 TreeNode<Symbol> targetRoot, IdentityHashMap<CtElement, String> packagePathCache, boolean breakCommit) {
+                                                                 TreeNode<Symbol> targetRoot,
+                                                                 IdentityHashMap<CtElement, String> packagePathCache,
+                                                                 boolean breakCommit) {
     var newContents = repository.readFile(changeMetadata, Side.NEW).getSuccess().orElseThrow();
     var virtualFile = new VirtualFile(newContents, targetFilePath);
     CtCompilationUnit spoonUnit;

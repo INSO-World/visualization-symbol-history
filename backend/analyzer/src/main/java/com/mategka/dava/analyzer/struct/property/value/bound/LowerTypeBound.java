@@ -13,11 +13,6 @@ public record LowerTypeBound(@NotNull Type argument) implements TypeBound {
   private static final long serialVersionUID = 6788905794023822491L;
 
   @Override
-  public String toString() {
-    return "super " + argument;
-  }
-
-  @Override
   public Map<String, Type> getJsonValue() {
     return Map.of("super", argument);
   }
@@ -25,6 +20,11 @@ public record LowerTypeBound(@NotNull Type argument) implements TypeBound {
   @Override
   public boolean isEmpty() {
     return false;
+  }
+
+  @Override
+  public String toString() {
+    return "super " + argument;
   }
 
 }

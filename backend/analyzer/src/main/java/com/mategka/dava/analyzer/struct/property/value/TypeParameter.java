@@ -30,11 +30,6 @@ public final class TypeParameter implements Serializable {
     return Options.fromNullable(bound);
   }
 
-  @Override
-  public String toString() {
-    return name + getTypeBound().map(b -> " " + b).getOrElse("");
-  }
-
   @JsonValue
   public Map<String, Object> toMap() {
     Map<String, Object> map = new HashMap<>();
@@ -43,6 +38,11 @@ public final class TypeParameter implements Serializable {
       map.put("bound", bound);
     }
     return map;
+  }
+
+  @Override
+  public String toString() {
+    return name + getTypeBound().map(b -> " " + b).getOrElse("");
   }
 
 }

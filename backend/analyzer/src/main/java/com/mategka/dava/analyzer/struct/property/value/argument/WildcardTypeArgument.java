@@ -13,16 +13,16 @@ public record WildcardTypeArgument(@NotNull TypeBound bound) implements TypeArgu
   private static final long serialVersionUID = -730840105290060364L;
 
   @Override
-  public String toString() {
-    return "? %s".formatted(bound);
-  }
-
-  @Override
   public Map<String, Object> toJsonValue() {
     if (bound.isEmpty()) {
       return Map.of("wildcard", "any");
     }
     return Map.of("wildcard", bound);
+  }
+
+  @Override
+  public String toString() {
+    return "? %s".formatted(bound);
   }
 
 }

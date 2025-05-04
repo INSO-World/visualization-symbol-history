@@ -6,7 +6,9 @@ import com.mategka.dava.analyzer.struct.property.*;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import lombok.NonNull;
-import org.jetbrains.annotations.*;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -81,6 +83,18 @@ public class PropertyMap extends HashMap<String, @NotNull Property> implements P
     return ": " + property;
   }
 
+  public void applyUpdate(@NotNull Map<String, @Nullable Property> propertyUpdates) {
+    for (var propertyUpdate : propertyUpdates.entrySet()) {
+      var key = propertyUpdate.getKey();
+      var value = propertyUpdate.getValue();
+      if (value != null) {
+        put(key, value);
+      } else {
+        remove(key);
+      }
+    }
+  }
+
   public PropertyMapDiff diff(@NotNull Map<String, Property> newProperties) {
     var overlay = newProperties.values().stream()
       .filter(p -> Options.fromNullable(get(p.getKey()))
@@ -147,18 +161,6 @@ public class PropertyMap extends HashMap<String, @NotNull Property> implements P
                                 .collect(Collectors.joining(", ")));
   }
 
-  public void applyUpdate(@NotNull Map<String, @Nullable Property> propertyUpdates) {
-    for (var propertyUpdate : propertyUpdates.entrySet()) {
-      var key = propertyUpdate.getKey();
-      var value = propertyUpdate.getValue();
-      if (value != null) {
-        put(key, value);
-      } else {
-        remove(key);
-      }
-    }
-  }
-
   public record PropertyMapDiff(PropertyMap overlay, PropertyMap removedProperties) {
 
     public Map<String, Property> coalesce() {
@@ -194,12 +196,14 @@ public class PropertyMap extends HashMap<String, @NotNull Property> implements P
     }
 
     @SuppressWarnings("unchecked")
-    public <E extends Serializable, T extends Collection<E>> Builder property(@NonNull Function<? super T, ? extends CollectionProperty<E>> propertyMapper,
-                                                                              @NotNull T collection) {
+    public <E extends Serializable, T extends Collection<E>> Builder property(
+      @NonNull Function<? super T, ? extends CollectionProperty<E>> propertyMapper,
+      @NotNull T collection) {
       return property((Function<? super T, ? extends TypedProperty<T>>) propertyMapper, Options.fromSized(collection));
     }
 
-    public <T> Builder property(@NonNull Function<? super T, ? extends TypedProperty<T>> propertyMapper, @NotNull Option<T> value) {
+    public <T> Builder property(@NonNull Function<? super T, ? extends TypedProperty<T>> propertyMapper,
+                                @NotNull Option<T> value) {
       return value.fold(v -> property(propertyMapper.apply(v)), () -> this);
     }
 

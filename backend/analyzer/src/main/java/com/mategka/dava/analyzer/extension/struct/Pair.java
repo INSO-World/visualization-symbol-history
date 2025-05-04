@@ -27,11 +27,6 @@ public class Pair<L, R> implements Comparable<Pair<L, R>>, Serializable {
   L left;
   R right;
 
-  @JsonValue
-  public Object[] toArray() {
-    return new Object[] { left, right };
-  }
-
   public static <L, R> Predicate<Pair<? extends L, ? extends R>> filtering(
     Predicate<? super L> filter1, Predicate<? super R> filter2) {
     return pair -> filter1.test(pair.left()) && filter2.test(pair.right());
@@ -113,6 +108,11 @@ public class Pair<L, R> implements Comparable<Pair<L, R>>, Serializable {
 
   public <R2> Pair<L, R2> mapRight(Function<? super R, ? extends R2> mapper2) {
     return map(Function.identity(), mapper2);
+  }
+
+  @JsonValue
+  public Object[] toArray() {
+    return new Object[] { left, right };
   }
 
   @Override

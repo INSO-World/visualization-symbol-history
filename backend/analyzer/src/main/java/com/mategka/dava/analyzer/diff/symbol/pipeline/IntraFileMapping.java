@@ -9,7 +9,8 @@ import com.mategka.dava.analyzer.extension.*;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
-import com.mategka.dava.analyzer.spoon.*;
+import com.mategka.dava.analyzer.spoon.AstComparator;
+import com.mategka.dava.analyzer.spoon.Spoon;
 import com.mategka.dava.analyzer.spoon.path.SpoonPaths;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
@@ -128,7 +129,8 @@ public class IntraFileMapping {
 
   private void mapImplicitElements(CtElement oldMainType, CtElement newMainType, Set<String> sourcePaths,
                                    Set<String> targetPaths, BiMap<Id<CtElement>, Id<CtElement>> result,
-                                   IdentityHashMap<CtElement, String> pathCache, Map<CtElement, Id<CtElement>> idCache) {
+                                   IdentityHashMap<CtElement, String> pathCache,
+                                   Map<CtElement, Id<CtElement>> idCache) {
     var unmappedSourceElementIds = AnStream.<CtElement>from(oldMainType.getElements(null))
       .filter(e -> !(e instanceof CtWrapper<?>))
       .map(Pair.fromRight(e -> SpoonPaths.getPath(e, pathCache)))

@@ -20,9 +20,9 @@ public sealed interface TypeBound extends Serializable permits UpperTypeBound, L
 
   @NotNull Type argument();
 
-  boolean isEmpty();
-
   @JsonValue
   Map<String, Type> getJsonValue();
+
+  boolean isEmpty();
 
 }

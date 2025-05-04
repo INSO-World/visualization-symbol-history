@@ -43,6 +43,17 @@ public final class Commit {
     revCommit.disposeBody();
   }
 
+  @Contract(" -> new")
+  public @NotNull CommitInfo info() {
+    assertParsed();
+    var message = revCommit.getFullMessage();
+    var summaryEnd = message.indexOf("\n\n");
+    summaryEnd = (summaryEnd == -1) ? Math.max(message.length() - 1, 0) : summaryEnd;
+    var summary = message.substring(0, summaryEnd);
+    var description = message.substring(Math.min(message.length(), summaryEnd + 2));
+    return new CommitInfo(hash(), summary, description, dateTime(), ListsX.map(parents(), Commit::hash));
+  }
+
   public List<Commit> parents() {
     return Arrays.stream(revCommit.getParents()).map(Commit::new).toList();
   }
@@ -54,17 +65,6 @@ public final class Commit {
 
   public RevTree tree() {
     return revCommit.getTree();
-  }
-
-  @Contract(" -> new")
-  public @NotNull CommitInfo info() {
-    assertParsed();
-    var message = revCommit.getFullMessage();
-    var summaryEnd = message.indexOf("\n\n");
-    summaryEnd = (summaryEnd == -1) ? Math.max(message.length() - 1, 0) : summaryEnd;
-    var summary = message.substring(0, summaryEnd);
-    var description = message.substring(Math.min(message.length(), summaryEnd + 2));
-    return new CommitInfo(hash(), summary, description, dateTime(), ListsX.map(parents(), Commit::hash));
   }
 
   private void assertParsed() {

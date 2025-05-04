@@ -15,10 +15,9 @@ import java.io.Serial;
 @PropertyKey("ctpath")
 public record CtPathProperty(CtEqPath value) implements TypedProperty<CtEqPath> {
 
+  public static final CtPathProperty EMPTY = new CtPathProperty(CtEqPath.EMPTY);
   @Serial
   private static final long serialVersionUID = -3605722812359908376L;
-
-  public static final CtPathProperty EMPTY = new CtPathProperty(CtEqPath.EMPTY);
 
   public static CtPathProperty fromElement(@NotNull CtElement element) {
     return new CtPathProperty(CtEqPath.of(element));

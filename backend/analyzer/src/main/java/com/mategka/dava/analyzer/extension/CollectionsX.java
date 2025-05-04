@@ -15,6 +15,14 @@ import java.util.stream.Collectors;
 @UtilityClass
 public class CollectionsX {
 
+  public <T, U extends T> Option<U> firstOfType(SequencedCollection<T> collection, Class<U> clazz) {
+    return AnStream.from(collection).allow(clazz).findFirstAsOption();
+  }
+
+  public <T, K> Map<K, T> groupBy(Collection<T> collection, Function<? super T, K> keyFn) {
+    return collection.stream().collect(Collectors.toMap(keyFn, Function.identity()));
+  }
+
   public <T> boolean isMutable(@NotNull Collection<T> collection) {
     try {
       collection.addAll(Collections.emptyList());
@@ -23,14 +31,6 @@ public class CollectionsX {
     } catch (UnsupportedOperationException e) {
       return false;
     }
-  }
-
-  public <T, U extends T> Option<U> firstOfType(SequencedCollection<T> collection, Class<U> clazz) {
-    return AnStream.from(collection).allow(clazz).findFirstAsOption();
-  }
-
-  public <T, K> Map<K, T> groupBy(Collection<T> collection, Function<? super T, K> keyFn) {
-    return collection.stream().collect(Collectors.toMap(keyFn, Function.identity()));
   }
 
   public <T, U extends T> Option<U> lastOfType(SequencedCollection<T> collection, Class<U> clazz) {

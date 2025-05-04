@@ -13,13 +13,13 @@ public record ConcreteTypeArgument(@NotNull Type type) implements TypeArgument {
   private static final long serialVersionUID = 2130450362455471538L;
 
   @Override
-  public String toString() {
-    return type.toString();
+  public Map<String, Object> toJsonValue() {
+    return Map.of("type", type);
   }
 
   @Override
-  public Map<String, Object> toJsonValue() {
-    return Map.of("type", type);
+  public String toString() {
+    return type.toString();
   }
 
 }

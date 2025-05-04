@@ -7,6 +7,10 @@ import org.jetbrains.annotations.NotNull;
 @UtilityClass
 public class IterablesX {
 
+  public <T> Iterable<T> consuming(@NotNull @Mutable Iterable<T> iterable) {
+    return Iterables.consumingIterable(iterable);
+  }
+
   public <T> T getFirst(@NotNull Iterable<T> iterable) {
     var iterator = iterable.iterator();
     if (!iterator.hasNext()) {
@@ -25,10 +29,6 @@ public class IterablesX {
       throw new IllegalArgumentException("Iterable had more than one element");
     }
     return element;
-  }
-
-  public <T> Iterable<T> consuming(@NotNull @Mutable Iterable<T> iterable) {
-    return Iterables.consumingIterable(iterable);
   }
 
 }

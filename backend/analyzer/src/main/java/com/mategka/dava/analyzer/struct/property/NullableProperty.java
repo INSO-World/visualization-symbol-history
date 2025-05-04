@@ -7,7 +7,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
 
-public sealed interface NullableProperty<T extends Serializable> extends SerializableProperty<T> permits ParentProperty {
+public sealed interface NullableProperty<T extends Serializable> extends SerializableProperty<T>
+  permits ParentProperty {
 
   default @NotNull Option<T> asOption() {
     return Options.fromNullable(value());

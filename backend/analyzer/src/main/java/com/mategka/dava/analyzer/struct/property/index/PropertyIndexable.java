@@ -12,16 +12,24 @@ import java.util.Map;
 
 public interface PropertyIndexable {
 
+  static <T extends Serializable> Option<T> getSerializablePropertyValue(@NotNull SerializableProperty<T> property) {
+    return switch (property) {
+      case NullableProperty<T> nullableProperty -> nullableProperty.asOption();
+      case SimpleProperty<T> simpleProperty -> Option.Some(simpleProperty.value());
+      default -> Options.fromNullable(property.value());
+    };
+  }
+
+  default boolean containsProperty(@NotNull Class<? extends Property> propertyClass) {
+    return getProperties().containsKey(PropertyKeys.get(propertyClass));
+  }
+
   @NotNull
   Map<String, Property> getProperties();
 
   @UnknownNullability
   default Property getProperty(String propertyKey) {
     return getProperties().get(propertyKey);
-  }
-
-  default boolean containsProperty(@NotNull Class<? extends Property> propertyClass) {
-    return getProperties().containsKey(PropertyKeys.get(propertyClass));
   }
 
   default <T extends Property> Option<T> getProperty(Class<T> propertyClass) {
@@ -32,18 +40,11 @@ public interface PropertyIndexable {
   default <T> Option<T> getPropertyValue(@NotNull Class<? extends TypedProperty<T>> propertyClass) {
     return getProperty(propertyClass).flatMap(property -> switch (property) {
       // NOTE: Lower bound change necessitates type cast despite being logically sound as per subtype relationship
-      case SerializableProperty<?> serializableProperty -> (Option<T>) getSerializablePropertyValue(serializableProperty);
+      case SerializableProperty<?> serializableProperty ->
+        (Option<T>) getSerializablePropertyValue(serializableProperty);
       case null -> Option.None();
       default -> Options.fromNullable(property.value());
     });
-  }
-
-  static <T extends Serializable> Option<T> getSerializablePropertyValue(@NotNull SerializableProperty<T> property) {
-    return switch (property) {
-      case NullableProperty<T> nullableProperty -> nullableProperty.asOption();
-      case SimpleProperty<T> simpleProperty -> Option.Some(simpleProperty.value());
-      default -> Options.fromNullable(property.value());
-    };
   }
 
 }

@@ -56,10 +56,6 @@ public class CommitDiff implements Serializable {
   @NonNull
   Collection<SymbolUpdate> updates;
 
-  public long size() {
-    return (long) additions.size() + successions.size() + deletions.size() + updates.size();
-  }
-
   public Iterable<Symbol> getStartSymbols() {
     return Iterables.concat(additions, successions);
   }
@@ -85,6 +81,10 @@ public class CommitDiff implements Serializable {
     updatesByJustLineChanges.get(false).stream()
       .sorted(Comparator.comparingLong(u -> u.getSourceKey().symbolId()))
       .forEach(u -> System.out.println("$ " + u));
+  }
+
+  public long size() {
+    return (long) additions.size() + successions.size() + deletions.size() + updates.size();
   }
 
   public static class CommitDiffBuilder {

@@ -104,17 +104,17 @@ public final class Symbol implements PropertyIndexable, Copyable<Symbol>, Serial
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
   }
 
-  public @NotNull String getSpoonPath() throws NoSuchElementException {
-    return getPropertyValue(SpoonPathProperty.class)
-      .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
-  }
-
   public List<Pair<PrdRole, SymbolKey>> getPredecessors() {
     return predecessors.entries().stream().map(Pair::fromEntry).toList();
   }
 
   public List<Pair<PrdRole, SymbolKey>> getPredecessors(PrdRole role) {
     return predecessors.get(role).stream().map(k -> Pair.of(role, k)).toList();
+  }
+
+  public @NotNull String getSpoonPath() throws NoSuchElementException {
+    return getPropertyValue(SpoonPathProperty.class)
+      .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
   }
 
   public boolean isRootPackage() {

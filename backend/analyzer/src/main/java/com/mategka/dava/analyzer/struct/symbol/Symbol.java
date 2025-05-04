@@ -3,7 +3,6 @@ package com.mategka.dava.analyzer.struct.symbol;
 import com.mategka.dava.analyzer.extension.Copyable;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.struct.Pair;
-import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.spoon.path.CtEqPath;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
@@ -160,12 +159,8 @@ public final class Symbol implements PropertyIndexable, Copyable<Symbol>, Serial
   public String toString() {
     return getPropertyValue(KindProperty.class).map(Kind::toPseudoKeyword).getOrThrow()
       + " " + getDisplayName()
-      + context.map(c -> " [%s] ".formatted(c.key.symbolId())).getOrElse(" ")
+      + context.map(c -> " [%s] ".formatted(c.key().symbolId())).getOrElse(" ")
       + properties;
-  }
-
-  public record Context(@NonNull SymbolKey key, @NonNull Hash commit) {
-
   }
 
 }

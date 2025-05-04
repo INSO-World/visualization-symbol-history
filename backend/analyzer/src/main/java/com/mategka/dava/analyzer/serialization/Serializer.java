@@ -23,6 +23,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
 import lombok.experimental.UtilityClass;
@@ -117,7 +119,8 @@ public class Serializer {
     for (var strand : strands) {
       for (var diff : IterablesX.consuming(strand.getCommitDiffs())) {
         var commitId = commitIndex.get(diff.getCommit()).right();
-        Map<@NotNull Long, @NotNull Symbol> pureSuccessions = new HashMap<>();
+        Multimap<@NotNull Long, @NotNull Integer> successionHandledParents = HashMultimap.create();
+        Map<@NotNull Long, @NotNull Symbol> successions = new HashMap<>();
         for (var addition : diff.getAdditions()) {
           var id = keysToIds.get(addition.getKey());
           lastSeenProperties.put(id, addition.getProperties());
@@ -125,7 +128,8 @@ public class Serializer {
           var stateDto = StateDto.builder()
             .cause(ChangeCause.ADDED)
             .commit(commitId)
-            .key(addition.getKey())
+            .origins(Collections.emptyList())
+            .symbolId(addition.getKey().symbolId())
             .properties(stateProperties)
             //.updated(stateProperties.keySet())
             .build();
@@ -135,16 +139,19 @@ public class Serializer {
         for (var succession : diff.getSuccessions()) {
           var id = keysToIds.get(succession.getKey());
           lastSeenProperties.put(id, succession.getProperties());
-          pureSuccessions.put(id, succession);
+          successions.put(id, succession);
         }
         for (var deletion : diff.getDeletions()) {
           var id = keysToIds.get(deletion.getKey());
           lastSeenProperties.remove(id);
           var stateProperties = deletion.getProperties();
+          var sourceCommitHash = deletion.getContext().getOrThrow().commit();
+          var parentIndex = diff.getParentCommits().indexOf(sourceCommitHash);
           var stateDto = StateDto.builder()
             .cause(ChangeCause.DELETED)
             .commit(commitId)
-            .key(deletion.getKey())
+            .origins(List.of(OriginDto.of(parentIndex, commitIndex.get(sourceCommitHash).right())))
+            .symbolId(deletion.getKey().symbolId())
             .properties(stateProperties)
             .build();
           symbolStates.put(id, stateDto);
@@ -153,7 +160,10 @@ public class Serializer {
         for (var update : diff.getUpdates()) {
           var key = update.getTargetContext().key();
           var id = keysToIds.get(key);
-          var hasSuccession = pureSuccessions.remove(id) != null;
+          var hasSuccession = successions.containsKey(id);
+          if (hasSuccession) {
+            successionHandledParents.put(id, update.getParentIndex());
+          }
 
           var properties = lastSeenProperties.get(id);
           if (!hasSuccession) {
@@ -163,21 +173,35 @@ public class Serializer {
           var stateDto = StateDto.builder()
             .cause(hasSuccession ? ChangeCause.SUCCEEDED_CHANGED : ChangeCause.CHANGED)
             .commit(commitId)
-            .key(key)
+            .origins(List.of(
+              OriginDto.of(update.getParentIndex(), commitIndex.get(update.getSourceContext().commit()).right())))
+            .symbolId(key.symbolId())
             .properties(stateProperties)
             .updated(update.getProperties().keySet())
             .flags(update.getFlags())
             .build();
           symbolStates.put(id, stateDto);
         }
-        for (var successionEntry : pureSuccessions.entrySet()) {
+        for (var successionEntry : successions.entrySet()) {
           var id = successionEntry.getKey();
           var succession = successionEntry.getValue();
           var stateProperties = succession.getProperties().clone();
+          List<OriginDto> origins = new ArrayList<>();
+          for (int parentIndex = 0; parentIndex < diff.getParentCommits().size(); parentIndex++) {
+            if (!successionHandledParents.containsEntry(id, parentIndex)) {
+              var sourceCommitHash = diff.getParentCommits().get(parentIndex);
+              origins.add(OriginDto.of(parentIndex, commitIndex.get(sourceCommitHash).right()));
+            }
+          }
+          if (origins.isEmpty()) {
+            // If symbol changed relative to ALL parents, do not create a pure succession entry
+            continue;
+          }
           var stateDto = StateDto.builder()
             .cause(ChangeCause.SUCCEEDED_PURE)
             .commit(commitId)
-            .key(succession.getKey())
+            .origins(origins)
+            .symbolId(succession.getKey().symbolId())
             .properties(stateProperties)
             .build();
           symbolStates.put(id, stateDto);

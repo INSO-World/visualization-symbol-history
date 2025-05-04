@@ -57,7 +57,7 @@ public class MappingProcessing {
         .mapOption(Symbol::getContext)
         .toList();
       var parentSymbolIds = AnStream.from(parentContexts)
-        .map(Symbol.Context::key)
+        .map(Context::key)
         .map(SymbolKey::symbolId)
         .toSet();
       var consistentSymbolId = parentSymbolIds.size() == 1;
@@ -67,7 +67,7 @@ public class MappingProcessing {
       Hash symbolCommit = parentContexts.size() == 1 && !context.hasStrandChange()
         ? parentContexts.getFirst().commit()
         : context.commit();
-      var symbolContext = new Symbol.Context(new SymbolKey(symbolId, context.strandId()), symbolCommit);
+      var symbolContext = new Context(new SymbolKey(symbolId, context.strandId()), symbolCommit);
       targetSymbol.setContext(symbolContext);
       var collectingJoinPredecessors = context.hasStrandChange() && consistentSymbolId;
       var collectingMergePredecessors = context.hasStrandChange() && !consistentSymbolId;
@@ -121,7 +121,11 @@ public class MappingProcessing {
             flags.add(UpdateFlag.REPLACED);
           }
         }
-        updates.add(new SymbolUpdate(sourceSymbol.getKey(), symbolContext, propertyDiff.coalesce(), flags));
+        updates.add(
+          new SymbolUpdate(
+            parentIndex, sourceSymbol.getContext().getOrThrow(), symbolContext, propertyDiff.coalesce(),
+            flags
+          ));
       }
     }
     return updates;

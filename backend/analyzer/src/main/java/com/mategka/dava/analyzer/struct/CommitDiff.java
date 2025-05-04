@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.struct;
 
+import com.mategka.dava.analyzer.extension.IterablesX;
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.git.Commit;
 import com.mategka.dava.analyzer.git.Hash;
@@ -68,18 +69,18 @@ public class CommitDiff implements Serializable {
       .sorted(Comparator.comparingLong(s -> s.getKey().symbolId()))
       .forEach(d -> System.out.printf("- @%d %s%n", d.getContext().getOrThrow().key().strandId(), d));
     var updatesByJustLineChanges = updates.stream()
-      .sorted(Comparator.comparingLong(u -> u.getSourceKey().symbolId()))
+      .sorted(Comparator.comparingLong(u -> u.getSourceContext().key().symbolId()))
       .collect(Collectors.partitioningBy(u -> u.getProperties().size() == 1
-        && u.getProperties().values().iterator().next().getKey().equals(PropertyKeys.get(LineRangeProperty.class))));
+        && IterablesX.getFirst(u.getProperties().keySet()).equals(PropertyKeys.get(LineRangeProperty.class))));
     var lineUpdates = updatesByJustLineChanges.get(true).stream()
-      .map(u -> u.getSourceKey().symbolId())
+      .map(u -> u.getSourceContext().key().symbolId())
       .map(Objects::toString)
       .collect(Collectors.joining(", "));
     if (!lineUpdates.isEmpty()) {
       System.out.println("$ Line changes: " + lineUpdates);
     }
     updatesByJustLineChanges.get(false).stream()
-      .sorted(Comparator.comparingLong(u -> u.getSourceKey().symbolId()))
+      .sorted(Comparator.comparingLong(u -> u.getSourceContext().key().symbolId()))
       .forEach(u -> System.out.println("$ " + u));
   }
 

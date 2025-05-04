@@ -1,7 +1,6 @@
 package com.mategka.dava.analyzer.serialization.model;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
-import com.mategka.dava.analyzer.struct.symbol.SymbolKey;
 import com.mategka.dava.analyzer.struct.symbol.UpdateFlag;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -12,6 +11,7 @@ import lombok.Value;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 @Value
@@ -20,6 +20,10 @@ public class StateDto {
 
   @NonNull
   ChangeCause cause;
+
+  @NonNull
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
+  List<OriginDto> origins;
 
   @NonNull
   Integer commit;
@@ -39,13 +43,5 @@ public class StateDto {
   @Builder.Default
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
   Set<@NotNull UpdateFlag> flags = Collections.emptySet();
-
-  public static class StateDtoBuilder {
-
-    public StateDtoBuilder key(SymbolKey key) {
-      return symbolId(key.symbolId()).strand(key.strandId());
-    }
-
-  }
 
 }

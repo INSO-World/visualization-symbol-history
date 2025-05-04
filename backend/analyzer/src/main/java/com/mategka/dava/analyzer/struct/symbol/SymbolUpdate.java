@@ -15,11 +15,13 @@ import java.util.stream.Collectors;
 @Value
 public class SymbolUpdate implements PropertyIndexable {
 
-  @NonNull
-  SymbolKey sourceKey;
+  int parentIndex;
 
   @NonNull
-  Symbol.Context targetContext;
+  Context sourceContext;
+
+  @NonNull
+  Context targetContext;
 
   @NonNull
   Map<String, @Nullable Property> properties;
@@ -29,7 +31,7 @@ public class SymbolUpdate implements PropertyIndexable {
 
   @Override
   public String toString() {
-    var oldId = sourceKey.symbolId();
+    var oldId = sourceContext.key().symbolId();
     var newId = targetContext.key().symbolId();
     return "%s [%s] %s".formatted(
       (oldId == newId ? String.valueOf(oldId) : "%d -> %d".formatted(oldId, newId)),

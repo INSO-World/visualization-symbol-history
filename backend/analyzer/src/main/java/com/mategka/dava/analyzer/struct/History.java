@@ -17,6 +17,9 @@ import java.util.stream.Collectors;
 @Builder(access = AccessLevel.PRIVATE)
 public class History {
 
+  @NonNull
+  String name;
+
   /**
    * Contains all symbols present at the HEAD commit with their final properties.
    *
@@ -128,6 +131,7 @@ public class History {
         .collect(Collectors.joining("\n"))
     );
     return History.builder()
+      .name(repository.getName())
       .baseStrands(baseStrands)
       .strandDag(strandDag)
       .strandMapping(strandMapping)

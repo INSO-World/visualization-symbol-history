@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.Set;
 
 public sealed interface SetProperty<T extends Serializable> extends CollectionProperty<T>
-  permits ModifiersProperty {
+  permits FlagsProperty, ModifiersProperty {
 
   default boolean contains(T o) {
     return value().contains(o);

@@ -61,6 +61,7 @@ public class PropertyCapture {
     );
     var spoonPathProperty = SpoonPathProperty.fromElement(element, pathCache);
     var builder = PropertyMap.builder()
+      .property(FlagsProperty.fromElement(element))
       .property(AnnotationsProperty::new, annotations)
       .property(spoonPathProperty)
       .property(PathProperty.fromSpoonPathProperty(spoonPathProperty));

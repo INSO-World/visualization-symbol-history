@@ -59,4 +59,19 @@ public class SetsX {
       .collect(Collectors.toSet());
   }
 
+  public <E extends Enum<E>> Set<E> containedEnumValues(Class<E> enumClass, @NotNull Iterable<E> iterable) {
+    EnumSet<E> values = EnumSet.noneOf(enumClass);
+    int maxSize = EnumSet.allOf(enumClass).size();
+    for (E e : iterable) {
+      if (e == null) {
+        continue;
+      }
+      values.add(e);
+      if (values.size() == maxSize) {
+        break;
+      }
+    }
+    return values;
+  }
+
 }

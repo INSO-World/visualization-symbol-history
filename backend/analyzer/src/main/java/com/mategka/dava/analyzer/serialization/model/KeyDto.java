@@ -12,7 +12,7 @@ import java.time.ZonedDateTime;
 
 @Data
 @Builder
-public class KeyDto {
+public final class KeyDto {
 
   @NonNull
   final ParentDto parent;

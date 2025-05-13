@@ -105,17 +105,22 @@ public class App {
       }
       var time = benchmark.end();
       {
+        //noinspection UnusedAssignment
         mainBranch = null;
+        //noinspection UnusedAssignment
         benchmark = null;
+        //noinspection UnusedAssignment
         symbolIdCounter = null;
+        //noinspection UnusedAssignment
         treeDiffer = null;
         workspaceCountdown.clear();
         workspaces.clear();
+        //noinspection UnusedAssignment
         workspaces = null;
         System.gc();
       }
       System.out.printf("Done in %.1f seconds%n", time.toMillis() / 1000d);
-      Serializer.writeJson(history, commits, "debug.json");
+      Serializer.writeJson(history, commits, "result.json");
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

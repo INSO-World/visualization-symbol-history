@@ -25,6 +25,10 @@ public class Repository implements AutoCloseable {
 
   org.eclipse.jgit.lib.Repository jgitRepository;
 
+  public String getName() {
+    return jgitRepository.getWorkTree().getName();
+  }
+
   public static Repository open(@NotNull String repositoryPath) throws IOException {
     var repository = new RepositoryBuilder()
       .setMustExist(true)

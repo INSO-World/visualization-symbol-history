@@ -12,12 +12,15 @@ import java.util.List;
 public class RootDto {
 
   @NonNull
+  MetaDto meta;
+
+  @NonNull
   List<@NotNull CommitDto> commits;
 
   @NonNull
   List<@NotNull SymbolDto> symbols;
 
-  //@NonNull
-  //IndexRootDto indices;
+  @NonNull
+  IndexRootDto indices;
 
 }

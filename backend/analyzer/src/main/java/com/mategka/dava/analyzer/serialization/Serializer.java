@@ -12,15 +12,17 @@ import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.serialization.model.*;
 import com.mategka.dava.analyzer.struct.History;
 import com.mategka.dava.analyzer.struct.Strand;
-import com.mategka.dava.analyzer.struct.property.KindProperty;
-import com.mategka.dava.analyzer.struct.property.ParentProperty;
-import com.mategka.dava.analyzer.struct.property.SimpleNameProperty;
+import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
+import com.mategka.dava.analyzer.struct.property.value.Kind;
+import com.mategka.dava.analyzer.struct.property.value.Visibility;
+import com.mategka.dava.analyzer.struct.property.value.type.UnknownType;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolKey;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
@@ -32,8 +34,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.time.YearMonth;
+import java.time.*;
 import java.util.*;
+import java.util.stream.Stream;
 
 @UtilityClass
 public class Serializer {
@@ -43,7 +46,17 @@ public class Serializer {
     var strandMapping = history.getStrandMapping();
     Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex = AnStream.fromIndexed(commits)
       .collect(CollectorsX.mapToKey(p -> p.left().hash()));
+    ZonedDateTime createdAt = commits.stream()
+      .map(CommitInfo::date)
+      .min(ZonedDateTime::compareTo)
+      .orElseGet(ZonedDateTime::now);
+    ZonedDateTime updatedAt = commits.stream()
+      .map(CommitInfo::date)
+      .max(ZonedDateTime::compareTo)
+      .orElseGet(() -> ZonedDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC));
     commits.clear();
+    //noinspection UnusedAssignment
+    commits = null;
     List<CommitDto> commitDtos = new ArrayList<>();
     for (var commitTuple : commitIndex.values()) {
       var commit = commitTuple.left();
@@ -243,7 +256,7 @@ public class Serializer {
         Option<@NotNull Long> parentId = properties.getPropertyValue(ParentProperty.class)
           .map(symbolId -> new SymbolKey(symbolId, commitDto.getStrand()))
           .map(keysToIds::get);
-        ParentDto parentDto = new ParentDto(parentId.getOrNull(), -1); // TODO
+        ParentDto parentDto = new ParentDto(parentId.getOrNull(), -1);
         var keyDto = KeyDto.builder()
           .from(date)
           .kind(properties.getPropertyValue(KindProperty.class).getOrThrow())
@@ -261,10 +274,70 @@ public class Serializer {
         .build();
       symbolDtos.add(symbolDto);
     }
+    MetaDto metaDto = MetaDto.builder()
+      .name(history.getName())
+      .createdAt(createdAt)
+      .updatedAt(updatedAt)
+      .indexedAt(ZonedDateTime.now())
+      .commitCount(commitDtos.size())
+      .strandCount(strands.size())
+      .strandSymbolCount(keysToIds.size())
+      .symbolCount(idCounter)
+      .build();
+    Multimap<@NotNull Visibility, @NotNull Long> byVisibility = symbolDtos.stream()
+      .flatMap(s -> s.getStates().values().stream()
+        .flatMap(Collection::stream)
+        .map(t -> t.getProperties().getPropertyValue(VisibilityProperty.class).getOrNull())
+        .filter(Objects::nonNull)
+        .distinct()
+        .map(v -> Pair.of(v, s.getId()))
+      )
+      .collect(CollectorsX.toMultimap(Pair::left, Pair::right, ArrayListMultimap::create));
+    Multimap<@NotNull Kind, @NotNull Long> byKind = symbolDtos.stream()
+      .flatMap(s -> s.getKeys().stream()
+        .map(KeyDto::getKind)
+        .distinct()
+        .map(k -> Pair.of(k, s.getId()))
+      )
+      .collect(CollectorsX.toMultimap(Pair::left, Pair::right, ArrayListMultimap::create));
+    Multimap<@NotNull String, @NotNull Long> byType = symbolDtos.stream()
+      .flatMap(s -> AnStream.from(s.getStates().values())
+        .flatMap(Collection::stream)
+        .mapOption(t -> t.getProperties().getPropertyValue(TypeProperty.class))
+        .allow(UnknownType.class)
+        .map(UnknownType::getQualifiedName)
+        .distinct()
+        .map(n -> Pair.of(n, s.getId()))
+      )
+      .collect(CollectorsX.toMultimap(Pair::left, Pair::right, ArrayListMultimap::create));
+    Multimap<@NotNull YearMonth, @NotNull Long> byExistence = symbolDtos.stream()
+      .flatMap(s -> {
+        var start = IterablesX.getFirst(s.getStates().sequencedKeySet());
+        YearMonth end;
+        if (s.isDeleted()) {
+          end = IterablesX.getFirst(s.getStates().sequencedKeySet().reversed());
+        } else {
+          end = YearMonth.now();
+        }
+        return Stream.iterate(start, ym -> ym.compareTo(end) <= 0, ym -> ym.plusMonths(1))
+          .map(ym -> Pair.of(ym, s.getId()));
+      })
+      .collect(CollectorsX.toMultimap(Pair::left, Pair::right, ArrayListMultimap::create));
+    Multimap<@NotNull YearMonth, @NotNull Long> byChanged = symbolDtos.stream()
+      .flatMap(s -> s.getStates().sequencedKeySet().stream().map(ym -> Pair.of(ym, s.getId())))
+      .collect(CollectorsX.toMultimap(Pair::left, Pair::right, ArrayListMultimap::create));
+    var indexDto = IndexRootDto.builder()
+      .byVisibility(byVisibility)
+      .byKind(byKind)
+      .byType(byType)
+      .byExistence(byExistence)
+      .byChanged(byChanged)
+      .build();
     var rootDto = RootDto.builder()
+      .meta(metaDto)
       .commits(commitDtos)
       .symbols(symbolDtos)
-      //.indices(null) // TODO: Indices
+      .indices(indexDto)
       .build();
     try (FileOutputStream fos = new FileOutputStream(path)) {
       getObjectMapper().writeValue(fos, rootDto);
@@ -274,6 +347,9 @@ public class Serializer {
   private @NotNull ObjectMapper getObjectMapper() {
     var mapper = new ObjectMapper();
     mapper.registerModule(new JavaTimeModule());
+    var multimapSerializerModule = new SimpleModule();
+    multimapSerializerModule.addSerializer(Multimap.class, new MultimapSerializer());
+    mapper.registerModule(multimapSerializerModule);
     mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
     return mapper;

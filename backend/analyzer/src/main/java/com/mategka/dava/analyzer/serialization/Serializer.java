@@ -10,6 +10,7 @@ import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.git.CommitInfo;
 import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.serialization.model.*;
+import com.mategka.dava.analyzer.struct.CommitDiff;
 import com.mategka.dava.analyzer.struct.History;
 import com.mategka.dava.analyzer.struct.Strand;
 import com.mategka.dava.analyzer.struct.property.*;
@@ -41,40 +42,88 @@ import java.util.stream.Stream;
 @UtilityClass
 public class Serializer {
 
-  @SuppressWarnings("UnstableApiUsage")
+  private static final ZonedDateTime ZONED_EPOCH = ZonedDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC);
+
   public void writeJson(@NotNull History history, List<CommitInfo> commits, @NotNull String path) throws IOException {
-    var strandMapping = history.getStrandMapping();
+    var strands = history.getStrandDag().nodes();
+
     Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex = AnStream.fromIndexed(commits)
       .collect(CollectorsX.mapToKey(p -> p.left().hash()));
-    ZonedDateTime createdAt = commits.stream()
-      .map(CommitInfo::date)
-      .min(ZonedDateTime::compareTo)
-      .orElseGet(ZonedDateTime::now);
-    ZonedDateTime updatedAt = commits.stream()
-      .map(CommitInfo::date)
-      .max(ZonedDateTime::compareTo)
-      .orElseGet(() -> ZonedDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC));
+    var dateBounds = IterablesX.minmax(commits.stream().map(CommitInfo::date).iterator());
+    ZonedDateTime createdAt = dateBounds.map(Pair::left).getOrCompute(ZonedDateTime::now);
+    ZonedDateTime updatedAt = dateBounds.map(Pair::right).getOrElse(ZONED_EPOCH);
     commits.clear();
-    //noinspection UnusedAssignment
-    commits = null;
-    List<CommitDto> commitDtos = new ArrayList<>();
-    for (var commitTuple : commitIndex.values()) {
-      var commit = commitTuple.left();
-      var commitDto = CommitDto.builder()
-        .id(commitTuple.right())
-        .hash(commit.hash())
-        .date(commit.date())
-        .summary(commit.summary())
-        .desc(commit.description())
-        .parents(ListsX.map(commit.parents(), h -> commitIndex.get(h).right()))
-        .strand(strandMapping.get(commit.hash()).getId())
-        .build();
-      commitDtos.add(commitDto);
+
+    List<CommitDto> commitDtos = getCommitDtos(commitIndex, history.getStrandMapping());
+
+    AbstractIdAssignment assignment = getAbstractIdAssignment(strands);
+    Map<@NotNull SymbolKey, @NotNull Long> keysToIds = assignment.keysToIds();
+
+    SymbolStatesResult symbolStatesResult = getSymbolStatesResult(strands, commitIndex, keysToIds);
+    ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates = symbolStatesResult.symbolStates();
+    Set<@NotNull Long> deletedIds = symbolStatesResult.deletedIds();
+
+    List<SymbolDto> symbolDtos = getSymbolDtos(symbolStates, commitDtos, commitIndex, keysToIds, deletedIds);
+
+    MetaDto metaDto = MetaDto.builder()
+      .name(history.getName())
+      .createdAt(createdAt)
+      .updatedAt(updatedAt)
+      .indexedAt(ZonedDateTime.now())
+      .commitCount(commitDtos.size())
+      .strandCount(strands.size())
+      .strandSymbolCount(keysToIds.size())
+      .symbolCount(assignment.idCount())
+      .build();
+
+    IndexRootDto indexDto = getIndexRootDto(symbolDtos);
+
+    var rootDto = RootDto.builder()
+      .meta(metaDto)
+      .commits(commitDtos)
+      .symbols(symbolDtos)
+      .indices(indexDto)
+      .build();
+
+    try (FileOutputStream fos = new FileOutputStream(path)) {
+      getObjectMapper().writeValue(fos, rootDto);
     }
-    commitDtos.sort(Comparator.comparing(CommitDto::getId));
+  }
+
+  private static void closeOpenKeyDtos(Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex, Hash commitHash,
+                                       Map<Hash, KeyDto> openKeyDtos, ZonedDateTime date) {
+    Set<Hash> visited2 = new HashSet<>();
+    Queue<Hash> queue = new ArrayDeque<>(commitIndex.get(commitHash).left().parents());
+    while (!queue.isEmpty()) {
+      var hash = queue.poll();
+      if (visited2.contains(hash)) {
+        continue;
+      }
+      visited2.add(hash);
+      if (openKeyDtos.containsKey(hash)) {
+        openKeyDtos.remove(hash).setTo(date);
+      }
+      queue.addAll(commitIndex.get(hash).left().parents());
+    }
+  }
+
+  @SuppressWarnings("UnstableApiUsage")
+  private static @NotNull AbstractIdAssignment getAbstractIdAssignment(Set<Strand> strands) {
+    /*
+      NOTE: On each strand, a connected symbol (Symbol instances belonging to the same abstract symbol)
+            can occur at most twice:
+            - A. Once for the entirety of the strand, as an addition or succession that gets succeeded or deleted
+            - B. Once at the start, as an addition or succession that then gets deleted mid-strand
+            - C. Once at the end, as an addition that then gets succeeded or deleted
+            - D. Twice, when both B. and C. apply
+
+            This is because, if a string of Symbol instances belonged to an abstract symbol it is not connected to
+            mid-strand, it would have to connect via a different "branch", which would contradict the fact that
+            the given string of commits belongs to the same strand (since strands can, by definition, not be
+            interrupted).
+     */
     long idCounter = 0;
     Map<@NotNull SymbolKey, @NotNull Long> keysToIds = new HashMap<>();
-    var strands = history.getStrandDag().nodes();
     var expectedNodeCount = AnStream.from(strands)
       .flatMapCollection(Strand::getCommitDiffs)
       .mapToInt(d -> d.getAdditions().size())
@@ -113,177 +162,30 @@ public class Serializer {
         }
       }
     }
-    /*
-      NOTE: On each strand, a connected symbol (Symbol instances belonging to the same abstract symbol)
-            can occur at most twice:
-            - A. Once for the entirety of the strand, as an addition or succession that gets succeeded or deleted
-            - B. Once at the start, as an addition or succession that then gets deleted mid-strand
-            - C. Once at the end, as an addition that then gets succeeded or deleted
-            - D. Twice, when both B. and C. apply
+    return new AbstractIdAssignment(idCounter, keysToIds);
+  }
 
-            This is because, if a string of Symbol instances belonged to an abstract symbol it is not connected to
-            mid-strand, it would have to connect via a different "branch", which would contradict the fact that
-            the given string of commits belongs to the same strand (since strands can, by definition, not be
-            interrupted).
-     */
-    Set<@NotNull Long> deletedIds = new HashSet<>();
-    var symbolStates = ArrayListMultimap.<@NotNull Long, StateDto>create();
-    Map<@NotNull Long, @NotNull PropertyMap> lastSeenProperties = new HashMap<>();
-    for (var strand : strands) {
-      for (var diff : IterablesX.consuming(strand.getCommitDiffs())) {
-        var commitId = commitIndex.get(diff.getCommit()).right();
-        Multimap<@NotNull Long, @NotNull Integer> successionHandledParents = HashMultimap.create();
-        Map<@NotNull Long, @NotNull Symbol> successions = new HashMap<>();
-        for (var addition : diff.getAdditions()) {
-          var id = keysToIds.get(addition.getKey());
-          lastSeenProperties.put(id, addition.getProperties());
-          var stateProperties = addition.getProperties().clone();
-          var stateDto = StateDto.builder()
-            .cause(ChangeCause.ADDED)
-            .commit(commitId)
-            .origins(Collections.emptyList())
-            .symbolId(addition.getKey().symbolId())
-            .properties(stateProperties)
-            //.updated(stateProperties.keySet())
-            .build();
-          symbolStates.put(id, stateDto);
-          deletedIds.remove(id);
-        }
-        for (var succession : diff.getSuccessions()) {
-          var id = keysToIds.get(succession.getKey());
-          lastSeenProperties.put(id, succession.getProperties());
-          successions.put(id, succession);
-        }
-        for (var deletion : diff.getDeletions()) {
-          var id = keysToIds.get(deletion.getKey());
-          lastSeenProperties.remove(id);
-          var stateProperties = deletion.getProperties();
-          var sourceCommitHash = deletion.getContext().getOrThrow().commit();
-          var parentIndex = diff.getParentCommits().indexOf(sourceCommitHash);
-          var stateDto = StateDto.builder()
-            .cause(ChangeCause.DELETED)
-            .commit(commitId)
-            .origins(List.of(OriginDto.of(parentIndex, commitIndex.get(sourceCommitHash).right())))
-            .symbolId(deletion.getKey().symbolId())
-            .properties(stateProperties)
-            .build();
-          symbolStates.put(id, stateDto);
-          deletedIds.add(id);
-        }
-        for (var update : diff.getUpdates()) {
-          var key = update.getTargetContext().key();
-          var id = keysToIds.get(key);
-          var hasSuccession = successions.containsKey(id);
-          if (hasSuccession) {
-            successionHandledParents.put(id, update.getParentIndex());
-          }
-
-          var properties = lastSeenProperties.get(id);
-          if (!hasSuccession) {
-            properties.applyUpdate(update.getProperties());
-          }
-          var stateProperties = properties.clone();
-          var stateDto = StateDto.builder()
-            .cause(hasSuccession ? ChangeCause.SUCCEEDED_CHANGED : ChangeCause.CHANGED)
-            .commit(commitId)
-            .origins(List.of(
-              OriginDto.of(update.getParentIndex(), commitIndex.get(update.getSourceContext().commit()).right())))
-            .symbolId(key.symbolId())
-            .properties(stateProperties)
-            .updated(update.getProperties().keySet())
-            .flags(update.getFlags())
-            .build();
-          symbolStates.put(id, stateDto);
-        }
-        for (var successionEntry : successions.entrySet()) {
-          var id = successionEntry.getKey();
-          var succession = successionEntry.getValue();
-          var stateProperties = succession.getProperties().clone();
-          List<OriginDto> origins = new ArrayList<>();
-          for (int parentIndex = 0; parentIndex < diff.getParentCommits().size(); parentIndex++) {
-            if (!successionHandledParents.containsEntry(id, parentIndex)) {
-              var sourceCommitHash = diff.getParentCommits().get(parentIndex);
-              origins.add(OriginDto.of(parentIndex, commitIndex.get(sourceCommitHash).right()));
-            }
-          }
-          if (origins.isEmpty()) {
-            // If symbol changed relative to ALL parents, do not create a pure succession entry
-            continue;
-          }
-          var stateDto = StateDto.builder()
-            .cause(ChangeCause.SUCCEEDED_PURE)
-            .commit(commitId)
-            .origins(origins)
-            .symbolId(succession.getKey().symbolId())
-            .properties(stateProperties)
-            .build();
-          symbolStates.put(id, stateDto);
-        }
-      }
-    }
-    List<SymbolDto> symbolDtos = new ArrayList<>();
-    for (var stateEntry : symbolStates.asMap().entrySet()) {
-      var id = stateEntry.getKey();
-      var states = stateEntry.getValue();
-      var sortedStates = states.stream().sorted(
-        Comparator.comparing(s -> commitDtos.get(s.getCommit()).getDate())
-      ).toList();
-      SortedMap<@NotNull YearMonth, List<StateDto>> groupedStates = new TreeMap<>();
-      for (var state : sortedStates) {
-        var yearMonth = YearMonth.from(commitDtos.get(state.getCommit()).getDate());
-        groupedStates.computeIfAbsent(yearMonth, k -> new ArrayList<>()).add(state);
-      }
-      List<KeyDto> keyDtos = new ArrayList<>();
-      Map<Hash, KeyDto> openKeyDtos = new HashMap<>();
-      for (var state : sortedStates) {
-        final var commitDto = commitDtos.get(state.getCommit());
-        var date = commitDto.getDate();
-        var commitHash = commitDto.getHash();
-        Set<Hash> visited2 = new HashSet<>();
-        Queue<Hash> queue = new ArrayDeque<>(commitIndex.get(commitHash).left().parents());
-        while (!queue.isEmpty()) {
-          var hash = queue.poll();
-          if (visited2.contains(hash)) {
-            continue;
-          }
-          visited2.add(hash);
-          if (openKeyDtos.containsKey(hash)) {
-            openKeyDtos.remove(hash).setTo(date);
-          }
-          queue.addAll(commitIndex.get(hash).left().parents());
-        }
-        var properties = state.getProperties();
-        Option<@NotNull Long> parentId = properties.getPropertyValue(ParentProperty.class)
-          .map(symbolId -> new SymbolKey(symbolId, commitDto.getStrand()))
-          .map(keysToIds::get);
-        ParentDto parentDto = new ParentDto(parentId.getOrNull(), -1);
-        var keyDto = KeyDto.builder()
-          .from(date)
-          .kind(properties.getPropertyValue(KindProperty.class).getOrThrow())
-          .name(properties.getPropertyValue(SimpleNameProperty.class).getOrThrow())
-          .parent(parentDto)
-          .build();
-        keyDtos.add(keyDto);
-        openKeyDtos.put(commitHash, keyDto);
-      }
-      var symbolDto = SymbolDto.builder()
-        .id(id)
-        .deleted(deletedIds.contains(id))
-        .states(groupedStates)
-        .keys(keyDtos)
+  private static @NotNull List<CommitDto> getCommitDtos(Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
+                                                        Map<Hash, Strand> strandMapping) {
+    List<CommitDto> commitDtos = new ArrayList<>();
+    for (var commitTuple : commitIndex.values()) {
+      var commit = commitTuple.left();
+      var commitDto = CommitDto.builder()
+        .id(commitTuple.right())
+        .hash(commit.hash())
+        .date(commit.date())
+        .summary(commit.summary())
+        .desc(commit.description())
+        .parents(ListsX.map(commit.parents(), h -> commitIndex.get(h).right()))
+        .strand(strandMapping.get(commit.hash()).getId())
         .build();
-      symbolDtos.add(symbolDto);
+      commitDtos.add(commitDto);
     }
-    MetaDto metaDto = MetaDto.builder()
-      .name(history.getName())
-      .createdAt(createdAt)
-      .updatedAt(updatedAt)
-      .indexedAt(ZonedDateTime.now())
-      .commitCount(commitDtos.size())
-      .strandCount(strands.size())
-      .strandSymbolCount(keysToIds.size())
-      .symbolCount(idCounter)
-      .build();
+    commitDtos.sort(Comparator.comparing(CommitDto::getId));
+    return commitDtos;
+  }
+
+  private static IndexRootDto getIndexRootDto(List<SymbolDto> symbolDtos) {
     Multimap<@NotNull Visibility, @NotNull Long> byVisibility = symbolDtos.stream()
       .flatMap(s -> s.getStates().values().stream()
         .flatMap(Collection::stream)
@@ -326,22 +228,13 @@ public class Serializer {
     Multimap<@NotNull YearMonth, @NotNull Long> byChanged = symbolDtos.stream()
       .flatMap(s -> s.getStates().sequencedKeySet().stream().map(ym -> Pair.of(ym, s.getId())))
       .collect(CollectorsX.toMultimap(Pair::left, Pair::right, ArrayListMultimap::create));
-    var indexDto = IndexRootDto.builder()
+    return IndexRootDto.builder()
       .byVisibility(byVisibility)
       .byKind(byKind)
       .byType(byType)
       .byExistence(byExistence)
       .byChanged(byChanged)
       .build();
-    var rootDto = RootDto.builder()
-      .meta(metaDto)
-      .commits(commitDtos)
-      .symbols(symbolDtos)
-      .indices(indexDto)
-      .build();
-    try (FileOutputStream fos = new FileOutputStream(path)) {
-      getObjectMapper().writeValue(fos, rootDto);
-    }
   }
 
   private @NotNull ObjectMapper getObjectMapper() {
@@ -353,6 +246,219 @@ public class Serializer {
     mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
     return mapper;
+  }
+
+  private static @NotNull List<SymbolDto> getSymbolDtos(
+    ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates, List<CommitDto> commitDtos,
+    Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex, Map<@NotNull SymbolKey, @NotNull Long> keysToIds,
+    Set<@NotNull Long> deletedIds) {
+    List<SymbolDto> symbolDtos = new ArrayList<>();
+    for (var stateEntry : symbolStates.asMap().entrySet()) {
+      var id = stateEntry.getKey();
+      var states = stateEntry.getValue();
+      var sortedStates = states.stream().sorted(
+        Comparator.comparing(s -> commitDtos.get(s.getCommit()).getDate())
+      ).toList();
+      SortedMap<@NotNull YearMonth, List<StateDto>> groupedStates = new TreeMap<>();
+      for (var state : sortedStates) {
+        var yearMonth = YearMonth.from(commitDtos.get(state.getCommit()).getDate());
+        groupedStates.computeIfAbsent(yearMonth, k -> new ArrayList<>()).add(state);
+      }
+      List<KeyDto> keyDtos = new ArrayList<>();
+      Map<Hash, KeyDto> openKeyDtos = new HashMap<>();
+      for (var state : sortedStates) {
+        final var commitDto = commitDtos.get(state.getCommit());
+        var date = commitDto.getDate();
+        var commitHash = commitDto.getHash();
+        closeOpenKeyDtos(commitIndex, commitHash, openKeyDtos, date);
+        var properties = state.getProperties();
+        Option<@NotNull Long> parentId = properties.getPropertyValue(ParentProperty.class)
+          .map(symbolId -> new SymbolKey(symbolId, commitDto.getStrand()))
+          .map(keysToIds::get);
+        ParentDto parentDto = new ParentDto(parentId.getOrNull(), -1);
+        var keyDto = KeyDto.builder()
+          .from(date)
+          .kind(properties.getPropertyValue(KindProperty.class).getOrThrow())
+          .name(properties.getPropertyValue(SimpleNameProperty.class).getOrThrow())
+          .parent(parentDto)
+          .build();
+        keyDtos.add(keyDto);
+        openKeyDtos.put(commitHash, keyDto);
+      }
+      var symbolDto = SymbolDto.builder()
+        .id(id)
+        .deleted(deletedIds.contains(id))
+        .states(groupedStates)
+        .keys(keyDtos)
+        .build();
+      symbolDtos.add(symbolDto);
+    }
+    return symbolDtos;
+  }
+
+  private static @NotNull SymbolStatesResult getSymbolStatesResult(Set<Strand> strands,
+                                                                   Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
+                                                                   Map<@NotNull SymbolKey, @NotNull Long> keysToIds) {
+    SymbolStatesWipResult wipResult = SymbolStatesWipResult.create(commitIndex, keysToIds);
+    for (var strand : strands) {
+      for (var diff : IterablesX.consuming(strand.getCommitDiffs())) {
+        int commitId = commitIndex.get(diff.getCommit()).right();
+        SymbolStatesDiffContext diffContext = SymbolStatesDiffContext.create(diff, commitId);
+        putAdditionStates(wipResult, diffContext);
+        for (var succession : diff.getSuccessions()) {
+          var id = keysToIds.get(succession.getKey());
+          wipResult.lastSeenProperties().put(id, succession.getProperties());
+          diffContext.successions().put(id, succession);
+        }
+        putDeletionStates(wipResult, diffContext);
+        putChangedStates(wipResult, diffContext);
+        putPureSuccessionStates(wipResult, diffContext);
+      }
+    }
+    return wipResult.toFinalResult();
+  }
+
+  private static void putAdditionStates(SymbolStatesWipResult wipResult, SymbolStatesDiffContext diffContext) {
+    for (var addition : diffContext.diff().getAdditions()) {
+      var id = wipResult.keysToIds().get(addition.getKey());
+      wipResult.lastSeenProperties().put(id, addition.getProperties());
+      var stateProperties = addition.getProperties().clone();
+      var stateDto = StateDto.builder()
+        .cause(ChangeCause.ADDED)
+        .commit(diffContext.commitId())
+        .origins(Collections.emptyList())
+        .symbolId(addition.getKey().symbolId())
+        .properties(stateProperties)
+        //.updated(stateProperties.keySet())
+        .build();
+      wipResult.symbolStates().put(id, stateDto);
+      wipResult.deletedIds().remove(id);
+    }
+  }
+
+  private static void putChangedStates(SymbolStatesWipResult wipResult, SymbolStatesDiffContext diffContext) {
+    for (var update : diffContext.diff().getUpdates()) {
+      var key = update.getTargetContext().key();
+      var id = wipResult.keysToIds().get(key);
+      var hasSuccession = diffContext.successions().containsKey(id);
+      if (hasSuccession) {
+        diffContext.successionHandledParents().put(id, update.getParentIndex());
+      }
+
+      var properties = wipResult.lastSeenProperties().get(id);
+      if (!hasSuccession) {
+        properties.applyUpdate(update.getProperties());
+      }
+      var stateProperties = properties.clone();
+      var originDto = OriginDto.of(
+        update.getParentIndex(), wipResult.commitIndex().get(update.getSourceContext().commit()).right());
+      var stateDto = StateDto.builder()
+        .cause(hasSuccession ? ChangeCause.SUCCEEDED_CHANGED : ChangeCause.CHANGED)
+        .commit(diffContext.commitId())
+        .origins(List.of(originDto))
+        .symbolId(key.symbolId())
+        .properties(stateProperties)
+        .updated(update.getProperties().keySet())
+        .flags(update.getFlags())
+        .build();
+      wipResult.symbolStates().put(id, stateDto);
+    }
+  }
+
+  private static void putDeletionStates(SymbolStatesWipResult wipResult, SymbolStatesDiffContext diffContext) {
+    for (var deletion : diffContext.diff().getDeletions()) {
+      var id = wipResult.keysToIds().get(deletion.getKey());
+      wipResult.lastSeenProperties().remove(id);
+      var stateProperties = deletion.getProperties();
+      var sourceCommitHash = deletion.getContext().getOrThrow().commit();
+      var parentIndex = diffContext.diff().getParentCommits().indexOf(sourceCommitHash);
+      var stateDto = StateDto.builder()
+        .cause(ChangeCause.DELETED)
+        .commit(diffContext.commitId())
+        .origins(List.of(OriginDto.of(parentIndex, wipResult.commitIndex().get(sourceCommitHash).right())))
+        .symbolId(deletion.getKey().symbolId())
+        .properties(stateProperties)
+        .build();
+      wipResult.symbolStates().put(id, stateDto);
+      wipResult.deletedIds().add(id);
+    }
+  }
+
+  private static void putPureSuccessionStates(SymbolStatesWipResult wipResult, SymbolStatesDiffContext diffContext) {
+    var diff = diffContext.diff();
+    for (var successionEntry : diffContext.successions().entrySet()) {
+      var id = successionEntry.getKey();
+      var succession = successionEntry.getValue();
+      var stateProperties = succession.getProperties().clone();
+      List<OriginDto> origins = new ArrayList<>();
+      for (int parentIndex = 0; parentIndex < diff.getParentCommits().size(); parentIndex++) {
+        if (!diffContext.successionHandledParents().containsEntry(id, parentIndex)) {
+          var sourceCommitHash = diff.getParentCommits().get(parentIndex);
+          origins.add(OriginDto.of(parentIndex, wipResult.commitIndex().get(sourceCommitHash).right()));
+        }
+      }
+      if (origins.isEmpty()) {
+        // If symbol changed relative to ALL parents, do not create a pure succession entry
+        continue;
+      }
+      var stateDto = StateDto.builder()
+        .cause(ChangeCause.SUCCEEDED_PURE)
+        .commit(diffContext.commitId())
+        .origins(origins)
+        .symbolId(succession.getKey().symbolId())
+        .properties(stateProperties)
+        .build();
+      wipResult.symbolStates().put(id, stateDto);
+    }
+  }
+
+  private record SymbolStatesDiffContext(
+    CommitDiff diff,
+    int commitId,
+    Multimap<@NotNull Long, @NotNull Integer> successionHandledParents,
+    Map<@NotNull Long, @NotNull Symbol> successions
+  ) {
+
+    public static SymbolStatesDiffContext create(CommitDiff diff, int commitId) {
+      return new SymbolStatesDiffContext(diff, commitId, HashMultimap.create(), new HashMap<>());
+    }
+
+  }
+
+  private record SymbolStatesWipResult(
+    Set<@NotNull Long> deletedIds,
+    ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates,
+    Map<@NotNull Long, @NotNull PropertyMap> lastSeenProperties,
+    Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
+    Map<@NotNull SymbolKey, @NotNull Long> keysToIds
+  ) {
+
+    public static SymbolStatesWipResult create(Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
+                                               Map<@NotNull SymbolKey, @NotNull Long> keysToIds) {
+      return new SymbolStatesWipResult(
+        new HashSet<@NotNull Long>(),
+        ArrayListMultimap.<@NotNull Long, @NotNull StateDto>create(),
+        new HashMap<@NotNull Long, @NotNull PropertyMap>(),
+        commitIndex,
+        keysToIds
+      );
+    }
+
+    public SymbolStatesResult toFinalResult() {
+      return new SymbolStatesResult(deletedIds, symbolStates);
+    }
+
+  }
+
+  private record SymbolStatesResult(
+    Set<Long> deletedIds,
+    ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates
+  ) {
+
+  }
+
+  private record AbstractIdAssignment(long idCount, Map<@NotNull SymbolKey, @NotNull Long> keysToIds) {
+
   }
 
 }

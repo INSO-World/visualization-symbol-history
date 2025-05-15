@@ -12,12 +12,27 @@ import java.util.stream.Collectors;
 @UtilityClass
 public class SetsX {
 
-  public <E extends Copyable<E>> Set<E> copy(Set<E> set) {
-    return AnStream.from(set).map(Copyable::copy).toSet();
+  public <E extends Enum<E>> Set<E> containedEnumValues(Class<E> enumClass, @NotNull Iterable<E> iterable) {
+    EnumSet<E> values = EnumSet.noneOf(enumClass);
+    int maxSize = EnumSet.allOf(enumClass).size();
+    for (E e : iterable) {
+      if (e == null) {
+        continue;
+      }
+      values.add(e);
+      if (values.size() == maxSize) {
+        break;
+      }
+    }
+    return values;
   }
 
   public <E> Set<E> copy(Set<E> set, Function<E, E> copyFn) {
     return AnStream.from(set).map(copyFn).toSet();
+  }
+
+  public <E extends Copyable<E>> Set<E> copy(Set<E> set) {
+    return AnStream.from(set).map(Copyable::copy).toSet();
   }
 
   public <E> Set<E> difference(Set<E> minuend, Set<?> @NotNull ... subtrahends) {
@@ -57,21 +72,6 @@ public class SetsX {
     return Arrays.stream(sets)
       .flatMap(Collection::stream)
       .collect(Collectors.toSet());
-  }
-
-  public <E extends Enum<E>> Set<E> containedEnumValues(Class<E> enumClass, @NotNull Iterable<E> iterable) {
-    EnumSet<E> values = EnumSet.noneOf(enumClass);
-    int maxSize = EnumSet.allOf(enumClass).size();
-    for (E e : iterable) {
-      if (e == null) {
-        continue;
-      }
-      values.add(e);
-      if (values.size() == maxSize) {
-        break;
-      }
-    }
-    return values;
   }
 
 }

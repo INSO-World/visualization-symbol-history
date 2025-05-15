@@ -25,10 +25,6 @@ public class Repository implements AutoCloseable {
 
   org.eclipse.jgit.lib.Repository jgitRepository;
 
-  public String getName() {
-    return jgitRepository.getWorkTree().getName();
-  }
-
   public static Repository open(@NotNull String repositoryPath) throws IOException {
     var repository = new RepositoryBuilder()
       .setMustExist(true)
@@ -59,6 +55,10 @@ public class Repository implements AutoCloseable {
     revWalk.markStart(startCommit);
     order.applyTo(revWalk);
     return new CommitWalk(revWalk);
+  }
+
+  public String getName() {
+    return jgitRepository.getWorkTree().getName();
   }
 
   public List<DiffEntry> initialCommitFilesOf(@NotNull Commit commit) throws IOException {

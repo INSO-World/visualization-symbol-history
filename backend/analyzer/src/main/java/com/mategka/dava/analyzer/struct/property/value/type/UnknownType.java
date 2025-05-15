@@ -29,17 +29,17 @@ public final class UnknownType implements Type {
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
   List<TypeArgument> typeArguments = new ArrayList<>();
 
+  @JsonIgnore
+  private @NotNull String getSimpleName() {
+    return qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1);
+  }
+
   @Override
   public @NotNull String toString() {
     return getSimpleName() + (typeArguments.isEmpty()
       ? ""
       : "<%s>".formatted(typeArguments.stream().collect(CollectorsX.commaSeparated()))
     );
-  }
-
-  @JsonIgnore
-  private @NotNull String getSimpleName() {
-    return qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1);
   }
 
 }

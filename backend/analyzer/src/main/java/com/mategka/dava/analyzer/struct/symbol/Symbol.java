@@ -64,6 +64,7 @@ public final class Symbol implements PropertyIndexable, Copyable<Symbol>, Serial
   public @NotNull Symbol copyWithContext() {
     var result = copy();
     result.context = context;
+    result.predecessors.putAll(predecessors);
     return result;
   }
 

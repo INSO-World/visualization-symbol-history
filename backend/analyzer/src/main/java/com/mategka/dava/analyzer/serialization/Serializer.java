@@ -35,14 +35,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.time.*;
+import java.time.YearMonth;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Stream;
 
 @UtilityClass
 public class Serializer {
-
-  private static final ZonedDateTime ZONED_EPOCH = ZonedDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC);
 
   public void writeJson(@NotNull History history, List<CommitInfo> commits, @NotNull String path) throws IOException {
     var strands = history.getStrandDag().nodes();
@@ -50,8 +49,8 @@ public class Serializer {
     Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex = AnStream.fromIndexed(commits)
       .collect(CollectorsX.mapToKey(p -> p.left().hash()));
     var dateBounds = IterablesX.minmax(commits.stream().map(CommitInfo::date).iterator());
-    ZonedDateTime createdAt = dateBounds.map(Pair::left).getOrCompute(ZonedDateTime::now);
-    ZonedDateTime updatedAt = dateBounds.map(Pair::right).getOrElse(ZONED_EPOCH);
+    ZonedDateTime createdAt = dateBounds.map(Pair::left).getOrCompute(ZonedDateTimes::nowWithSecondPrecision);
+    ZonedDateTime updatedAt = dateBounds.map(Pair::right).getOrElse(ZonedDateTimes.EPOCH);
     commits.clear();
 
     List<CommitDto> commitDtos = getCommitDtos(commitIndex, history.getStrandMapping());

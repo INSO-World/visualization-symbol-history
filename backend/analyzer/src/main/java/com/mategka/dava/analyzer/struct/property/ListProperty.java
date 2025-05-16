@@ -2,11 +2,12 @@ package com.mategka.dava.analyzer.struct.property;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Serializable;
 import java.util.List;
 
-public sealed interface ListProperty<T> extends TypedProperty<List<? extends T>>
+public sealed interface ListProperty<T extends Serializable> extends CollectionProperty<T>
   permits AnnotationsProperty, EnumArgumentsProperty, RealizationsProperty, SupertypesProperty, TypeParametersProperty {
 
-  @NotNull List<? extends T> value();
+  @NotNull List<T> value();
 
 }

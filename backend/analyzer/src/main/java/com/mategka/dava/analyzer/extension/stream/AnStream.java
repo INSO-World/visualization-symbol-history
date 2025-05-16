@@ -1,20 +1,20 @@
 package com.mategka.dava.analyzer.extension.stream;
 
 import com.mategka.dava.analyzer.extension.Covariant;
-import com.mategka.dava.analyzer.extension.Pair;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.option.Options;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 
 import com.google.common.collect.Streams;
 import lombok.AccessLevel;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.*;
 import java.util.function.*;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @ToString
@@ -32,27 +32,42 @@ public class AnStream<T> extends AbstractStreamAdapter<T, AnStream<T>> {
     return new AnStream<>(Arrays.stream(array));
   }
 
-  @SafeVarargs
-  public static <T> AnStream<T> from(T firstValue, T... values) {
-    var result = new AnStream<>(Stream.of(firstValue));
-    if (values.length > 0) result = result.concat(Stream.of(values));
-    return result;
+  public static <T> AnStream<T> from(Spliterator<? extends T> spliterator) {
+    var parallel = spliterator.hasCharacteristics(Spliterator.CONCURRENT);
+    return new AnStream<>(Covariant.stream(StreamSupport.stream(spliterator, parallel)));
   }
 
   public static <T> AnStream<T> from(Collection<? extends T> collection) {
     return new AnStream<>(Covariant.stream(collection.stream()));
   }
 
+  public static <K, V> AnStream<Map.Entry<K, V>> from(Map<K, V> map) {
+    return new AnStream<>(map.entrySet().stream());
+  }
+
   @SafeVarargs
   public static <T> AnStream<T> cons(T head, Stream<? extends T>... tails) {
     if (tails.length == 0) {
-      return AnStream.from(head);
+      return AnStream.singleton(head);
     }
-    return AnStream.from(head).concat(AnStream.from(tails).flatMap(Function.identity()));
+    return AnStream.singleton(head).concat(AnStream.from(tails).flatMap(Function.identity()));
   }
 
   public static <T> AnStream<Pair<T, Integer>> fromIndexed(Collection<T> collection) {
     return new AnStream<>(AnStream.zip(collection.stream(), IntStream.range(0, collection.size()).boxed()));
+  }
+
+  public static <T> AnStream<T> iterate(Supplier<Boolean> hasNext, Supplier<T> next) {
+    return new AnStream<>(Stream.<T>iterate(null, _t -> hasNext.get(), _t -> next.get()).skip(1));
+  }
+
+  @SafeVarargs
+  public static <T> AnStream<T> sequence(T... values) {
+    return new AnStream<>(Stream.of(values));
+  }
+
+  public static <T> AnStream<T> singleton(T value) {
+    return new AnStream<>(Stream.of(value));
   }
 
   public static <L, R> AnStream<Pair<L, R>> zip(Stream<L> streamA, Stream<R> streamB) {
@@ -71,6 +86,10 @@ public class AnStream<T> extends AbstractStreamAdapter<T, AnStream<T>> {
   @Override
   public <R> AnStream<R> flatMap(Function<? super T, ? extends Stream<? extends R>> mapper) {
     return new AnStream<>(stream.flatMap(mapper));
+  }
+
+  public <R> AnStream<R> flatMapCollection(Function<? super T, ? extends Collection<? extends R>> mapper) {
+    return new AnStream<>(stream.map(mapper).flatMap(Collection::stream));
   }
 
   @Override

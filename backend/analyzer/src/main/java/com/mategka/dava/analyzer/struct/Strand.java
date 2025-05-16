@@ -1,5 +1,7 @@
 package com.mategka.dava.analyzer.struct;
 
+import com.mategka.dava.analyzer.extension.Mutable;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -21,6 +23,7 @@ public final class Strand {
 
   @NonNull
   @Builder.Default
+  @Mutable
   List<CommitDiff> commitDiffs = new ArrayList<>();
 
   @Override

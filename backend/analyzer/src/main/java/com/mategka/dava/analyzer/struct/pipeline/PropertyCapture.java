@@ -14,7 +14,7 @@ import com.mategka.dava.analyzer.struct.property.value.bound.TypeBound;
 import com.mategka.dava.analyzer.struct.property.value.bound.UpperTypeBound;
 import com.mategka.dava.analyzer.struct.property.value.type.Type;
 import com.mategka.dava.analyzer.struct.property.value.type.UnknownType;
-import com.mategka.dava.analyzer.struct.symbol.BareSymbol;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import lombok.experimental.UtilityClass;
 import spoon.reflect.code.*;
@@ -22,14 +22,19 @@ import spoon.reflect.declaration.*;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtWildcardReference;
 
-import java.util.Collections;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
 @UtilityClass
 public class PropertyCapture {
 
-  public BareSymbol parseElement(CtElement element) {
+  private static final IdentityHashMap<CtElement, String> pathCache = new IdentityHashMap<>();
+
+  public static void clearPathCache() {
+    pathCache.clear();
+  }
+
+  public Symbol parseElement(CtElement element) {
     return switch (element) {
       case CtType<?> type -> parseTypeDeclaration(type);
       case CtConstructor<?> constructor -> parseConstructor(constructor);
@@ -42,16 +47,27 @@ public class PropertyCapture {
     };
   }
 
+  public Symbol parsePackage(CtPackage pakkage) {
+    var properties = commonPropertiesBuilder(pakkage)
+      .property(Kind.PACKAGE.toProperty())
+      .build();
+    return Symbol.withPropertyMap(properties);
+  }
+
   private PropertyMap.Builder commonPropertiesBuilder(CtElement element) {
     var annotations = ListsX.map(
       element.getAnnotations(),
-      a -> UnknownType.of(a.getAnnotationType().getQualifiedName())
+      a -> (Type) UnknownType.of(a.getAnnotationType().getQualifiedName())
     );
+    var spoonPathProperty = SpoonPathProperty.fromElement(element, pathCache);
     var builder = PropertyMap.builder()
-      .property(AnalyzerLevelProperty.CURRENT)
-      .property(new AnnotationsProperty(annotations))
-      .property(LineRangeProperty.fromElement(element))
-      .property(PathProperty.fromElement(element));
+      .property(FlagsProperty.fromElement(element))
+      .property(AnnotationsProperty::new, annotations)
+      .property(spoonPathProperty)
+      .property(PathProperty.fromSpoonPathProperty(spoonPathProperty));
+    if (element.getPosition().isValidPosition()) {
+      builder.property(LineRangeProperty.fromElement(element));
+    }
     if (element instanceof CtNamedElement namedElement) {
       builder.property(SimpleNameProperty.fromElement(namedElement));
     }
@@ -62,15 +78,27 @@ public class PropertyCapture {
       // TODO: Replace with known type where applicable (may be generic type parameter)
       builder.property(new TypeProperty(parseUnknownType(typedElement.getType())));
     }
-    if (element instanceof CtFormalTypeDeclarer formalTypeDeclarer) {
+    if (element instanceof CtFormalTypeDeclarer formalTypeDeclarer && !formalTypeDeclarer.getFormalCtTypeParameters()
+      .isEmpty()) {
       var typeParameters = ListsX.map(
         formalTypeDeclarer.getFormalCtTypeParameters(), PropertyCapture::parseTypeParameter);
       builder.property(new TypeParametersProperty(typeParameters));
     }
+    if (element instanceof CtExecutable<?> executable) {
+      // TODO: FIX: Does not seem to hold equality checks (i.e., equal bodies don't always result in equal hashes)
+      int bodyHash;
+      try {
+        bodyHash = Objects.hashCode(executable.getBody());
+      } catch (Exception _ignored) {
+        // If the function body can - for some reason - not be parsed, treat it as empty
+        bodyHash = 0;
+      }
+      builder.property(new BodyHashProperty(bodyHash));
+    }
     return builder;
   }
 
-  private BareSymbol parseConstructor(CtConstructor<?> constructor) {
+  private Symbol parseConstructor(CtConstructor<?> constructor) {
     if (!Spoon.isRegularConstructor(constructor)) {
       throw new IllegalArgumentException("Given subject constitutes an illegal constructor symbol basis");
     }
@@ -83,10 +111,10 @@ public class PropertyCapture {
       .property(new SimpleNameProperty(name))
       .property(visibility.toProperty())
       .build();
-    return new BareSymbol(properties);
+    return Symbol.withPropertyMap(properties);
   }
 
-  private BareSymbol parseEnumConstant(CtEnumValue<?> enumConstant) {
+  private Symbol parseEnumConstant(CtEnumValue<?> enumConstant) {
     var arguments = Options.fromNullable(enumConstant.getDefaultExpression())
       .map(i -> (CtConstructorCall<?>) i)
       .map(CtAbstractInvocation::getArguments)
@@ -96,12 +124,12 @@ public class PropertyCapture {
       .toList();
     var properties = commonPropertiesBuilder(enumConstant)
       .property(Kind.ENUM_CONSTANT.toProperty())
-      .property(new EnumArgumentsProperty(arguments))
+      .property(EnumArgumentsProperty::new, arguments)
       .build();
-    return new BareSymbol(properties);
+    return Symbol.withPropertyMap(properties);
   }
 
-  private BareSymbol parseField(CtField<?> field) {
+  private Symbol parseField(CtField<?> field) {
     var modifiers = ModifiersProperty.getModifiers(field);
     var kind = modifiers.containsAll(Modifier.CONSTANT_FIELD_MODIFIERS)
       ? Kind.CONSTANT_FIELD
@@ -111,27 +139,27 @@ public class PropertyCapture {
       .property(kind.toProperty())
       .property(initialValue)
       .build();
-    return new BareSymbol(properties);
+    return Symbol.withPropertyMap(properties);
   }
 
-  private BareSymbol parseMethod(CtMethod<?> method) {
+  private Symbol parseMethod(CtMethod<?> method) {
     var visibility = Visibility.fromModifiable(method);
     var properties = commonPropertiesBuilder(method)
       .property(Kind.METHOD.toProperty())
       .property(visibility.toProperty())
       .build();
-    return new BareSymbol(properties);
+    return Symbol.withPropertyMap(properties);
   }
 
   private Option<Expression> parseNullableExpression(CtExpression<?> expression) {
     return Options.fromNullable(expression).map(Expression::fromSpoon);
   }
 
-  private BareSymbol parseParameter(CtParameter<?> parameter) {
+  private Symbol parseParameter(CtParameter<?> parameter) {
     var properties = commonPropertiesBuilder(parameter)
       .property(Kind.PARAMETER.toProperty())
       .build();
-    return new BareSymbol(properties);
+    return Symbol.withPropertyMap(properties);
   }
 
   private TypeArgument parseTypeArgument(CtTypeReference<?> typeReference) {
@@ -144,7 +172,7 @@ public class PropertyCapture {
     }
   }
 
-  private BareSymbol parseTypeDeclaration(CtType<?> typeDeclaration) {
+  private Symbol parseTypeDeclaration(CtType<?> typeDeclaration) {
     var visibility = Visibility.fromModifiable(typeDeclaration);
     var ctSupertypes = typeDeclaration.isInterface()
       ? typeDeclaration.getSuperInterfaces()
@@ -159,10 +187,10 @@ public class PropertyCapture {
     var properties = commonPropertiesBuilder(typeDeclaration)
       .property(KindProperty.fromType(typeDeclaration))
       .property(visibility.toProperty())
-      .property(new SupertypesProperty(supertypes))
-      .property(new RealizationsProperty(realizations))
+      .property(SupertypesProperty::new, supertypes)
+      .property(RealizationsProperty::new, realizations)
       .build();
-    return new BareSymbol(properties);
+    return Symbol.withPropertyMap(properties);
   }
 
   private TypeParameter parseTypeParameter(CtTypeParameter typeParameter) {
@@ -179,7 +207,7 @@ public class PropertyCapture {
     return UnknownType.of(typeReference.getQualifiedName(), typeArguments);
   }
 
-  private BareSymbol parseVariable(CtLocalVariable<?> variable) {
+  private Symbol parseVariable(CtLocalVariable<?> variable) {
     var modifiers = ModifiersProperty.getModifiers(variable);
     var kind = modifiers.containsAll(Modifier.CONSTANT_VARIABLE_MODIFIERS)
       ? Kind.CONSTANT_VARIABLE
@@ -189,7 +217,7 @@ public class PropertyCapture {
       .property(kind.toProperty())
       .property(initialValue)
       .build();
-    return new BareSymbol(properties);
+    return Symbol.withPropertyMap(properties);
   }
 
 }

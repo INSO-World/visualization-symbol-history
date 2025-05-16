@@ -1,24 +1,31 @@
 package com.mategka.dava.analyzer.struct;
 
+import com.mategka.dava.analyzer.extension.IterablesX;
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.git.Commit;
 import com.mategka.dava.analyzer.git.Hash;
-import com.mategka.dava.analyzer.struct.refactoring.SymbolRefactoring;
+import com.mategka.dava.analyzer.struct.property.LineRangeProperty;
+import com.mategka.dava.analyzer.struct.property.index.PropertyKeys;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolUpdate;
 
+import com.google.common.collect.Iterables;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.ZonedDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Value
 @Builder
-public class CommitDiff {
+public class CommitDiff implements Serializable {
+
+  @Serial
+  private static final long serialVersionUID = 4511490283001393772L;
 
   /**
    * The commit SHAs of all parents compared with.
@@ -38,67 +45,47 @@ public class CommitDiff {
   @NonNull
   ZonedDateTime commitDate;
 
-  /**
-   * A map from symbol IDs to trace symbols introduced by this commit.
-   * Logically, this map will always be empty for commits not first in their
-   * corresponding strand.
-   * These can be thought of as additions without any actual symbol to add and
-   * should always be processed by consumers first.
-   * Note that trace symbols may be deleted in the commit they were created,
-   * in which case they show up both here and in {@link #getDeletions()}.
-   * Refactorings and modifications will likewise be reflected by
-   * {@link #getRefactorings()} and {@link #getUpdates()}.
-   */
   @NonNull
-  Map<Long, Symbol> successions;
+  Collection<Symbol> additions;
 
-  /**
-   * A list of all multi-symbol refactorings performed in this commit.
-   * Single-symbol refactorings such as simple moves and renames can instead be
-   * found in {@link #getUpdates()}.
-   */
   @NonNull
-  List<SymbolRefactoring> refactorings;
+  Collection<Symbol> successions;
 
-  /**
-   * A list of all symbols introduced in this commit.
-   * Their state mirrors the properties they were introduced with.
-   * Symbols introduced by multi-symbol refactorings do not show up here.
-   *
-   * @see #getSuccessions()
-   * @see #getRefactorings()
-   */
   @NonNull
-  List<Symbol> additions;
+  Collection<Symbol> deletions;
 
-  /**
-   * A list of all symbols removed in this commit.
-   * Their state mirrors the properties they had prior to deletion.
-   * Symbols removed by multi-symbol refactorings do not show up here.
-   *
-   * @see #getRefactorings()
-   */
   @NonNull
-  List<Symbol> deletions;
+  Collection<SymbolUpdate> updates;
 
-  /**
-   * A list of all symbols modified in this commit.
-   * Symbols modified by multi-symbol refactorings do not show up here.
-   *
-   * @see #getRefactorings()
-   */
-  @NonNull
-  Map<Long, SymbolUpdate> updates;
+  public Iterable<Symbol> getStartSymbols() {
+    return Iterables.concat(additions, successions);
+  }
 
-  public static CommitDiff empty(Commit commit) {
-    return CommitDiff.builder()
-      .commitData(commit)
-      .successions(Collections.emptyMap())
-      .refactorings(Collections.emptyList())
-      .additions(Collections.emptyList())
-      .deletions(Collections.emptyList())
-      .updates(Collections.emptyMap())
-      .build();
+  public void printDebug() {
+    additions.stream()
+      .sorted(Comparator.comparingLong(s -> s.getKey().symbolId()))
+      .forEach(a -> System.out.println("+ " + a));
+    deletions.stream()
+      .sorted(Comparator.comparingLong(s -> s.getKey().symbolId()))
+      .forEach(d -> System.out.printf("- @%d %s%n", d.getContext().getOrThrow().key().strandId(), d));
+    var updatesByJustLineChanges = updates.stream()
+      .sorted(Comparator.comparingLong(u -> u.getSourceContext().key().symbolId()))
+      .collect(Collectors.partitioningBy(u -> u.getProperties().size() == 1
+        && IterablesX.getFirst(u.getProperties().keySet()).equals(PropertyKeys.get(LineRangeProperty.class))));
+    var lineUpdates = updatesByJustLineChanges.get(true).stream()
+      .map(u -> u.getSourceContext().key().symbolId())
+      .map(Objects::toString)
+      .collect(Collectors.joining(", "));
+    if (!lineUpdates.isEmpty()) {
+      System.out.println("$ Line changes: " + lineUpdates);
+    }
+    updatesByJustLineChanges.get(false).stream()
+      .sorted(Comparator.comparingLong(u -> u.getSourceContext().key().symbolId()))
+      .forEach(u -> System.out.println("$ " + u));
+  }
+
+  public long size() {
+    return (long) additions.size() + successions.size() + deletions.size() + updates.size();
   }
 
   public static class CommitDiffBuilder {

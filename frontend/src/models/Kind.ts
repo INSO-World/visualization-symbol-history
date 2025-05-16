@@ -1,0 +1,22 @@
+export enum Kind {
+  MODULE = "MODULE",
+  PACKAGE = "PACKAGE",
+  // Classes
+  CLASS = "CLASS",
+  RECORD = "RECORD",
+  ENUM = "ENUM",
+  // Interfaces
+  INTERFACE = "INTERFACE",
+  ANNOTATION = "ANNOTATION",
+  // Field members
+  FIELD = "FIELD",
+  CONSTANT_FIELD = "CONSTANT_FIELD",
+  ENUM_CONSTANT = "ENUM_CONSTANT",
+  // Method members
+  METHOD = "METHOD",
+  CONSTRUCTOR = "CONSTRUCTOR",
+  // Local variables
+  PARAMETER = "PARAMETER",
+  VARIABLE = "VARIABLE",
+  CONSTANT_VARIABLE = "CONSTANT_VARIABLE",
+}

@@ -1,7 +1,10 @@
 package com.mategka.dava.analyzer.extension;
 
+import com.mategka.dava.analyzer.extension.struct.Pair;
+
 import lombok.experimental.UtilityClass;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -9,6 +12,10 @@ import java.util.stream.Stream;
 @SuppressWarnings("unchecked")
 @UtilityClass
 public class Covariant {
+
+  public <T> Collection<T> collection(Collection<? extends T> collection) {
+    return (Collection<T>) collection;
+  }
 
   public <T> List<T> list(List<? extends T> list) {
     return (List<T>) list;

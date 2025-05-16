@@ -5,7 +5,10 @@ import com.mategka.dava.analyzer.extension.option.Options;
 
 import org.jetbrains.annotations.NotNull;
 
-public sealed interface NullableProperty<T> extends TypedProperty<T> permits ParentProperty {
+import java.io.Serializable;
+
+public sealed interface NullableProperty<T extends Serializable> extends SerializableProperty<T>
+  permits ParentProperty {
 
   default @NotNull Option<T> asOption() {
     return Options.fromNullable(value());

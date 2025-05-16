@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.struct.property;
 
+import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
@@ -15,8 +16,8 @@ import java.util.stream.Collectors;
 @PropertyKey("modifiers")
 public record ModifiersProperty(Set<Modifier> value) implements SetProperty<Modifier> {
 
-  public static ModifiersProperty fromModifiable(CtModifiable modifiable) {
-    return new ModifiersProperty(getModifiers(modifiable));
+  public static Option<ModifiersProperty> fromModifiable(CtModifiable modifiable) {
+    return Options.fromSized(getModifiers(modifiable)).map(ModifiersProperty::new);
   }
 
   public static Set<Modifier> getModifiers(CtModifiable modifiable) {

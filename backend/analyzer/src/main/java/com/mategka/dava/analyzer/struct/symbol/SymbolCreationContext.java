@@ -7,7 +7,11 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public record SymbolCreationContext(AtomicLong symbolIdCounter, long strandId, Hash commit) {
+public record SymbolCreationContext(AtomicLong symbolIdCounter, long strandId, Hash commit, boolean hasStrandChange) {
+
+  public @NotNull Context generateContext() {
+    return new Context(generateKey(), commit);
+  }
 
   @Contract(" -> new")
   public @NotNull SymbolKey generateKey() {

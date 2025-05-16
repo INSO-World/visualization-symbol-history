@@ -17,14 +17,13 @@ import org.jetbrains.annotations.NotNull;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Value
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Repository implements AutoCloseable {
 
-  org.eclipse.jgit.lib.Repository spoonRepository;
+  org.eclipse.jgit.lib.Repository jgitRepository;
 
   public static Repository open(@NotNull String repositoryPath) throws IOException {
     var repository = new RepositoryBuilder()
@@ -51,11 +50,15 @@ public class Repository implements AutoCloseable {
   }
 
   public CommitWalk commitsUpTo(@NotNull Ref head, CommitOrder order) throws IOException {
-    var revWalk = new RevWalk(spoonRepository);
+    var revWalk = new RevWalk(jgitRepository);
     var startCommit = revWalk.parseCommit(head.getObjectId());
     revWalk.markStart(startCommit);
     order.applyTo(revWalk);
     return new CommitWalk(revWalk);
+  }
+
+  public String getName() {
+    return jgitRepository.getWorkTree().getName();
   }
 
   public List<DiffEntry> initialCommitFilesOf(@NotNull Commit commit) throws IOException {
@@ -73,7 +76,7 @@ public class Repository implements AutoCloseable {
   }
 
   public TreeWalk newTreeWalk(@NotNull Commit commit) throws IOException {
-    var walk = new TreeWalk(spoonRepository);
+    var walk = new TreeWalk(jgitRepository);
     walk.addTree(commit.tree());
     walk.setRecursive(true);
     return walk;
@@ -85,7 +88,7 @@ public class Repository implements AutoCloseable {
 
   public Result<String, IOException> readFile(ObjectId objectId) {
     try (
-      ObjectReader reader = spoonRepository.newObjectReader();
+      ObjectReader reader = jgitRepository.newObjectReader();
       ByteArrayOutputStream output = new ByteArrayOutputStream()
     ) {
       reader.open(objectId).copyTo(output);
@@ -95,13 +98,29 @@ public class Repository implements AutoCloseable {
     }
   }
 
+  public Set<String> readRelevantPaths(@NotNull Commit commit) {
+    Set<String> result = new HashSet<>();
+    try (var walk = newTreeWalk(commit)) {
+      // TODO: Fix for subtrees/submodules, which will make next() throw
+      while (walk.next()) {
+        var path = walk.getPathString();
+        if (RelevantDiffs.isFileRelevant(path)) {
+          result.add(path);
+        }
+      }
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to read paths from " + commit, e);
+    }
+    return result;
+  }
+
   public Option<Ref> resolveRef(@NotNull String name) {
-    return Options.fromCallable(() -> spoonRepository.findRef(name));
+    return Options.fromCallable(() -> jgitRepository.findRef(name));
   }
 
   @Override
   public void close() {
-    spoonRepository.close();
+    jgitRepository.close();
   }
 
 }

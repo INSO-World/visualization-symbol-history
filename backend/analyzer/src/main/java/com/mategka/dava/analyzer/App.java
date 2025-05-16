@@ -1,293 +1,170 @@
 package com.mategka.dava.analyzer;
 
-import com.mategka.dava.analyzer.collections.IndexMap;
-import com.mategka.dava.analyzer.extension.CollectorsX;
-import com.mategka.dava.analyzer.extension.MultimapsX;
-import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.collections.Array;
+import com.mategka.dava.analyzer.collections.CountingMap;
+import com.mategka.dava.analyzer.diff.file.FileChange;
+import com.mategka.dava.analyzer.diff.file.FileDiff;
+import com.mategka.dava.analyzer.diff.file.FileMapping;
+import com.mategka.dava.analyzer.diff.symbol.SymbolDiff;
+import com.mategka.dava.analyzer.diff.workspace.SymbolWorkspace;
+import com.mategka.dava.analyzer.diff.workspace.TargetWorkspace;
+import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.git.*;
-import com.mategka.dava.analyzer.spoon.AstComparator;
-import com.mategka.dava.analyzer.spoon.Spoon;
-import com.mategka.dava.analyzer.spoon.action.*;
+import com.mategka.dava.analyzer.serialization.Serializer;
 import com.mategka.dava.analyzer.struct.CommitDiff;
 import com.mategka.dava.analyzer.struct.History;
-import com.mategka.dava.analyzer.struct.pipeline.PropertyCapture;
-import com.mategka.dava.analyzer.struct.pipeline.Symbolizer;
-import com.mategka.dava.analyzer.struct.property.AnalyzerLevelProperty;
-import com.mategka.dava.analyzer.struct.property.ParentProperty;
-import com.mategka.dava.analyzer.struct.property.Property;
-import com.mategka.dava.analyzer.struct.property.index.PropertyKeys;
-import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
-import com.mategka.dava.analyzer.struct.symbol.*;
-import com.mategka.dava.analyzer.struct.workspace.FileEntry;
-import com.mategka.dava.analyzer.struct.workspace.StrandWorkspace;
-import com.mategka.dava.analyzer.struct.workspace.StrandWorkspaceIndex;
+import com.mategka.dava.analyzer.struct.Strand;
+import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
 import com.mategka.dava.analyzer.util.Benchmark;
 
-import com.google.common.collect.*;
-import gumtree.spoon.builder.CtWrapper;
-import gumtree.spoon.diff.Diff;
-import org.eclipse.jgit.diff.DiffEntry;
+import com.google.common.graph.Graph;
 import org.eclipse.jgit.lib.Ref;
 import org.jetbrains.annotations.NotNull;
-import spoon.reflect.declaration.CtCompilationUnit;
-import spoon.reflect.declaration.CtElement;
-import spoon.support.compiler.VirtualFile;
 
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class App {
 
   public static void main(String[] args) {
-    System.out.println("Hello World!");
     // ?REPO
     // ?REPO
+    // NOTE: Previous best profiling on analyzer repository took 99.4s with 93.12% = 92.6s Spoon time, and ~825MB memory
+    // NOTE: Last profiling on analyzer repository took 84.3s with 94.46% = 79.6s Spoon time, and ~575MB memory
     try (Repository repository = Repository.open("?REPO")) {
-      Ref mainBranch = repository.resolveRef("main").getOrThrow();
+      Ref mainBranch = repository.resolveRef("HEAD").getOrThrow();
       var benchmark = Benchmark.start();
       var history = History.emptyOfBranch(repository, mainBranch);
+      var strandMapping = history.getStrandMapping();
       var symbolIdCounter = new AtomicLong();
-      int offset = 0;
-      var comparator = new AstComparator();
-      var workspaces = new StrandWorkspaceIndex();
       var treeDiffer = repository.newTreeDiffer();
-      // TODO: Traverse commits in normal topological order for ~5% performance boost
+      List<CommitInfo> commits = new ArrayList<>(64);
+      CountingMap<@NotNull Long> workspaceCountdown = initWorkspaceCountdown(history.getStrandDag());
+      Map<@NotNull Long, SymbolWorkspace> workspaces = new HashMap<>();
       try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
         for (Commit commit : commitWalk) {
-          var strand = history.getStrandMapping().get(commit.hash());
-          var workspace = workspaces.get(strand);
-          System.out.print(commit.hash().minimal() + " ");
-          if (++offset >= 18) {
-            offset = 0;
-            System.out.println();
-          }
-          var parent = Options.getFirst(commit.parents());
-          if (parent.isNone()) {
-            // TODO: Fix initial commit variant algorithm
-            continue;
-          }
-          var actualParent = parent.getOrThrow();
-          var parentStrand = history.getStrandMapping().get(actualParent.hash());
-          if (parentStrand != strand) {
-            System.out.printf("Switching strand from %s to %s%n", parentStrand.getId(), strand.getId());
-          }
-          var parentWorkspace = workspaces.getReadonly(parentStrand);
-          var diffs = treeDiffer.diff(actualParent, commit);
-          var relevantDiffs = RelevantDiffs.extract(diffs);
-          Map<String, VirtualFile> overrideFiles = getOverrides(relevantDiffs.asMap(), repository);
-          if (overrideFiles.isEmpty()) {
-            // No relevant changes
-            continue;
-          }
-          Map<String, CtCompilationUnit> effectiveUnits = getEffectiveUnits(parentWorkspace, overrideFiles);
-          // TODO: Remove call after implementing RENAMED, MOVED and COPIED
-          moveDerivativeDiffEntries(relevantDiffs);
-          // TODO: Do not trust rename, move and copy hints from Git
-          var derivativeDiffPairs = Stream.of(FileChangeType.RENAMED, FileChangeType.MOVED, FileChangeType.COPIED)
-            .flatMap(t -> relevantDiffs.get(t).stream().map(d -> Pair.of(t, d)))
+          var hash = commit.hash();
+          commits.add(commit.info());
+          System.out.println("-".repeat(10) + hash.abbreviated() + "-".repeat(10));
+          var strand = strandMapping.get(hash);
+          var strandId = strand.getId();
+          var commitPaths = repository.readRelevantPaths(commit);
+          var parents = commit.parents();
+          var parentStrandIds = parents.stream()
+            .map(Commit::hash)
+            .map(strandMapping::get)
+            .map(Strand::getId)
             .toList();
-          var creationContext = new SymbolCreationContext(symbolIdCounter, strand.getId(), commit.hash());
-          var symbolizer = new Symbolizer(creationContext);
-          List<Symbol> additions = new ArrayList<>();
-          List<Symbol> deletions = new ArrayList<>();
-          var updates = new IndexMap<Long, SymbolUpdate>(HashMap::new, u -> u.getKey().symbolId());
-          for (var diffPair : derivativeDiffPairs) {
-            assert false; // TODO: Remove 10 xdiffs lines above and implement this
-            var type = diffPair.left();
-            var diff = diffPair.right();
-            // Treat declared type as renamed symbol
-            var oldUnit = parentWorkspace.getUnit(diff.getOldPath());
-            var newFile = overrideFiles.get(diff.getNewPath());
-            var newUnit = effectiveUnits.get(diff.getNewPath());
-            var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
-            var editScript = astDiff.getRootOperations();
-            var mappings = astDiff.getMappingsComp();
-            int dummy = 1;
-          }
-          for (var diff : relevantDiffs.get(FileChangeType.MODIFIED)) {
-            var oldUnit = parentWorkspace.getUnit(diff.getOldPath());
-            var newFile = overrideFiles.get(diff.getNewPath());
-            var newUnit = effectiveUnits.get(diff.getNewPath());
-            var astDiff = comparator.compare(oldUnit.getMainType(), newUnit.getMainType());
-            var mappings = extractMappings(astDiff);
-            var actions = EditActions.fromDiff(astDiff, mappings);
-            Table<Long, String, Property> updateProperties = HashBasedTable.create();
-            SetMultimap<Long, UpdateFlag> updateFlags = MultimapsX.newEnumSetMultimap(UpdateFlag.class);
-            Set<Symbol> bodyUpdateSymbols = new HashSet<>();
-            for (var action : actions) {
-              switch (action) {
-                case ReplacementAction replacementAction -> {
-                  var oldSymbol = parentWorkspace.getSymbol(replacementAction.getOldSubject().getElement());
-                  var id = oldSymbol.getId();
-                  var newBareSymbol = PropertyCapture.parseElement(replacementAction.getNewSubject().getElement());
-                  updateProperties.row(id).putAll(oldSymbol.getProperties().diff(newBareSymbol));
-                  updateFlags.put(id, UpdateFlag.REPLACED);
-                }
-                case AdditionAction additionAction -> {
-                  var newParentSymbol = workspace.getSymbol(additionAction.getNewParent());
-                  var newSymbol = PropertyCapture.parseElement(additionAction.getNewElement())
-                    .withProperty(ParentProperty.fromSymbol(newParentSymbol))
-                    .complete(creationContext);
-                  workspace.putSymbol(newSymbol);
-                  additions.add(newSymbol);
-                }
-                case DeletionAction deletionAction -> {
-                  var oldSymbol = parentWorkspace.getSymbol(deletionAction.getOldElement());
-                  workspace.removeSymbol(oldSymbol);
-                  deletions.add(oldSymbol);
-                }
-                case BodyUpdateAction bodyUpdateAction -> {
-                  var oldSymbol = parentWorkspace.getSymbol(bodyUpdateAction.getOldSubject().getElement());
-                  bodyUpdateSymbols.add(oldSymbol);
-                  updateFlags.put(oldSymbol.getId(), UpdateFlag.BODY_UPDATED);
-                }
-                case MoveAction moveAction -> {
-                  var oldSymbol = parentWorkspace.getSymbol(moveAction.getOldSubject().getElement());
-                  var id = oldSymbol.getId();
-                  var newBareSymbol = PropertyCapture.parseElement(moveAction.getNewSubject().getElement());
-                  updateProperties.row(id).putAll(oldSymbol.getProperties().diff(newBareSymbol));
-                  var newParentSymbol = workspace.getSymbol(moveAction.getNewSubject().getParent());
-                  var newSymbol = newBareSymbol.asReplacementFor(oldSymbol, newParentSymbol);
-                  workspace.moveSymbol(oldSymbol, newSymbol);
-                  var newParentFlags = updateFlags.get(newParentSymbol.getId());
-                  var newParentMoved = Stream.of(UpdateFlag.MOVED, UpdateFlag.MOVED_WITH_PARENT)
-                    .anyMatch(newParentFlags::contains);
-                  var moveFlag = newParentMoved ? UpdateFlag.MOVED_WITH_PARENT : UpdateFlag.MOVED;
-                  updateFlags.put(id, moveFlag);
-                }
-                case UpdateAction updateAction -> {
-                  var oldSymbol = parentWorkspace.getSymbol(updateAction.getOldSubject().getElement());
-                  var id = oldSymbol.getId();
-                  var newBareSymbol = PropertyCapture.parseElement(updateAction.getNewSubject().getElement());
-                  updateProperties.row(id).putAll(oldSymbol.getProperties().diff(newBareSymbol));
-                }
-              }
-            }
-            for (var symbol : bodyUpdateSymbols) {
-              if (!updateProperties.containsRow(symbol.getId())) {
-                // Add _level update to ensure an update is created
-                var levelProperty = AnalyzerLevelProperty.CURRENT;
-                updateProperties.put(symbol.getId(), PropertyKeys.get(levelProperty.getClass()), levelProperty);
-              }
-            }
-            var newUpdates = updateProperties.rowMap().entrySet().stream()
-              .map(Pair::fromEntry)
-              .map(Pair.mapping(id -> new SymbolKey(id, strand.getId()), PropertyMap::new))
-              .map(Pair.folding((key, map) -> new SymbolUpdate(
-                key,
-                commit.hash(),
-                map,
-                updateFlags.get(key.symbolId())
-              )))
-              .toList();
-            newUpdates.forEach(workspace::updateSymbol);
-            updates.putAll(newUpdates);
-            workspace.updateFileEntry(diff.getOldPath(), newFile, newUnit);
-            int dummy = 1;
-          }
-          for (var diff : relevantDiffs.get(FileChangeType.ADDED)) {
-            var newFile = overrideFiles.get(diff.getNewPath());
-            var newUnit = effectiveUnits.get(diff.getNewPath());
-            var packageDeclaration = newUnit.getPackageDeclaration().getReference().getDeclaration();
-            var pakkage = workspaces.get(strand).getPackage(packageDeclaration, creationContext);
-            var typeDeclaration = newUnit.getMainType();
+          var parentWorkspaces = AnStream.from(parentStrandIds)
+            .map(workspaces::get)
+            .toTypedArray();
+          var breakCommit = Options.getFirst(parentStrandIds)
+            .map(id -> id != strandId)
+            .getOrElse(false);
+          var context = new SymbolCreationContext(symbolIdCounter, strandId, hash, breakCommit);
 
-            var symbols = symbolizer.symbolizeRootType(typeDeclaration, pakkage).toMutableList();
-            additions.addAll(symbols);
-            var classSymbol = symbols.removeFirst();
-            workspace.putFileEntry(
-              new FileEntry(diff.getNewPath(), newFile, newUnit, classSymbol.getId()), classSymbol);
-            symbols.forEach(workspace::putSymbol);
-          }
-          for (var diff : relevantDiffs.get(FileChangeType.DELETED)) {
-            var symbols = workspace.getSymbolsFromFilePath(diff.getOldPath()).toMutableList();
-            deletions.addAll(symbols);
-            var classSymbol = symbols.getFirst();
-            workspace.removeClassSymbolHierarchy(classSymbol);
-          }
-          deletions.addAll(workspace.purgeEmptyPackages());
-          var commitDiff = CommitDiff.builder()
+          var fileMapping = extractFileMapping(commit, repository, treeDiffer);
+          Array<Collection<String>> pathsPerParent = parentWorkspaces.stream()
+            .map(SymbolWorkspace::getFileSymbols)
+            .map(m -> (Collection<String>) m.keySet())
+            .toTypedArray();
+          fileMapping.addUnchangedMappings(pathsPerParent, commitPaths);
+          var targetWorkspace = TargetWorkspace.create(parentWorkspaces, fileMapping, repository, breakCommit);
+          var symbolMapping = SymbolDiff.getMapping(targetWorkspace, parentWorkspaces, fileMapping, context);
+          workspaces.put(strandId, targetWorkspace);
+          CommitDiff diff = CommitDiff.builder()
             .commitData(commit)
-            .successions(Collections.emptyMap())
-            .refactorings(Collections.emptyList())
-            .additions(additions)
-            .deletions(deletions)
-            .updates(updates)
+            .additions(symbolMapping.additions())
+            .successions(symbolMapping.successions())
+            .deletions(symbolMapping.deletions())
+            .updates(symbolMapping.updates())
             .build();
-          strand.getCommitDiffs().add(commitDiff);
+          diff.printDebug();
+          strand.getCommitDiffs().add(diff);
+
+          if (breakCommit) {
+            boolean changed = false;
+            for (var parentStrandId : parentStrandIds) {
+              var remainingSuccessors = workspaceCountdown.decrementAndGet(parentStrandId);
+              if (remainingSuccessors == 0) {
+                workspaces.remove(parentStrandId);
+                workspaceCountdown.remove(parentStrandId);
+                changed = true;
+              }
+            }
+            if (changed) {
+              System.gc();
+            }
+          }
         }
       }
-      System.out.println("Done!");
       var time = benchmark.end();
-      System.out.println("Time (ms): " + time.toMillis());
+      {
+        //noinspection UnusedAssignment
+        mainBranch = null;
+        //noinspection UnusedAssignment
+        benchmark = null;
+        //noinspection UnusedAssignment
+        symbolIdCounter = null;
+        //noinspection UnusedAssignment
+        treeDiffer = null;
+        workspaceCountdown.clear();
+        workspaces.clear();
+        //noinspection UnusedAssignment
+        workspaces = null;
+        System.gc();
+      }
+      System.out.printf("Done in %.1f seconds%n", time.toMillis() / 1000d);
+      Serializer.writeJson(history, commits, "result.json");
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
-  private static BiMap<CtElement, CtElement> extractMappings(Diff astDiff) {
-    return AnStream.from(astDiff.getMappingsComp().asSet())
-      .map(m -> Pair.of(m.first, m.second))
-      .filter(Pair.filtering(t -> !t.isRoot() && !t.getType().isEmpty()))
-      .map(Pair.mapping(Spoon::getMetaElement))
-      .map(Pair.mapping(Options::fromNullable))
-      .map(Pair.mapping(o -> o.map(e -> e instanceof CtWrapper<?> ? null : e)))
-      .map(Options::flatten)
-      .mapMulti(Options.yieldIfSome())
-      .collect(CollectorsX.toBiMap());
+  private static FileMapping extractFileMapping(Commit commit, Repository repository, TreeDiffer treeDiffer)
+    throws IOException {
+    var parents = commit.parents();
+    Array<Map<String, FileChange>> relevantChangesPerParent;
+    Array<Map<String, FileChange>> relevantAdditionsPerParent;
+    if (parents.isEmpty()) {
+      var relevantDiffs = RelevantDiffs.extract2(repository.initialCommitFilesOf(commit));
+      var relevantAdditions = ListsX.collect(
+        relevantDiffs, Collectors.toMap(FileChange::getNewPath, Function.identity()));
+      relevantChangesPerParent = Array.of(Collections.emptyMap());
+      relevantAdditionsPerParent = Array.of(relevantAdditions);
+    } else {
+      var allChangesPerParent = AnStream.from(parents)
+        .map(p -> treeDiffer.diff(p, commit))
+        .map(RelevantDiffs::extract2)
+        .map(ListsX.collecting(Collectors.partitioningBy(c -> c.changeType() == FileChangeType.ADDED)))
+        .toTypedArray();
+      relevantChangesPerParent = AnStream.from(allChangesPerParent)
+        .map(m -> m.get(false))
+        .map(ListsX.collecting(Collectors.toMap(FileChange::getOldPath, Function.identity())))
+        .toTypedArray();
+      relevantAdditionsPerParent = AnStream.from(allChangesPerParent)
+        .map(m -> m.get(true))
+        .map(ListsX.collecting(Collectors.toMap(FileChange::getNewPath, Function.identity())))
+        .toTypedArray();
+    }
+    return FileDiff.getMapping(relevantChangesPerParent, relevantAdditionsPerParent);
   }
 
-  private static @NotNull Map<String, CtCompilationUnit> getEffectiveUnits(@NotNull StrandWorkspace parentWorkspace,
-                                                                           @NotNull Map<String, VirtualFile> overrideFiles) {
-    Map<String, CtCompilationUnit> effectiveUnits = new HashMap<>();
-    for (FileEntry parentFile : parentWorkspace.getFileEntries()) {
-      effectiveUnits.put(parentFile.gitPath(), parentFile.spoonUnit());
-    }
-    for (var overrideFile : overrideFiles.entrySet()) {
-      if (overrideFile.getValue() == null) {
-        effectiveUnits.remove(overrideFile.getKey());
-      } else {
-        effectiveUnits.put(overrideFile.getKey(), Spoon.parse(overrideFile.getValue()));
+  @SuppressWarnings("UnstableApiUsage")
+  private static CountingMap<@NotNull Long> initWorkspaceCountdown(@NotNull Graph<Strand> strandDag) {
+    var workspaceCountdown = new CountingMap<@NotNull Long>();
+    for (var strand : strandDag.nodes()) {
+      var successorCount = strandDag.successors(strand).size();
+      if (successorCount > 0) {
+        workspaceCountdown.put(strand.getId(), successorCount);
       }
     }
-    return effectiveUnits;
-  }
-
-  private static Map<String, VirtualFile> getOverrides(
-    Map<FileChangeType, Collection<DiffEntry>> diffs,
-    Repository repository
-  ) {
-    return AnStream.from(diffs.entrySet())
-      .flatMap(e -> e.getValue().stream().map(d -> Pair.of(e.getKey(), d)))
-      .flatMap(p -> {
-        List<Pair<String, VirtualFile>> entries = new ArrayList<>();
-        var type = p.left();
-        var diff = p.right();
-        if (type.isRemovingOldResource()) {
-          entries.add(Pair.of(diff.getOldPath(), null));
-        }
-        if (type.isAddingNewResource()) {
-          var newContent = repository.readFile(diff, Side.NEW).getSuccess().orElseThrow();
-          var newFile = new VirtualFile(newContent, diff.getNewPath());
-          entries.add(Pair.of(diff.getNewPath(), newFile));
-        }
-        return entries.stream();
-      })
-      .collect(CollectorsX.pairsToMap());
-  }
-
-  private static void moveDerivativeDiffEntries(Multimap<FileChangeType, DiffEntry> relevantDiffs) {
-    var movedDiffs = relevantDiffs.removeAll(FileChangeType.RENAMED);
-    var actuallyMovedDiffs = relevantDiffs.removeAll(FileChangeType.MOVED);
-    movedDiffs.addAll(actuallyMovedDiffs);
-    relevantDiffs.putAll(FileChangeType.DELETED, movedDiffs);
-    relevantDiffs.putAll(FileChangeType.ADDED, movedDiffs);
-    var copiedDiffs = relevantDiffs.removeAll(FileChangeType.COPIED);
-    relevantDiffs.putAll(FileChangeType.ADDED, copiedDiffs);
+    return workspaceCountdown;
   }
 
 }

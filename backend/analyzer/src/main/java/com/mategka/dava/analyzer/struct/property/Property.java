@@ -2,6 +2,7 @@ package com.mategka.dava.analyzer.struct.property;
 
 import com.mategka.dava.analyzer.struct.property.index.PropertyKeys;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import org.jetbrains.annotations.NotNull;
 
 public sealed interface Property permits TypedProperty {
@@ -19,8 +20,10 @@ public sealed interface Property permits TypedProperty {
     return PropertyKeys.get(getClass());
   }
 
+  @JsonValue
   Object value();
 
+  @Override
   String toString();
 
 }

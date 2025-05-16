@@ -1,11 +1,12 @@
 package com.mategka.dava.analyzer.extension.option;
 
-import com.mategka.dava.analyzer.extension.Pair;
+import com.mategka.dava.analyzer.extension.struct.Pair;
 
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.SequencedCollection;
 import java.util.concurrent.Callable;
@@ -39,6 +40,10 @@ public class Options {
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public <T> @NotNull Option<T> fromOptional(@NotNull Optional<T> optional) {
     return optional.map(Option::Some).orElseGet(Option::None);
+  }
+
+  public <E, T extends Collection<E>> @NotNull Option<T> fromSized(@NotNull T value) {
+    return Options.when(!value.isEmpty(), () -> value);
   }
 
   public <T> @NotNull Option<T> getFirst(@NotNull SequencedCollection<? extends T> collection) {

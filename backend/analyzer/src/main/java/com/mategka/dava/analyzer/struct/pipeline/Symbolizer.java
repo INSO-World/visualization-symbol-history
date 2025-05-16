@@ -1,50 +1,43 @@
 package com.mategka.dava.analyzer.struct.pipeline;
 
 import com.mategka.dava.analyzer.extension.option.Options;
-import com.mategka.dava.analyzer.extension.stream.AnStream;
+import com.mategka.dava.analyzer.extension.struct.TreeNode;
 import com.mategka.dava.analyzer.struct.property.KindProperty;
-import com.mategka.dava.analyzer.struct.property.ParentProperty;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
-import com.mategka.dava.analyzer.struct.symbol.Subject;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
-import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
 
-import lombok.Value;
+import lombok.experimental.UtilityClass;
+import org.jetbrains.annotations.NotNull;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtType;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 
-@Value
+@UtilityClass
 public class Symbolizer {
 
-  SymbolCreationContext context;
-
-  public AnStream<Symbol> symbolize(CtElement rootElement, Symbol baseParent) {
+  public TreeNode<Symbol> symbolize(@NotNull CtElement rootElement, @NotNull Symbol baseParent) {
     var parentElement = Options.when(rootElement.isParentInitialized(), rootElement::getParent).getOrElse(rootElement);
-    return ElementCapture.parseElement(rootElement, parentElement)
-      .map(mapper(baseParent));
+    final TreeNode<Symbol> virtualRoot = new TreeNode<>(baseParent);
+    final Map<CtElement, TreeNode<Symbol>> symbolMap = new HashMap<>();
+    ElementCapture.parseElement(rootElement, parentElement)
+      .forEachOrdered(s -> {
+        var parent = symbolMap.computeIfAbsent(s.getParent(), _k -> virtualRoot);
+        var symbol = PropertyCapture.parseElement(s.getElement());
+        var symbolNode = new TreeNode<>(symbol);
+        symbolMap.put(s.getElement(), symbolNode);
+        parent.add(symbolNode);
+      });
+    PropertyCapture.clearPathCache();
+    return virtualRoot.children().getFirst().toRoot();
   }
 
-  public AnStream<Symbol> symbolizeRootType(CtType<?> typeDeclaration, Symbol packageSymbol) {
+  public TreeNode<Symbol> symbolizeFileType(@NotNull CtType<?> typeDeclaration, @NotNull Symbol packageSymbol) {
     if (packageSymbol.getPropertyValue(KindProperty.class).getOrThrow() != Kind.PACKAGE) {
       throw new IllegalArgumentException("Given parent symbol was not a package-kind symbol");
     }
     return symbolize(typeDeclaration, packageSymbol);
-  }
-
-  private Function<Subject, Symbol> mapper(Symbol baseParent) {
-    final Map<CtElement, Symbol> symbolMap = new HashMap<>();
-    return s -> {
-      var parent = symbolMap.computeIfAbsent(s.getParent(), _k -> baseParent);
-      var symbol = PropertyCapture.parseElement(s.getElement())
-        .withProperty(ParentProperty.fromSymbol(parent))
-        .complete(context);
-      symbolMap.put(s.getElement(), symbol);
-      return symbol;
-    };
   }
 
 }

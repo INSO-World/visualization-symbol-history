@@ -39,13 +39,15 @@ public final class None<T> implements Option<T> {
   }
 
   @Override
-  public void ifNone(@NotNull Runnable runnable) {
+  public Option<T> ifNone(@NotNull Runnable runnable) {
     runnable.run();
+    return this;
   }
 
   @Override
-  public void ifSome(@NotNull Consumer<T> _consumer) {
+  public Option<T> ifSome(@NotNull Consumer<T> _consumer) {
     // Do nothing
+    return this;
   }
 
   @Override

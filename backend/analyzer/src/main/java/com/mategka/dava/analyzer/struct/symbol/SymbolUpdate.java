@@ -1,32 +1,45 @@
 package com.mategka.dava.analyzer.struct.symbol;
 
-import com.mategka.dava.analyzer.git.Hash;
+import com.mategka.dava.analyzer.struct.property.Property;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
-import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 
 import lombok.NonNull;
 import lombok.Value;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Value
 public class SymbolUpdate implements PropertyIndexable {
 
-  @NonNull
-  SymbolKey key;
+  int parentIndex;
 
   @NonNull
-  Hash commit;
+  Context sourceContext;
 
   @NonNull
-  PropertyMap properties;
+  Context targetContext;
+
+  @NonNull
+  Map<String, @Nullable Property> properties;
 
   @NonNull
   Set<UpdateFlag> flags;
 
-  public boolean appliesTo(@NotNull Symbol symbol) {
-    return key.equals(symbol.getKey());
+  @Override
+  public String toString() {
+    var oldId = sourceContext.key().symbolId();
+    var newId = targetContext.key().symbolId();
+    return "%s [%s] %s".formatted(
+      (oldId == newId ? String.valueOf(oldId) : "%d -> %d".formatted(oldId, newId)),
+      flags.stream()
+        .map(Objects::toString)
+        .collect(Collectors.joining(", ")),
+      properties
+    );
   }
 
 }

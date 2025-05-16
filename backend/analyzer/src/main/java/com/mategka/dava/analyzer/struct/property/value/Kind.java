@@ -7,20 +7,27 @@ import spoon.reflect.declaration.*;
 import java.util.Locale;
 
 public enum Kind {
+  // Organizational units
+  MODULE,
   PACKAGE,
+  // Classes
   CLASS,
   RECORD,
-  INTERFACE,
   ENUM,
-  FIELD,
-  METHOD,
-  VARIABLE,
-  PARAMETER,
-  CONSTANT_FIELD,
-  CONSTANT_VARIABLE,
-  ENUM_CONSTANT,
+  // Interfaces
+  INTERFACE,
   ANNOTATION,
+  // Field members
+  FIELD,
+  CONSTANT_FIELD,
+  ENUM_CONSTANT,
+  // Method members
+  METHOD,
   CONSTRUCTOR,
+  // Local variables
+  PARAMETER,
+  VARIABLE,
+  CONSTANT_VARIABLE,
   ;
 
   public static Kind fromType(CtType<?> type) {

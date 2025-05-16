@@ -2,8 +2,10 @@ package com.mategka.dava.analyzer.struct.property;
 
 import org.jetbrains.annotations.NotNull;
 
-public sealed interface SimpleProperty<T> extends TypedProperty<T>
-  permits AnalyzerLevelProperty, EnumProperty, InitialValueProperty, LineRangeProperty, PathProperty, SimpleNameProperty, TypeProperty, VisibilityProperty {
+import java.io.Serializable;
+
+public sealed interface SimpleProperty<T extends Serializable> extends SerializableProperty<T>
+  permits AnalyzerLevelProperty, BodyHashProperty, InitialValueProperty, LineRangeProperty, StringProperty, TypeProperty {
 
   @NotNull T value();
 

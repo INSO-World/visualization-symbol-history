@@ -1,21 +1,27 @@
 package com.mategka.dava.analyzer.struct.property;
 
-import com.mategka.dava.analyzer.spoon.CtEqPath;
+import com.mategka.dava.analyzer.spoon.path.SpoonPaths;
 import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import spoon.reflect.declaration.CtElement;
 
 @PropertyKey("path")
-public record PathProperty(CtEqPath value) implements SimpleProperty<CtEqPath> {
+public record PathProperty(String value) implements StringProperty {
 
-  public static PathProperty fromElement(@NotNull CtElement element) {
-    return new PathProperty(CtEqPath.of(element));
+  @Deprecated
+  public static PathProperty fromCtPathProperty(@NotNull CtPathProperty ctPathProperty) {
+    return new PathProperty(ctPathProperty.value().toUnorderedString());
+  }
+
+  @Contract("_ -> new")
+  public static @NotNull PathProperty fromSpoonPathProperty(@NotNull SpoonPathProperty spoonPathProperty) {
+    return new PathProperty(SpoonPaths.simplify(spoonPathProperty.value()));
   }
 
   @Override
   public String toString() {
-    return value.toString();
+    return value;
   }
 
 }

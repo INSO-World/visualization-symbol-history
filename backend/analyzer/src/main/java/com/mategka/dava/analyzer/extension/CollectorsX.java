@@ -1,12 +1,15 @@
 package com.mategka.dava.analyzer.extension;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
+import com.mategka.dava.analyzer.extension.struct.Pair;
+
+import com.google.common.collect.*;
 import lombok.experimental.UtilityClass;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
@@ -33,8 +36,47 @@ public class CollectorsX {
     return Collectors.toMap(Pair::left, Pair::right);
   }
 
+  public <K, V> Collector<Pair<K, V>, ?, Map<K, V>> pairsToMap2() {
+    return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b);
+  }
+
+  public <K, V> Collector<Pair<K, V>, ?, HashMap<K, V>> pairsToMutableMap() {
+    return pairsToMutableMap(HashMap::new);
+  }
+
+  public <K, V, M extends Map<K, V>> Collector<Pair<K, V>, ?, M> pairsToMutableMap(Supplier<M> mapFactory) {
+    return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b, mapFactory);
+  }
+
   public <A, B> Collector<Pair<A, B>, ?, BiMap<A, B>> toBiMap() {
-    return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b, HashBiMap::create);
+    return toBiMap(HashBiMap::create);
+  }
+
+  public <A, B> Collector<Pair<A, B>, ?, BiMap<A, B>> toBiMap(Supplier<BiMap<A, B>> mapSupplier) {
+    return Collectors.toMap(Pair::left, Pair::right, (a, b) -> b, mapSupplier);
+  }
+
+  public <T, K, V> Collector<T, ?, Multimap<K, V>> toMultimap(
+    Function<? super T, K> keyMapper,
+    Function<? super T, V> valueMapper
+  ) {
+    return toMultimap(keyMapper, valueMapper, HashMultimap::create);
+  }
+
+  public <T, K, V, M extends Multimap<K, V>> Collector<T, ?, M> toMultimap(
+    Function<? super T, K> keyMapper,
+    Function<? super T, V> valueMapper,
+    Supplier<M> mapSupplier
+  ) {
+    return Collector.of(
+      mapSupplier,
+      (m, t) -> m.put(keyMapper.apply(t), valueMapper.apply(t)),
+      (m1, m2) -> {
+        m1.putAll(m2);
+        return m1;
+      },
+      Collector.Characteristics.UNORDERED
+    );
   }
 
 }

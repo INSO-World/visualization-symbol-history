@@ -1,0 +1,31 @@
+package com.mategka.dava.analyzer.struct.property;
+
+import com.mategka.dava.analyzer.spoon.path.CtEqPath;
+import com.mategka.dava.analyzer.struct.property.index.PropertyKey;
+
+import org.jetbrains.annotations.NotNull;
+import spoon.reflect.declaration.CtElement;
+
+import java.io.Serial;
+
+/**
+ * @deprecated Use {@link SpoonPathProperty} instead.
+ */
+@Deprecated
+@PropertyKey("ctpath")
+public record CtPathProperty(CtEqPath value) implements TypedProperty<CtEqPath> {
+
+  public static final CtPathProperty EMPTY = new CtPathProperty(CtEqPath.EMPTY);
+  @Serial
+  private static final long serialVersionUID = -3605722812359908376L;
+
+  public static CtPathProperty fromElement(@NotNull CtElement element) {
+    return new CtPathProperty(CtEqPath.of(element));
+  }
+
+  @Override
+  public String toString() {
+    return value.toString();
+  }
+
+}

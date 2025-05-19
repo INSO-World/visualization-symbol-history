@@ -1,6 +1,0 @@
-export enum Visibility {
-  PUBLIC = "PUBLIC",
-  PROTECTED = "PROTECTED",
-  PRIVATE = "PRIVATE",
-  PACKAGE_PRIVATE = "PACKAGE_PRIVATE",
-}

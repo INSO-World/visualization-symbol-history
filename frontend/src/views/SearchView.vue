@@ -1,54 +1,147 @@
 <!--suppress HtmlRequiredAltAttribute -->
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { Cell } from '@/models/Cell'
 import type { SymbolEvent } from '@/models/SymbolEvent'
-import { elements, symbolEvents, startDate, dateObjects, addDays } from '@/models/mocks'
+import { addDays } from '@/models/mocks'
+import { toDateObject } from "@/models/DateObject"
+import type { SymbolElement } from "@/models/SymbolElement"
+import type { StateDto } from "@/models/analyzer"
+import { useAnalyzerStore } from "@/stores/analyzer"
+import HighlightedText from "@/components/HighlightedText.vue"
+import debounce from "debounce"
+
+const analyzerStore = useAnalyzerStore()
+
+const searchTerm = ref<string>("")
+
+function replaceArray<T>(array: T[], newArray: T[]): void {
+  array.splice(0, array.length, ...newArray)
+}
+
+const startDate = ref(new Date('2024-07-01Z'))
+const DATE_SPAN = 18
+const DATE_OFFSETS = Array.from({ length: DATE_SPAN }).map((_, i) => i)
+const dateObjects = computed(() => DATE_OFFSETS
+  .map(i => addDays(startDate.value, i))
+  .map(toDateObject)
+)
+const yearMonths = computed(() => {
+  const values = dateObjects.value.map(d => `${d.date.getFullYear()}-${(d.date.getMonth() + 101).toString(10).substring(1)}`)
+  const result = [...new Set(values)]
+  result.sort()
+  return result
+})
+const symbolEvents = ref([] as SymbolEvent[][])
+const searchResults = ref([] as SymbolElement[])
+const ELEMENT_SPAN = 6
+const elements = computed(() => searchResults.value.slice(startElementIndex.value, startElementIndex.value + ELEMENT_SPAN))
+const startElementIndex = ref(0)
+const cells = ref([] as Cell[][])
+
+const debouncedSearch = debounce(async () => {
+  if (searchTerm.value === "") {
+    searchResults.value = []
+    return
+  }
+  if (searchTerm.value.length < 3) {
+    return
+  }
+  searchResults.value = analyzerStore.search(searchTerm.value)
+    .filter(s => s.score! < 0.2)
+    .map(s => ({
+      result: s.item.symbol,
+      header: '',
+      icon: 'class',
+      name: s.item.key.name,
+      suffix: '',
+      highlights: s.matches![0].indices.map(([from, to]) => ([from, to + 1])),
+      chips: [],
+      score: s.score!,
+    } satisfies SymbolElement))
+  console.log("Search results", searchResults.value)
+  updateView()
+}, 600)
+
+function search() {
+  debouncedSearch()
+}
+
+function emptySearchTerm() {
+  debouncedSearch.clear()
+  searchTerm.value = ''
+  updateView()
+}
+
+function updateView() {
+  const newSymbolEvents: SymbolEvent[][] = []
+  for (const element of elements.value) {
+    const events: SymbolEvent[] = []
+    for (const yearMonth of yearMonths.value) {
+      const ymEvents: StateDto[] | undefined = element.result.states[yearMonth]
+      if (ymEvents == null || ymEvents.length === 0) {
+        continue
+      }
+      events.push(...ymEvents.map(state => ({ event: 'modified', date: analyzerStore.commitDate(state.commit), authors: ['AM307'] })))
+    }
+    newSymbolEvents.push(events)
+  }
+  symbolEvents.value = newSymbolEvents
+
+  const started: boolean[] = symbolEvents.value.map((_a, i) => {
+    const added = new Date(elements.value[i].result.keys[0].from)
+    return added < startDate.value
+  })
+
+  const eventsToProcess = [
+    ...Map.groupBy(
+      symbolEvents.value.flatMap((a, i) => a.map((e) => ({ index: i, ...e }))),
+      (e: SymbolEvent & { index: number }) => +e.date,
+    ),
+  ].map(([date, entries]) => ({ date, entries }))
+  eventsToProcess.sort((a, b) => a.date - b.date)
+  let processStartIndex = 0
+  while (eventsToProcess.length > 0 && +eventsToProcess[0].date < +startDate.value) {
+    processStartIndex++
+  }
+  void eventsToProcess.splice(0, processStartIndex)
+  const newCells: Cell[][] = []
+  for (let i = 0; i < dateObjects.value.length; i++) {
+    const column: Cell[] = []
+    const { date } = dateObjects.value[i]
+    const dateEvents = []
+    if (eventsToProcess.length > 0 && +eventsToProcess[0].date === +date) {
+      dateEvents.push(...eventsToProcess.shift()!.entries)
+    }
+    for (let el = 0; el < symbolEvents.value.length; el++) {
+      const event = dateEvents.find((e) => e.index === el)
+      if (event != null) {
+        const cell: Cell = {
+          event: { name: event.event, authors: event.authors },
+          starts: false,
+          ends: false,
+        }
+        if (cell.event!.name === 'added') {
+          started[el] = true
+          cell.starts = true
+        }
+        if (cell.event!.name === 'deleted') {
+          started[el] = false
+          cell.ends = true
+        }
+        column.push(cell)
+      } else {
+        const running = started[el]
+        column.push({ starts: !running, ends: !running })
+      }
+    }
+    newCells.push(column)
+  }
+  cells.value = newCells
+}
 
 function iconNeedsPadding(icon: string): boolean {
   return ['field_injected', 'field', 'constant'].includes(icon)
-}
-
-const cells: Cell[][] = reactive([])
-const started: boolean[] = symbolEvents.map((a) => a.length > 0 && +a[0].date < +startDate)
-
-const eventsToProcess = [
-  ...Map.groupBy(
-    symbolEvents.flatMap((a, i) => a.map((e) => ({ index: i, ...e }))),
-    (e: SymbolEvent & { index: number }) => +e.date,
-  ),
-].map(([date, entries]) => ({ date, entries }))
-eventsToProcess.sort((a, b) => a.date - b.date)
-for (let i = 0; i < dateObjects.length; i++) {
-  const column: Cell[] = []
-  const date = addDays(startDate, i)
-  const dateEvents = []
-  if (eventsToProcess.length > 0 && +eventsToProcess[0].date === +date) {
-    dateEvents.push(...eventsToProcess.shift()!.entries)
-  }
-  for (let el = 0; el < symbolEvents.length; el++) {
-    const event = dateEvents.find((e) => e.index === el)
-    if (event != null) {
-      const cell: Cell = {
-        event: { name: event.event, authors: event.authors },
-        starts: false,
-        ends: false,
-      }
-      if (cell.event!.name === 'added') {
-        started[el] = true
-        cell.starts = true
-      }
-      if (cell.event!.name === 'deleted') {
-        started[el] = false
-        cell.ends = true
-      }
-      column.push(cell)
-    } else {
-      const running = started[el]
-      column.push({ starts: !running, ends: !running })
-    }
-  }
-  cells.push(column)
 }
 </script>
 
@@ -79,12 +172,13 @@ for (let i = 0; i < dateObjects.length; i++) {
                   class="input is-rounded"
                   type="search"
                   placeholder="Search..."
-                  value="elem"
+                  v-model="searchTerm"
+                  @keydown="search()"
                 />
                 <span class="icon is-left">
                   <i class="mdi mdi-magnify mdi-dark"></i>
                 </span>
-                <span class="icon is-right">
+                <span class="icon is-right" @click="emptySearchTerm()">
                   <i class="mdi mdi-close mdi-dark"></i>
                 </span>
               </div>
@@ -115,8 +209,8 @@ for (let i = 0; i < dateObjects.length; i++) {
         </header>
         <section class="is-flex-grow-1 is-position-relative is-overflow-y-scroll">
           <div
-            v-for="element in elements"
-            :key="element.name"
+            v-for="element of elements"
+            :key="element.result.id"
             class="element is-flex is-flex-direction-column is-align-items-stretch px-2 py-1"
           >
             <header class="is-flex-static">{{ element.header }}</header>
@@ -129,16 +223,7 @@ for (let i = 0; i < dateObjects.length; i++) {
                   <img :src="`/icons/element/${element.icon}.png`" />
                 </span>
                 <span>
-                  <b v-if="!element.highlight" class="has-text-weight-semibold">{{
-                    element.name
-                  }}</b>
-                  <b v-if="element.highlight" class="has-text-weight-semibold">
-                    <span>{{ element.name.substring(0, element.highlight[0]) }}</span>
-                    <span class="has-text-weight-bold is-underlined">{{
-                      element.name.substring(...element.highlight)
-                    }}</span>
-                    <span>{{ element.name.substring(element.highlight[1]) }}</span>
-                  </b>
+                  <HighlightedText :text="element.name" :highlights="element.highlights" />
                   <span v-if="element.suffix" class="is-color-text-50">{{ element.suffix }}</span>
                 </span>
               </span>

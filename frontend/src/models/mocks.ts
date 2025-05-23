@@ -3,12 +3,12 @@ import type { SymbolEvent } from '@/models/SymbolEvent'
 import type { DateObject } from "@/models/DateObject"
 import { toDateObject } from "@/models/DateObject"
 
-export const elements: SymbolElement[] = [
+export const elements: Omit<SymbolElement, 'result' | 'score'>[] = [
   {
     header: 'at.am307.solver.core.Page',
     icon: 'constant',
     name: 'ELEMENTS_PER_PAGE',
-    highlight: [0, 4],
+    highlights: [[0, 4]],
     suffix: ': int',
     chips: [{ username: 'AM307', percentage: 100 }],
   },
@@ -16,14 +16,14 @@ export const elements: SymbolElement[] = [
     header: 'at.am307.solver.util',
     icon: 'class',
     name: 'Telemetry',
-    highlight: [1, 5],
+    highlights: [[1, 5]],
     chips: [{ username: 'AM307', percentage: 100 }],
   },
   {
     header: 'at.am307.solver.feature.elimination.Strategy',
     icon: 'parameter',
     name: 'element',
-    highlight: [0, 4],
+    highlights: [[0, 4]],
     suffix: ': SolveResult',
     chips: [{ username: 'AM307', percentage: 100 }],
   },

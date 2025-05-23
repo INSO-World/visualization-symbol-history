@@ -25,6 +25,7 @@ export default [
   {
     rules: {
       'vue/no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
     }
   }
 ]

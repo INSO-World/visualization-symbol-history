@@ -1,7 +1,8 @@
-import { defineStore } from "pinia"
-import type { CommitDto, KeyDto, RootDto, SymbolDto } from "@/models/analyzer"
-import Fuse, { type FuseResult } from "fuse.js"
-import { fuseOptions } from "@/constants/fuse-options"
+import { defineStore } from 'pinia'
+import type { KeyDto, RootDto, StateDto, SymbolDto } from '@/models/analyzer'
+import Fuse from 'fuse.js'
+import { fuseOptions } from '@/constants/fuse-options'
+import type { Range } from '@/models/common'
 
 type KeyRecord = {
   id: number
@@ -10,27 +11,34 @@ type KeyRecord = {
 
 type FuseRecord = {
   name: string
-} & KeyRecord;
+} & KeyRecord
+
+export type SearchResult = {
+  symbol: SymbolDto
+  key: KeyDto
+  refIndex: number
+  score: number
+  match: Range[]
+}
 
 export const useAnalyzerStore = defineStore('analyzer', {
   state: () => ({
     root: null as unknown as RootDto,
     loading: false,
     error: null as string | null,
-    globalFuse: null as unknown as Fuse<FuseRecord>
+    globalFuse: null as unknown as Fuse<FuseRecord>,
   }),
   actions: {
     async init() {
       this.loading = true
       this.error = null
       try {
-        this.root = await fetch('result.json')
-          .then(res => {
-            if (!res.ok) {
-              throw new Error(`Failed to fetch analyzer data: Status ${res.status}`)
-            }
-            return res.json() as Promise<RootDto>
-          })
+        this.root = await fetch('result.json').then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch analyzer data: Status ${res.status}`)
+          }
+          return res.json() as Promise<RootDto>
+        })
         const rawKeysToIds = new Map<string, Map<number, KeyRecord>>()
         for (const symbol of this.root.symbols) {
           for (const key of symbol.keys) {
@@ -46,22 +54,28 @@ export const useAnalyzerStore = defineStore('analyzer', {
           }
         }
         console.log(rawKeysToIds)
-        const fuseObject = [...rawKeysToIds.entries()].flatMap(e =>
-          [...e[1].values()].map(r => ({
-            name: e[0],
-            ...r
-          } satisfies FuseRecord))
+        const fuseObject = [...rawKeysToIds.entries()].flatMap((e) =>
+          [...e[1].values()].map(
+            (r) =>
+              ({
+                name: e[0],
+                ...r,
+              }) satisfies FuseRecord,
+          ),
         )
         console.log(fuseObject)
-        this.globalFuse = new Fuse(fuseObject, fuseOptions({
-          keys: ['name'],
-        }))
+        this.globalFuse = new Fuse(
+          fuseObject,
+          fuseOptions({
+            keys: ['name'],
+          }),
+        )
       } catch (error) {
         if (!(error instanceof Error)) {
           throw error
         }
         this.error = error.message
-        console.error("Error initializing analyzer store", error)
+        console.error('Error initializing analyzer store', error)
       } finally {
         this.loading = false
       }
@@ -69,17 +83,84 @@ export const useAnalyzerStore = defineStore('analyzer', {
     commitDate(index: number): Date {
       return new Date(this.root.commits[index].date)
     },
-    search(query: string) {
-      return this.globalFuse.search(query).map((result) => {
+    search(query: string): SearchResult[] {
+      const results = this.globalFuse.search(query).flatMap((result) => {
         const record: KeyRecord = result.item
-        return {
-          ...result,
-          item: {
-            symbol: this.root.symbols[record.id],
-            key: [...new Set(record.keys)][0],
-          },
+        const symbol = this.root.symbols[record.id]
+        if (symbol.id === 0 || symbol.keys.every(k => k.name === "serialVersionUID")) {
+          return []
         }
+        let score = Math.max(1 - Math.max(result.score! - 2e-6, 0) / 2, 0)
+        if (symbol.deleted) {
+          score -= 0.0001
+        }
+        return [{
+          symbol,
+          key: [...new Set(record.keys)][0]!,
+          score,
+          match: result.matches![0].indices.map(([from, to]) => [from, to + 1]),
+          refIndex: result.refIndex,
+        } satisfies SearchResult]
       })
+      results.sort((a, b) => b.score - a.score)
+      return results
+    },
+    findKeyState(symbol: SymbolDto, key: KeyDto): StateDto {
+      const keyTimestamp = new Date(key.from).valueOf()
+      let weakTimestamp: number | null = null
+      let strongCandidate: StateDto | null = null
+      let weakCandidate: StateDto | null = null
+      let weakestCandidate: StateDto | null = null
+      for (const states of Object.values(symbol.states)) {
+        for (const state of states) {
+          const p = state.properties
+          if (p['kind'] === key.kind && (!key.name || p['simpleName'] === key.name)) {
+            const commitTimestamp = this.commitDate(state.commit).valueOf()
+            if (commitTimestamp === keyTimestamp) {
+              strongCandidate = state
+            } else if (
+              commitTimestamp < keyTimestamp &&
+              (weakTimestamp === null || commitTimestamp >= weakTimestamp)
+            ) {
+              weakTimestamp = commitTimestamp
+              weakCandidate = state
+            } else if (weakestCandidate === null) {
+              weakestCandidate = state
+            }
+          }
+        }
+      }
+      return strongCandidate ?? weakCandidate ?? weakestCandidate ?? Object.values(symbol.states)[0][0]
+    },
+    findKey(symbol: SymbolDto, wantedTimestamp: number): KeyDto {
+      let weakTimestamp: number | null = null
+      let strongCandidate: KeyDto | null = null
+      let weakCandidate: KeyDto | null = null
+      for (const key of symbol.keys) {
+        const keyTimestamp = new Date(key.from).valueOf()
+        if (keyTimestamp === wantedTimestamp) {
+          strongCandidate = key
+        } else if (
+          keyTimestamp < wantedTimestamp &&
+          (weakTimestamp === null || keyTimestamp >= weakTimestamp)
+        ) {
+          weakTimestamp = keyTimestamp
+          weakCandidate = key
+        }
+      }
+      return strongCandidate ?? weakCandidate ?? symbol.keys[0]
+    },
+    findParentCrumbs(key: KeyDto, timestamp: number | null = null): KeyDto[] {
+      if (key.parent == null) {
+        return []
+      }
+      if (timestamp === null) {
+        timestamp = new Date(key.from).valueOf()
+      }
+      const parentKey = this.findKey(this.root.symbols[key.parent], timestamp)
+      const parents = this.findParentCrumbs(parentKey, timestamp)
+      parents.push(key)
+      return parents
     },
   },
   getters: {

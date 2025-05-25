@@ -3,7 +3,7 @@ import type { SymbolEvent } from '@/models/SymbolEvent'
 import type { DateObject } from "@/models/DateObject"
 import { toDateObject } from "@/models/DateObject"
 
-export const elements: Omit<SymbolElement, 'result' | 'score'>[] = [
+export const elements: Omit<SymbolElement, 'result' | 'score' | 'deleted'>[] = [
   {
     header: 'at.am307.solver.core.Page',
     icon: 'constant',

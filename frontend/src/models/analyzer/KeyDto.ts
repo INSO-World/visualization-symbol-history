@@ -1,7 +1,7 @@
-import type { Kind } from "@/models/analyzer/Kind"
+import type { Kind } from "@/models/analyzer/value/Kind"
 import type { RawZonedDateTime } from "@/models/analyzer/common"
 
-type ParentDto = number;
+type ParentDto = number | null;
 
 export interface KeyDto {
   parent: ParentDto;

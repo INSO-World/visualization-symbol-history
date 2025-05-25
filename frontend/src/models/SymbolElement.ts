@@ -10,4 +10,5 @@ export type SymbolElement = {
   highlights: ReadonlyArray<[number, number]>
   chips: Chip[]
   score: number
+  deleted: boolean
 }

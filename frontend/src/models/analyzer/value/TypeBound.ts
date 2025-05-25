@@ -1,4 +1,4 @@
-import type { Type } from "@/models/analyzer/Type"
+import type { Type } from "@/models/analyzer/value/Type"
 
 export type TypeBound = UpperTypeBound | LowerTypeBound;
 

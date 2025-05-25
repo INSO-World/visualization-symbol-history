@@ -1,5 +1,7 @@
+import type { StateDto } from "@/models/analyzer"
+
 export type SymbolEvent = {
-  event: string
+  state: StateDto
   date: Date
   authors: string[]
 }

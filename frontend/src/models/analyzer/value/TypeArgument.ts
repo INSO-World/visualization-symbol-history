@@ -1,5 +1,5 @@
-import type { Type } from "@/models/analyzer/Type"
-import type { TypeBound } from "@/models/analyzer/TypeBound"
+import type { Type } from "@/models/analyzer/value/Type"
+import type { TypeBound } from "@/models/analyzer/value/TypeBound"
 
 export type TypeArgument = ConcreteTypeArgument | WildcardTypeArgument;
 

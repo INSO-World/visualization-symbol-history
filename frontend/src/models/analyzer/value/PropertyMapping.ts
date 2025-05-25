@@ -1,9 +1,9 @@
-import type { Kind } from "@/models/analyzer/Kind"
-import type { AnalyzerLevel } from "@/models/analyzer/AnalyzerLevel"
-import type { Type } from "@/models/analyzer/Type"
-import type { Modifier } from "@/models/analyzer/Modifier"
-import type { Visibility } from "@/models/analyzer/Visibility"
-import type { TypeParameter } from "@/models/analyzer/TypeParameter"
+import type { Kind } from "@/models/analyzer/value/Kind"
+import type { AnalyzerLevel } from "@/models/analyzer/value/AnalyzerLevel"
+import type { Type } from "@/models/analyzer/value/Type"
+import type { Modifier } from "@/models/analyzer/value/Modifier"
+import type { Visibility } from "@/models/analyzer/value/Visibility"
+import type { TypeParameter } from "@/models/analyzer/value/TypeParameter"
 
 type Expression = string;
 

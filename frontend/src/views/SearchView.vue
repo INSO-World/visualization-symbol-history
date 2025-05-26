@@ -1,7 +1,7 @@
 <!--suppress HtmlRequiredAltAttribute -->
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { type Cell, EventFlag } from '@/models/Cell'
+import { type Cell, type CellEvent, CellEventCategory, EventFlag } from '@/models/Cell'
 import type { SymbolEvent } from '@/models/SymbolEvent'
 import { addDays } from '@/models/mocks'
 import { toDateObject } from '@/models/DateObject'
@@ -30,7 +30,7 @@ const searchTerm = ref<string>('')
 const DATE_SPAN = 18
 const TYPE_CHARACTER_LIMIT = 24
 const PATH_CHARACTER_LIMIT = 32
-const MIN_DATE = new Date("2020-01-01Z")
+const MIN_DATE = new Date('2020-01-01Z')
 const TODAY = new Date(new Date().toISOString().substring(0, 10))
 const MAX_DATE = addDays(TODAY, -DATE_SPAN + 1)
 
@@ -217,7 +217,6 @@ function typeToText(t: UnknownType, deep: boolean = true): string {
   return result
 }
 
-
 function resultToElement(result: SearchResult): SymbolElement {
   const kindInfo = KIND_MAPPING[result.key.kind]
   let headerText = kindInfo.text
@@ -255,10 +254,20 @@ function resultToElement(result: SearchResult): SymbolElement {
     parentText = `${crumb}${parentText.length === 0 ? '' : '.'}${parentText}`
   }
   headerText += ` in ${parentText}`
+  const createdAt = new Date(result.symbol.keys[0].from)
+  const deletedStates = Object.values(result.symbol.states)
+    .flatMap((s) => s)
+    .filter((s) => s.cause === ChangeCause.DELETED)
+  const deletedAt =
+    deletedStates.length > 0 ? analyzerStore.commitDate(deletedStates.at(-1)!.commit) : undefined
   return {
     result: result.symbol,
     header: headerText,
-    icon: iconName,
+    kind: {
+      name: kindInfo.text,
+      icon: iconName,
+    },
+    path: parentText,
     name: result.key.name,
     suffix: suffixText,
     highlights: result.match,
@@ -269,7 +278,8 @@ function resultToElement(result: SearchResult): SymbolElement {
       },
     ],
     score: result.score,
-    deleted: result.symbol.deleted,
+    createdAt,
+    deletedAt,
   }
 }
 
@@ -335,7 +345,6 @@ function previousTimes() {
   }
 }
 
-
 function nextTimes() {
   if (+startDate.value < +MAX_DATE) {
     const newStartDate = addDays(startDate.value, DATE_SPAN)
@@ -351,6 +360,13 @@ function nextTimes() {
 function currentTimes() {
   if (+startDate.value != +MAX_DATE) {
     startDate.value = MAX_DATE
+    updateView()
+  }
+}
+
+function elementTimes(date: Date) {
+  if (+startDate.value != +date) {
+    startDate.value = new Date(date.toISOString().substring(0, 10))
     updateView()
   }
 }
@@ -377,14 +393,12 @@ function getEventFlags(state: StateDto): Set<EventFlag> {
   }
   if (state.flags != null) {
     const eventFlags = new Set<EventFlag>(
-      state.flags
-      .map((f) => UPDATE_FLAG_MAPPING[f])
-      .filter((f) => f != null)
+      state.flags.map((f) => UPDATE_FLAG_MAPPING[f]).filter((f) => f != null),
     )
     if (state.flags.includes(UpdateFlag.MOVED_WITH_PARENT)) {
       eventFlags.delete(EventFlag.MOVED)
     }
-    eventFlags.forEach(f => result.add(f))
+    eventFlags.forEach((f) => result.add(f))
   }
   const updatedSet = new Set<StateField>(state.updated)
   if (updatedSet.has('initialValue') || updatedSet.has('enumArguments')) {
@@ -417,6 +431,51 @@ function getEventFlags(state: StateDto): Set<EventFlag> {
   return result
 }
 
+const MAJOR_EVENT_FLAGS = new Set<EventFlag>([
+  EventFlag.REPLACED,
+  EventFlag.ANNOTATIONS,
+  EventFlag.KIND,
+  EventFlag.MOVED,
+  EventFlag.RENAMED,
+  EventFlag.MODIFIERS,
+  EventFlag.REALIZATIONS,
+  EventFlag.SUPERTYPES,
+  EventFlag.TYPE_PARAMETERS,
+  EventFlag.TYPE,
+  EventFlag.VISIBILITY,
+])
+
+const MINOR_EVENT_FLAGS = new Set<EventFlag>([
+  EventFlag.BRANCHED,
+  EventFlag.VALUE,
+  EventFlag.REORDERED,
+  EventFlag.BODY,
+])
+
+function getCellEventCategory(flag: EventFlag): CellEventCategory {
+  if (flag === EventFlag.DELETED) {
+    return CellEventCategory.DELETED
+  }
+  if (flag === EventFlag.ADDED) {
+    return CellEventCategory.ADDED
+  }
+  if (MAJOR_EVENT_FLAGS.has(flag)) {
+    return CellEventCategory.MAJOR
+  }
+  if (MINOR_EVENT_FLAGS.has(flag)) {
+    return CellEventCategory.MINOR
+  }
+  return CellEventCategory.MINISCULE
+}
+
+function union<T>(sets: Array<Set<T>>): Set<T> {
+  const result = new Set<T>()
+  for (const set of sets) {
+    set.forEach((v) => result.add(v))
+  }
+  return result
+}
+
 function updateView() {
   const newSymbolEvents: SymbolEvent[][] = []
   for (const element of elements.value) {
@@ -429,7 +488,7 @@ function updateView() {
       events.push(
         ...ymEvents.map((state) => ({
           state,
-          date: analyzerStore.commitDate(state.commit),
+          date: new Date(analyzerStore.commitDate(state.commit).toISOString().substring(0, 10)),
           authors: ['AM307'],
         })),
       )
@@ -440,15 +499,11 @@ function updateView() {
   symbolEvents.value = newSymbolEvents
 
   const started: boolean[] = symbolEvents.value.map((_a, i) => {
-    const result = elements.value[i].result
-    if (result.deleted) {
-      const deletedStates = Object.values(result.states).flatMap(s => s).filter(s => s.cause === ChangeCause.DELETED)
-      if (deletedStates.length > 0 && analyzerStore.commitDate(deletedStates[0].commit).valueOf() < startDate.value.valueOf()) {
-        return false
-      }
+    const element = elements.value[i]
+    if (element.deletedAt != null && +element.deletedAt < +startDate.value) {
+      return false
     }
-    const added = new Date(result.keys[0].from)
-    return +added < startDate.value.valueOf()
+    return +element.createdAt < +startDate.value
   })
 
   const eventsToProcess = [
@@ -462,6 +517,10 @@ function updateView() {
   while (eventsToProcess.length > 0 && +eventsToProcess[0].date < +startDate.value) {
     eventsToProcess.shift()
   }
+  const displayedMaxDate = addDays(startDate.value, DATE_SPAN)
+  while (eventsToProcess.length > 0 && +eventsToProcess.at(-1)!.date > +displayedMaxDate) {
+    eventsToProcess.pop()
+  }
   const newCells: Cell[][] = []
   for (let i = 0; i < dateObjects.value.length; i++) {
     const column: Cell[] = []
@@ -470,30 +529,50 @@ function updateView() {
     if (eventsToProcess.length > 0 && +eventsToProcess[0].date === +date) {
       dateEvents.push(...eventsToProcess.shift()!.entries)
     }
-    for (let el = 0; el < symbolEvents.value.length; el++) {
-      const event = dateEvents.find((e) => e.index === el) // TODO: Collect ALL events
-      if (event != null) {
+    for (let e = 0; e < symbolEvents.value.length; e++) {
+      const events = dateEvents.filter((ev) => ev.index === e)
+      if (events.length > 0) {
+        events.sort((a, b) => +a.date - +b.date)
+        const list: CellEvent[] = events.map((ev) => {
+          const flags = getEventFlags(ev.state)
+          const category = Math.max(CellEventCategory.MINISCULE, ...[...flags].map(f => getCellEventCategory(f)))
+          return {
+            category,
+            state: ev.state,
+            flags,
+            authors: ev.authors,
+          }
+        })
+        const mainCategory = Math.max(...list.map((ev) => ev.category))
+        const allFlags = union(list.map((ev) => ev.flags))
+        const mainFlagCandidates: EventFlag[] = list.flatMap((ev) => [...ev.flags]).filter((f) => getCellEventCategory(f) === mainCategory)
         const cell: Cell = {
-          event: { state: event.state, flags: getEventFlags(event.state), authors: event.authors },
+          events: {
+            list,
+            category: mainCategory,
+            flags: allFlags,
+            mainFlag: mainFlagCandidates.at(-1)!,
+            authors: [...new Set(list.flatMap((ev) => ev.authors))],
+          },
           starts: false,
           ends: false,
         }
-        if (cell.event!.flags.size === 0) {
-          const running = started[el]
+        if (cell.events!.category === CellEventCategory.MINISCULE) {
+          const running = started[e]
           column.push({ starts: !running, ends: !running })
           continue
         }
-        if (cell.event!.state.cause === ChangeCause.ADDED) {
-          started[el] = true
+        if (cell.events!.flags.has(EventFlag.ADDED)) {
+          started[e] = true
           cell.starts = true
         }
-        if (cell.event!.state.cause === ChangeCause.DELETED) {
-          started[el] = false
+        if (cell.events!.flags.has(EventFlag.DELETED)) {
+          started[e] = false
           cell.ends = true
         }
         column.push(cell)
       } else {
-        const running = started[el]
+        const running = started[e]
         column.push({ starts: !running, ends: !running })
       }
     }
@@ -518,7 +597,10 @@ function iconNeedsPadding(icon: string): boolean {
             </button>
           </section>
         </div>
-        <div class="navbar-item is-expanded is-flex is-justify-content-center is-align-items-center pr-6 pl-0" v-if="searchResults.length > 0">
+        <div
+          class="navbar-item is-expanded is-flex is-justify-content-center is-align-items-center"
+          v-if="searchResults.length > 0"
+        >
           <button
             class="button is-rounded is-flex-static"
             style="width: 160px; border-radius: 16px 0 0 16px; justify-content: start"
@@ -530,18 +612,21 @@ function iconNeedsPadding(icon: string): boolean {
             <span>Previous days</span>
           </button>
           <button
-            class="button is-flex-static"
-            style="width: 120px; border-radius: 0"
-            @click="currentTimes()"
-          >
-            <span>Today</span>
-          </button>
-          <button
             class="button is-rounded is-flex-static"
             style="width: 160px; border-radius: 0 16px 16px 0; justify-content: end"
             @click="nextTimes()"
           >
             <span>Next days</span>
+            <span class="icon">
+              <i class="mdi mdi-chevron-right"></i>
+            </span>
+          </button>
+          <button
+            class="button is-rounded is-flex-static"
+            style="width: 120px"
+            @click="currentTimes()"
+          >
+            <span>Today</span>
             <span class="icon">
               <i class="mdi mdi-chevron-right"></i>
             </span>
@@ -604,16 +689,16 @@ function iconNeedsPadding(icon: string): boolean {
             v-for="element of elements"
             :key="element.result.id"
             class="element is-flex is-flex-direction-column is-align-items-stretch px-2 py-1"
-            :class="{ deleted: element.deleted }"
+            :class="{ deleted: element.deletedAt != null }"
           >
             <header class="is-flex-static">{{ element.header }}</header>
             <section class="name is-flex-grow-1 is-flex is-align-items-center">
               <span class="icon-text">
                 <span
                   class="icon is-medium mr-1"
-                  :class="{ 'shrink-icon': iconNeedsPadding(element.icon) }"
+                  :class="{ 'shrink-icon': iconNeedsPadding(element.kind.icon) }"
                 >
-                  <img :src="`/icons/element/${element.icon}.png`" />
+                  <img :src="`/icons/element/${element.kind.icon}.png`" />
                 </span>
                 <span>
                   <HighlightedText :text="element.name" :highlights="element.highlights" />
@@ -639,9 +724,10 @@ function iconNeedsPadding(icon: string): boolean {
               </div>
               <button
                 class="button is-rounded is-small is-flex-static"
-                style="box-shadow: none; margin-left: 8rem"
+                style="box-shadow: none; margin-left: 6rem"
+                @click="elementTimes(element.createdAt)"
               >
-                <span>Jump to Created</span>
+                <span>Created on {{ element.createdAt.toISOString().substring(0, 10) }}</span>
                 <span class="icon">
                   <i class="mdi mdi-chevron-right"></i>
                 </span>
@@ -708,45 +794,28 @@ function iconNeedsPadding(icon: string): boolean {
             >
               <div v-if="!cell.starts" class="bar-start"></div>
               <div v-if="!cell.ends" class="bar-end"></div>
-              <div v-if="cell.event" class="bar-spot">
+              <div v-if="cell.events != null" class="bar-spot">
                 <button
                   class="button is-small is-rounded bar-event"
                   :class="{
-                    'is-success': cell.event.flags.has(EventFlag.ADDED),
-                    'is-danger': cell.event.flags.has(EventFlag.DELETED),
-                    'is-info': [
-                      EventFlag.BRANCHED,
-                      EventFlag.VALUE,
-                      EventFlag.REORDERED,
-                      EventFlag.BODY,
-                    ].some(f => cell.event!.flags.has(f)),
-                    'has-background-warning-45': [
-                      EventFlag.REPLACED,
-                      EventFlag.ANNOTATIONS,
-                      EventFlag.KIND,
-                      EventFlag.MOVED,
-                      EventFlag.RENAMED,
-                      EventFlag.MODIFIERS,
-                      EventFlag.REALIZATIONS,
-                      EventFlag.SUPERTYPES,
-                      EventFlag.TYPE_PARAMETERS,
-                      EventFlag.TYPE,
-                      EventFlag.VISIBILITY,
-                    ].some(f => cell.event!.flags.has(f)),
+                    'is-info': cell.events.category === CellEventCategory.MINOR,
+                    'has-background-warning-45': cell.events.category === CellEventCategory.MAJOR,
+                    'is-success': cell.events.category === CellEventCategory.ADDED,
+                    'is-danger': cell.events.category === CellEventCategory.DELETED,
                   }"
                 >
                   <span class="icon bright">
-                    <img :src="`/icons/event/${cell.event.flags.values().next().value}.png`" />
+                    <img :src="`/icons/event/${cell.events.mainFlag}.png`" />
                   </span>
                 </button>
               </div>
               <footer
-                v-if="cell.event"
+                v-if="cell.events != null"
                 class="is-flex is-align-items-center is-justify-content-center"
               >
                 <div class="chips">
                   <img
-                    v-for="(author, authorIndex) in cell.event.authors"
+                    v-for="(author, authorIndex) in cell.events.authors"
                     :key="authorIndex"
                     :src="`https://github.com/${author}.png`"
                   />

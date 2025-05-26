@@ -3,7 +3,7 @@ import type { SymbolEvent } from '@/models/SymbolEvent'
 import type { DateObject } from "@/models/DateObject"
 import { toDateObject } from "@/models/DateObject"
 
-export const elements: Omit<SymbolElement, 'result' | 'score' | 'deleted'>[] = [
+/*export const elements: Omit<SymbolElement, 'result' | 'score' | 'deleted'>[] = [
   {
     header: 'at.am307.solver.core.Page',
     icon: 'constant',
@@ -61,14 +61,15 @@ export const symbolEvents: SymbolEvent[][] = [
       authors: ['torvalds'],
     },
   ],
-]
+]*/
 
 export function addDays(date: Date, days: number): Date {
   const result = new Date(date)
   result.setDate(result.getDate() + days)
-  return result
+  return new Date(result.toISOString().substring(0, 10))
 }
 
+/*
 export const startDate = new Date('2024-07-01Z')
 const dates: Date[] = []
 for (let i = 0; i < 20; i++) {
@@ -76,3 +77,4 @@ for (let i = 0; i < 20; i++) {
 }
 
 export const dateObjects: DateObject[] = dates.map(toDateObject)
+*/

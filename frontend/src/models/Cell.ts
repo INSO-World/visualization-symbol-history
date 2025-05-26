@@ -8,9 +8,9 @@ export enum EventFlag {
   VALUE = 'value',
   ANNOTATIONS = 'annotations',
   KIND = 'kind',
-  MOVED = 'move',
-  RENAMED = 'name',
-  REORDERED = 'order',
+  MOVED = 'moved',
+  RENAMED = 'renamed',
+  REORDERED = 'reordered',
   BODY = 'body',
   MODIFIERS = 'modifiers',
   REALIZATIONS = 'realizations',
@@ -20,10 +20,27 @@ export enum EventFlag {
   VISIBILITY = 'visibility',
 }
 
+export enum CellEventCategory {
+  MINISCULE = 1,
+  MINOR,
+  MAJOR,
+  ADDED,
+  DELETED,
+}
+
+export type CellEvent = {
+  category: CellEventCategory
+  state: StateDto
+  flags: Set<EventFlag>
+  authors: string[]
+}
+
 export type Cell = {
-  event?: {
+  events?: {
+    list: CellEvent[]
+    category: CellEventCategory
     flags: Set<EventFlag>
-    state: StateDto
+    mainFlag: EventFlag
     authors: string[]
   }
   starts: boolean

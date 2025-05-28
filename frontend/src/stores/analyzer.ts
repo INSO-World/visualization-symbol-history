@@ -21,6 +21,8 @@ export type SearchResult = {
   match: Range[]
 }
 
+export type AnalyzerStore = ReturnType<typeof useAnalyzerStore>
+
 export const useAnalyzerStore = defineStore('analyzer', {
   state: () => ({
     root: null as unknown as RootDto,

@@ -3,35 +3,25 @@
 import { computed, ref } from 'vue'
 import { type Cell, type CellEvent, CellEventCategory, EventFlag } from '@/models/Cell'
 import type { SymbolEvent } from '@/models/SymbolEvent'
-import { addDays } from '@/models/mocks'
 import { toDateObject } from '@/models/DateObject'
 import type { SymbolElement } from '@/models/SymbolElement'
-import {
-  ChangeCause,
-  type ConcreteTypeArgument,
-  Kind,
-  Modifier,
-  type StateDto,
-  type StateField,
-  type TypeArgument,
-  type TypeBound,
-  type UnknownType,
-  UpdateFlag,
-  type UpperTypeBound,
-} from '@/models/analyzer'
-import { type SearchResult, useAnalyzerStore } from '@/stores/analyzer'
+import { type StateDto } from '@/models/analyzer'
+import { useAnalyzerStore } from '@/stores/analyzer'
 import HighlightedText from '@/components/HighlightedText.vue'
 import debounce from 'debounce'
+import { addDays, normalizeDate } from '@/functions/date'
+import { union } from '@/functions/lang'
+import { resultToElement } from '@/functions/element'
+import { getCellEventCategory, getEventFlags } from '@/functions/event-flags'
+import AnPopover from "@/components/AnPopover.vue"
 
 const analyzerStore = useAnalyzerStore()
 
 const searchTerm = ref<string>('')
 
 const DATE_SPAN = 18
-const TYPE_CHARACTER_LIMIT = 24
-const PATH_CHARACTER_LIMIT = 32
-const MIN_DATE = new Date('2020-01-01Z')
-const TODAY = new Date(new Date().toISOString().substring(0, 10))
+const MIN_DATE = normalizeDate(new Date('2020-01-01Z'))
+const TODAY = normalizeDate(new Date())
 const MAX_DATE = addDays(TODAY, -DATE_SPAN + 1)
 
 const startDate = ref(MAX_DATE)
@@ -56,233 +46,6 @@ const elements = computed(() =>
 const startElementIndex = ref(0)
 const cells = ref([] as Cell[][])
 
-type KindInfo = {
-  icon: string
-  abstract: boolean
-  typed: boolean
-  parameterized: boolean
-  text: string
-}
-
-const KIND_MAPPING: Record<Kind, KindInfo> = {
-  ANNOTATION: {
-    icon: 'annotation',
-    abstract: false,
-    typed: false,
-    parameterized: false,
-    text: 'annotation',
-  },
-  CLASS: {
-    icon: 'class',
-    abstract: true,
-    typed: false,
-    parameterized: false,
-    text: 'class',
-  },
-  CONSTANT_FIELD: {
-    icon: 'constant',
-    abstract: false,
-    typed: true,
-    parameterized: false,
-    text: 'class constant',
-  },
-  CONSTANT_VARIABLE: {
-    icon: 'constant',
-    abstract: false,
-    typed: true,
-    parameterized: false,
-    text: 'local constant',
-  },
-  CONSTRUCTOR: {
-    icon: 'constructor',
-    abstract: false,
-    typed: false,
-    parameterized: true,
-    text: 'constructor',
-  },
-  ENUM: {
-    icon: 'enum',
-    abstract: false,
-    typed: false,
-    parameterized: false,
-    text: 'enum',
-  },
-  ENUM_CONSTANT: {
-    icon: 'enum_constant',
-    abstract: false,
-    typed: false,
-    parameterized: false,
-    text: 'enum constant',
-  },
-  FIELD: {
-    icon: 'field',
-    abstract: false,
-    typed: true,
-    parameterized: false,
-    text: 'field',
-  },
-  INTERFACE: {
-    icon: 'interface',
-    abstract: false,
-    typed: false,
-    parameterized: false,
-    text: 'interface',
-  },
-  METHOD: {
-    icon: 'method',
-    abstract: true,
-    typed: true,
-    parameterized: true,
-    text: 'method',
-  },
-  MODULE: {
-    icon: 'module',
-    abstract: false,
-    typed: false,
-    parameterized: false,
-    text: 'module',
-  },
-  PACKAGE: {
-    icon: 'package',
-    abstract: false,
-    typed: false,
-    parameterized: false,
-    text: 'package',
-  },
-  PARAMETER: {
-    icon: 'parameter',
-    abstract: false,
-    typed: true,
-    parameterized: false,
-    text: 'parameter',
-  },
-  RECORD: {
-    icon: 'record',
-    abstract: false,
-    typed: false,
-    parameterized: false,
-    text: 'record class',
-  },
-  VARIABLE: {
-    icon: 'variable',
-    abstract: false,
-    typed: true,
-    parameterized: false,
-    text: 'variable',
-  },
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
-
-function isConcreteTypeArg(a: TypeArgument): a is ConcreteTypeArgument {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (a as any)['type'] != null
-}
-
-function isUpperBound(b: TypeBound): b is UpperTypeBound {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (b as any)['extends'] != null
-}
-
-function typeToText(t: UnknownType, deep: boolean = true): string {
-  let result = t.qualifiedName.replace(/\$/g, '.').split('.').at(-1)!
-  if (deep && t.typeArguments != null) {
-    const parts = t.typeArguments.map((arg) => {
-      if (isConcreteTypeArg(arg)) {
-        return typeToText(arg.type, false)
-      } else if (arg.wildcard === 'any') {
-        return '?'
-      } else if (isUpperBound(arg.wildcard)) {
-        return `? extends ${typeToText(arg.wildcard.extends, false)}`
-      } else {
-        return `? super ${typeToText(arg.wildcard.super, false)}`
-      }
-    })
-    result += '<'
-    for (let i = 0; i < parts.length; i++) {
-      if (i > 0) {
-        result += ', '
-      }
-      const part = parts[i]
-      if (result.length + part.length + 2 > TYPE_CHARACTER_LIMIT) {
-        result += '…'
-        break
-      }
-      result += part
-    }
-    result += '>'
-  }
-  return result
-}
-
-function resultToElement(result: SearchResult): SymbolElement {
-  const kindInfo = KIND_MAPPING[result.key.kind]
-  let headerText = kindInfo.text
-  let iconName = kindInfo.icon
-  let suffixText = ''
-  const keyState = analyzerStore.findKeyState(result.symbol, result.key)
-  if (kindInfo.abstract) {
-    const abstract = new Set(keyState.properties['modifiers']).has(Modifier.ABSTRACT)
-    if (abstract) {
-      headerText = 'abstract ' + headerText
-      iconName += '_abstract'
-    }
-  }
-  if (kindInfo.parameterized) {
-    suffixText += '(…)'
-  }
-  if (kindInfo.typed) {
-    const type = keyState.properties['type']
-    if (type != null) {
-      suffixText += `: ${typeToText(type)}`
-    }
-  }
-  headerText = capitalize(headerText)
-  const parentCrumbs = analyzerStore
-    .findParentCrumbs(result.key)
-    .slice(0, -1)
-    .map((k) => k.name)
-  let parentText = ''
-  for (let i = parentCrumbs.length - 1; i >= 0; i--) {
-    const crumb = parentCrumbs[i]
-    if (parentText.length + crumb.length + 1 > PATH_CHARACTER_LIMIT) {
-      parentText = '…' + parentText
-      break
-    }
-    parentText = `${crumb}${parentText.length === 0 ? '' : '.'}${parentText}`
-  }
-  headerText += ` in ${parentText}`
-  const createdAt = new Date(result.symbol.keys[0].from)
-  const deletedStates = Object.values(result.symbol.states)
-    .flatMap((s) => s)
-    .filter((s) => s.cause === ChangeCause.DELETED)
-  const deletedAt =
-    deletedStates.length > 0 ? analyzerStore.commitDate(deletedStates.at(-1)!.commit) : undefined
-  return {
-    result: result.symbol,
-    header: headerText,
-    kind: {
-      name: kindInfo.text,
-      icon: iconName,
-    },
-    path: parentText,
-    name: result.key.name,
-    suffix: suffixText,
-    highlights: result.match,
-    chips: [
-      {
-        username: 'AM307',
-        percentage: 100,
-      },
-    ],
-    score: result.score,
-    createdAt,
-    deletedAt,
-  }
-}
-
 let lastSearchTerm: string | null = null
 
 const debouncedSearch = debounce(async () => {
@@ -302,7 +65,7 @@ const debouncedSearch = debounce(async () => {
   searchResults.value = analyzerStore
     .search(searchTerm.value)
     .filter((s) => s.score >= 0.8)
-    .map(resultToElement)
+    .map((s) => resultToElement(s, analyzerStore))
   updateView()
 }, 500)
 
@@ -365,115 +128,11 @@ function currentTimes() {
 }
 
 function elementTimes(date: Date) {
-  if (+startDate.value != +date) {
-    startDate.value = new Date(date.toISOString().substring(0, 10))
+  const normalizedDate = normalizeDate(date)
+  if (+startDate.value != +normalizedDate) {
+    startDate.value = normalizedDate
     updateView()
   }
-}
-
-const UPDATE_FLAG_MAPPING: Record<UpdateFlag, EventFlag | undefined> = {
-  BODY_UPDATED: EventFlag.BODY,
-  MOVED: EventFlag.MOVED,
-  MOVED_WITH_PARENT: undefined,
-  RENAMED: EventFlag.RENAMED,
-  REORDERED: EventFlag.REORDERED,
-  REPLACED: EventFlag.REPLACED,
-}
-
-function getEventFlags(state: StateDto): Set<EventFlag> {
-  const result = new Set<EventFlag>()
-  if (state.cause === ChangeCause.ADDED) {
-    result.add(EventFlag.ADDED)
-  } else if (state.cause === ChangeCause.DELETED) {
-    result.add(EventFlag.DELETED)
-  } else if (state.cause === ChangeCause.CHANGED) {
-    // Do nothing
-  } else {
-    result.add(EventFlag.BRANCHED)
-  }
-  if (state.flags != null) {
-    const eventFlags = new Set<EventFlag>(
-      state.flags.map((f) => UPDATE_FLAG_MAPPING[f]).filter((f) => f != null),
-    )
-    if (state.flags.includes(UpdateFlag.MOVED_WITH_PARENT)) {
-      eventFlags.delete(EventFlag.MOVED)
-    }
-    eventFlags.forEach((f) => result.add(f))
-  }
-  const updatedSet = new Set<StateField>(state.updated)
-  if (updatedSet.has('initialValue') || updatedSet.has('enumArguments')) {
-    result.add(EventFlag.VALUE)
-  }
-  if (updatedSet.has('annotations')) {
-    result.add(EventFlag.ANNOTATIONS)
-  }
-  if (updatedSet.has('kind')) {
-    result.add(EventFlag.KIND)
-  }
-  if (updatedSet.has('modifiers')) {
-    result.add(EventFlag.MODIFIERS)
-  }
-  if (updatedSet.has('realizations')) {
-    result.add(EventFlag.REALIZATIONS)
-  }
-  if (updatedSet.has('supertypes')) {
-    result.add(EventFlag.SUPERTYPES)
-  }
-  if (updatedSet.has('typeParameters')) {
-    result.add(EventFlag.TYPE_PARAMETERS)
-  }
-  if (updatedSet.has('type')) {
-    result.add(EventFlag.TYPE)
-  }
-  if (updatedSet.has('visibility')) {
-    result.add(EventFlag.VISIBILITY)
-  }
-  return result
-}
-
-const MAJOR_EVENT_FLAGS = new Set<EventFlag>([
-  EventFlag.REPLACED,
-  EventFlag.ANNOTATIONS,
-  EventFlag.KIND,
-  EventFlag.MOVED,
-  EventFlag.RENAMED,
-  EventFlag.MODIFIERS,
-  EventFlag.REALIZATIONS,
-  EventFlag.SUPERTYPES,
-  EventFlag.TYPE_PARAMETERS,
-  EventFlag.TYPE,
-  EventFlag.VISIBILITY,
-])
-
-const MINOR_EVENT_FLAGS = new Set<EventFlag>([
-  EventFlag.BRANCHED,
-  EventFlag.VALUE,
-  EventFlag.REORDERED,
-  EventFlag.BODY,
-])
-
-function getCellEventCategory(flag: EventFlag): CellEventCategory {
-  if (flag === EventFlag.DELETED) {
-    return CellEventCategory.DELETED
-  }
-  if (flag === EventFlag.ADDED) {
-    return CellEventCategory.ADDED
-  }
-  if (MAJOR_EVENT_FLAGS.has(flag)) {
-    return CellEventCategory.MAJOR
-  }
-  if (MINOR_EVENT_FLAGS.has(flag)) {
-    return CellEventCategory.MINOR
-  }
-  return CellEventCategory.MINISCULE
-}
-
-function union<T>(sets: Array<Set<T>>): Set<T> {
-  const result = new Set<T>()
-  for (const set of sets) {
-    set.forEach((v) => result.add(v))
-  }
-  return result
 }
 
 function updateView() {
@@ -488,7 +147,7 @@ function updateView() {
       events.push(
         ...ymEvents.map((state) => ({
           state,
-          date: new Date(analyzerStore.commitDate(state.commit).toISOString().substring(0, 10)),
+          date: normalizeDate(analyzerStore.commitDate(state.commit)),
           authors: ['AM307'],
         })),
       )
@@ -509,8 +168,7 @@ function updateView() {
   const eventsToProcess = [
     ...Map.groupBy(
       symbolEvents.value.flatMap((a, i) => a.map((e) => ({ index: i, ...e }))),
-      (e: SymbolEvent & { index: number }) =>
-        new Date(e.date.toISOString().substring(0, 10)).valueOf(),
+      (e: SymbolEvent & { index: number }) => normalizeDate(e.date).valueOf(),
     ),
   ].map(([date, entries]) => ({ date, entries }))
   eventsToProcess.sort((a, b) => a.date - b.date)
@@ -535,7 +193,10 @@ function updateView() {
         events.sort((a, b) => +a.date - +b.date)
         const list: CellEvent[] = events.map((ev) => {
           const flags = getEventFlags(ev.state)
-          const category = Math.max(CellEventCategory.MINISCULE, ...[...flags].map(f => getCellEventCategory(f)))
+          const category = Math.max(
+            CellEventCategory.MINISCULE,
+            ...[...flags].map((f) => getCellEventCategory(f)),
+          )
           return {
             category,
             state: ev.state,
@@ -545,7 +206,9 @@ function updateView() {
         })
         const mainCategory = Math.max(...list.map((ev) => ev.category))
         const allFlags = union(list.map((ev) => ev.flags))
-        const mainFlagCandidates: EventFlag[] = list.flatMap((ev) => [...ev.flags]).filter((f) => getCellEventCategory(f) === mainCategory)
+        const mainFlagCandidates: EventFlag[] = list
+          .flatMap((ev) => [...ev.flags])
+          .filter((f) => getCellEventCategory(f) === mainCategory)
         const cell: Cell = {
           events: {
             list,
@@ -588,7 +251,7 @@ function iconNeedsPadding(icon: string): boolean {
 
 <template>
   <div id="wrapper" class="is-flex is-flex-direction-column is-align-items-stretch">
-    <nav class="navbar is-flex-static">
+    <nav class="navbar is-flex-static" style="max-height: 52px">
       <div class="navbar-menu">
         <div class="navbar-start">
           <section class="buttons has-addons are-small w-elements-pane px-2 is-centered is-rounded">
@@ -605,31 +268,34 @@ function iconNeedsPadding(icon: string): boolean {
             class="button is-rounded is-flex-static"
             style="width: 160px; border-radius: 16px 0 0 16px; justify-content: start"
             @click="previousTimes()"
+            :disabled="+startDate <= +MIN_DATE"
           >
             <span class="icon">
-              <i class="mdi mdi-chevron-left"></i>
+              <i class="mdi mdi-arrow-left-thin"></i>
             </span>
             <span>Previous days</span>
           </button>
           <button
             class="button is-rounded is-flex-static"
-            style="width: 160px; border-radius: 0 16px 16px 0; justify-content: end"
+            style="width: 160px; border-radius: 0 16px 16px 0; justify-content: end; margin-left: -0.75rem"
             @click="nextTimes()"
+            :disabled="+startDate >= +MAX_DATE"
           >
             <span>Next days</span>
             <span class="icon">
-              <i class="mdi mdi-chevron-right"></i>
+              <i class="mdi mdi-arrow-right-thin"></i>
             </span>
           </button>
           <button
             class="button is-rounded is-flex-static"
             style="width: 120px"
             @click="currentTimes()"
+            :disabled="+startDate >= +MAX_DATE"
           >
-            <span>Today</span>
             <span class="icon">
-              <i class="mdi mdi-chevron-right"></i>
+              <i class="mdi mdi-calendar-today"></i>
             </span>
+            <span>Today</span>
           </button>
         </div>
       </div>
@@ -746,7 +412,7 @@ function iconNeedsPadding(icon: string): boolean {
             @click="previousElementPage()"
           >
             <span class="icon">
-              <i class="mdi mdi-chevron-up"></i>
+              <i class="mdi mdi-arrow-up-thin"></i>
             </span>
             <span>Previous results</span>
           </button>
@@ -757,7 +423,7 @@ function iconNeedsPadding(icon: string): boolean {
             @click="nextElementPage()"
           >
             <span class="icon">
-              <i class="mdi mdi-chevron-down"></i>
+              <i class="mdi mdi-arrow-down-thin"></i>
             </span>
             <span>Next results</span>
           </button>
@@ -795,19 +461,29 @@ function iconNeedsPadding(icon: string): boolean {
               <div v-if="!cell.starts" class="bar-start"></div>
               <div v-if="!cell.ends" class="bar-end"></div>
               <div v-if="cell.events != null" class="bar-spot">
-                <button
-                  class="button is-small is-rounded bar-event"
-                  :class="{
-                    'is-info': cell.events.category === CellEventCategory.MINOR,
-                    'has-background-warning-45': cell.events.category === CellEventCategory.MAJOR,
-                    'is-success': cell.events.category === CellEventCategory.ADDED,
-                    'is-danger': cell.events.category === CellEventCategory.DELETED,
-                  }"
-                >
-                  <span class="icon bright">
-                    <img :src="`/icons/event/${cell.events.mainFlag}.png`" />
-                  </span>
-                </button>
+                <AnPopover arrow>
+                  <button
+                    class="button is-small is-rounded bar-event"
+                    :class="{
+                      'is-info': cell.events.category === CellEventCategory.MINOR,
+                      'has-background-warning-45': cell.events.category === CellEventCategory.MAJOR,
+                      'is-success': cell.events.category === CellEventCategory.ADDED,
+                      'is-danger': cell.events.category === CellEventCategory.DELETED,
+                    }"
+                  >
+                    <span class="icon bright">
+                      <img :src="`/icons/event/${cell.events.mainFlag}.png`" />
+                    </span>
+                  </button>
+                  <template #content>
+                    <div style="min-width: 100px; text-align: center">
+                      {{ cell.events.list.length }} change{{ cell.events.list.length > 1 ? 's' : '' }}
+                    </div>
+                  </template>
+                </AnPopover>
+                <div v-if="cell.events.list.length > 1" class="bar-plus">
+                  +{{ cell.events.list.length - 1 }}
+                </div>
               </div>
               <footer
                 v-if="cell.events != null"
@@ -835,6 +511,15 @@ function iconNeedsPadding(icon: string): boolean {
 #wrapper {
   position: absolute;
   inset: 0;
+  --popper-theme-background-color: #fafafa;
+  --popper-theme-background-color-hover: #fafafa;
+  --popper-theme-text-color: #222;
+  --popper-theme-border-width: 1px;
+  --popper-theme-border-style: solid;
+  --popper-theme-border-radius: 6px;
+  --popper-theme-border-color: #cacaca;
+  --popper-theme-padding: 8px;
+  --popper-theme-box-shadow: 0 6px 30px -6px rgba(0, 0, 0, 0.25);
 }
 
 main {
@@ -1019,6 +704,19 @@ main {
     border: 1px solid #fafafa;
     padding-inline: var(--bulma-button-padding-horizontal) !important;
   }
+
+  .bar-plus {
+    position: absolute;
+    right: -0.5rem;
+    bottom: -0.25rem;
+    font-size: 0.66rem;
+    font-family: 'Tahoma', sans-serif;
+    color: #fafafa;
+    background-color: #444;
+    border-radius: 4px;
+    padding: 0 4px 2px;
+    user-select: none;
+  }
 }
 
 .explore-path-name {
@@ -1071,9 +769,7 @@ $cell-hover-color: #f0f0f0;
     }
   }
 
-  .timeline-pane:has(.timeline-column:nth-child(#{$i}):hover)
-    .timeline-header
-    > .column-header:nth-child(#{$i}) {
+  .timeline-pane:has(.timeline-column:nth-child(#{$i}):hover) .timeline-header > .column-header:nth-child(#{$i}) {
     background-color: $cell-hover-color;
   }
 }

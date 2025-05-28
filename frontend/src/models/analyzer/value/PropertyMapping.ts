@@ -4,6 +4,7 @@ import type { Type } from "@/models/analyzer/value/Type"
 import type { Modifier } from "@/models/analyzer/value/Modifier"
 import type { Visibility } from "@/models/analyzer/value/Visibility"
 import type { TypeParameter } from "@/models/analyzer/value/TypeParameter"
+import type { Range } from "@/models/common"
 
 type Expression = string;
 
@@ -14,7 +15,7 @@ export type PropertyMapping = Partial<{
   enumArguments: Expression[];
   initialValue: Expression;
   kind: Kind;
-  lines: [number, number];
+  lines: Range;
   modifiers: Modifier[];
   parent: number;
   path: string;

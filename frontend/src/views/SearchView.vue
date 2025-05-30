@@ -1,11 +1,11 @@
 <!--suppress HtmlRequiredAltAttribute -->
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, shallowRef, triggerRef } from 'vue'
 import { type Cell, type CellEvent, CellEventCategory, EventFlag } from '@/models/Cell'
 import type { SymbolEvent } from '@/models/SymbolEvent'
 import { toDateObject } from '@/models/DateObject'
 import type { SymbolElement } from '@/models/SymbolElement'
-import { type StateDto } from '@/models/analyzer'
+import { ChangeCause, Kind, type PropertyKey, type StateDto } from '@/models/analyzer'
 import { useAnalyzerStore } from '@/stores/analyzer'
 import HighlightedText from '@/components/HighlightedText.vue'
 import debounce from 'debounce'
@@ -13,7 +13,13 @@ import { addDays, normalizeDate } from '@/functions/date'
 import { union } from '@/functions/lang'
 import { resultToElement } from '@/functions/element'
 import { getCellEventCategory, getEventFlags } from '@/functions/event-flags'
-import AnPopover from "@/components/AnPopover.vue"
+import AnPopover from '@/components/AnPopover.vue'
+import {
+  type DisplayPropertyKey,
+  PROPERTIES_TO_DISPLAY,
+  PROPERTY_DISPLAY_NAMES,
+} from '@/constants/property-display-names'
+import { PROPERTY_DISPLAYS } from '@/functions/displays'
 
 const analyzerStore = useAnalyzerStore()
 
@@ -44,7 +50,7 @@ const elements = computed(() =>
   searchResults.value.slice(startElementIndex.value, startElementIndex.value + ELEMENT_SPAN),
 )
 const startElementIndex = ref(0)
-const cells = ref([] as Cell[][])
+const cells = shallowRef([] as Cell[][])
 
 let lastSearchTerm: string | null = null
 
@@ -154,7 +160,7 @@ function updateView() {
     }
     newSymbolEvents.push(events)
   }
-  console.log(newSymbolEvents)
+  //console.log(newSymbolEvents)
   symbolEvents.value = newSymbolEvents
 
   const started: boolean[] = symbolEvents.value.map((_a, i) => {
@@ -200,6 +206,7 @@ function updateView() {
           return {
             category,
             state: ev.state,
+            commit: analyzerStore.getCommit(ev.state.commit),
             flags,
             authors: ev.authors,
           }
@@ -220,11 +227,11 @@ function updateView() {
           starts: false,
           ends: false,
         }
-        if (cell.events!.category === CellEventCategory.MINISCULE) {
+        /*if (cell.events!.category === CellEventCategory.MINISCULE) {
           const running = started[e]
           column.push({ starts: !running, ends: !running })
           continue
-        }
+        }*/
         if (cell.events!.flags.has(EventFlag.ADDED)) {
           started[e] = true
           cell.starts = true
@@ -242,10 +249,56 @@ function updateView() {
     newCells.push(column)
   }
   cells.value = newCells
+  triggerRef(cells)
 }
 
 function iconNeedsPadding(icon: string): boolean {
   return ['field_injected', 'field', 'constant'].includes(icon)
+}
+
+function columnHash(cells: Cell[]): string {
+  return cells
+    .map((cell) => {
+      if (cell.events == null) {
+        return '='
+      }
+      return cell.events.list.map((e) => `${e.state.symbolId}@${e.state.commit}`)
+    })
+    .join(' ')
+}
+
+function getDisplayProperties(
+  state: StateDto,
+): Array<{ key: DisplayPropertyKey; name: string; values: string[] }> {
+  const updatedKeys: PropertyKey[] =
+    state.cause === ChangeCause.ADDED
+      ? (Object.keys(state.properties).filter((k) => k !== 'body') as PropertyKey[])
+      : (state.updated ?? [])
+  const keys = updatedKeys.filter((key) => PROPERTIES_TO_DISPLAY.has(key)) as DisplayPropertyKey[]
+  return keys.map((key) => {
+    let name = PROPERTY_DISPLAY_NAMES[key]
+    if (key === 'type' && state.properties.kind === Kind.METHOD) {
+      name = 'Return ' + name.toLowerCase()
+    }
+    return {
+      key,
+      name,
+      values: PROPERTY_DISPLAYS[key](state.properties[key]! as never),
+    }
+  })
+}
+
+const UK_DATE_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: 'numeric',
+  timeZoneName: 'short',
+})
+
+function prettyDateString(dateString: string): string {
+  return UK_DATE_FORMATTER.format(new Date(dateString))
 }
 </script>
 
@@ -277,7 +330,12 @@ function iconNeedsPadding(icon: string): boolean {
           </button>
           <button
             class="button is-rounded is-flex-static"
-            style="width: 160px; border-radius: 0 16px 16px 0; justify-content: end; margin-left: -0.75rem"
+            style="
+              width: 160px;
+              border-radius: 0 16px 16px 0;
+              justify-content: end;
+              margin-left: -0.75rem;
+            "
             @click="nextTimes()"
             :disabled="+startDate >= +MAX_DATE"
           >
@@ -329,24 +387,24 @@ function iconNeedsPadding(icon: string): boolean {
           </section>
           <section class="is-flex-static buttons are-small pb-3 px-3 is-flex">
             <div class="is-flex-grow-1">
-              <button class="button is-rounded">
+              <button class="button is-rounded" disabled>
                 <span>Sort: Relevance</span>
                 <span class="icon">
                   <i class="mdi mdi-chevron-right"></i>
                 </span>
               </button>
             </div>
-            <button class="button is-rounded is-flex-static">
+            <button class="button is-rounded is-flex-static" disabled>
               <span>Filters</span>
               <span class="icon">
                 <i class="mdi mdi-chevron-right"></i>
               </span>
             </button>
-            <button class="button is-rounded is-flex-static">
+            <button class="button is-rounded is-flex-static" disabled>
               <span>Time: Days</span>
-              <!--<span class="icon">
+              <span class="icon">
                 <i class="mdi mdi-chevron-right"></i>
-              </span>-->
+              </span>
             </button>
           </section>
         </header>
@@ -454,13 +512,19 @@ function iconNeedsPadding(icon: string): boolean {
             class="timeline-column is-flex-static is-flex is-flex-direction-column is-align-items-stretch"
           >
             <div
-              v-for="(cell, cellIndex) in column"
-              :key="cellIndex"
+              v-for="(cell, rowIndex) in column"
+              :key="rowIndex"
               class="timeline-cell is-flex-static"
             >
               <div v-if="!cell.starts" class="bar-start"></div>
               <div v-if="!cell.ends" class="bar-end"></div>
-              <div v-if="cell.events != null" class="bar-spot">
+              <div
+                v-if="cell.events != null"
+                class="bar-spot"
+                :class="{
+                  'bar-spot-miniscule': cell.events.category === CellEventCategory.MINISCULE,
+                }"
+              >
                 <AnPopover arrow>
                   <button
                     class="button is-small is-rounded bar-event"
@@ -471,14 +535,64 @@ function iconNeedsPadding(icon: string): boolean {
                       'is-danger': cell.events.category === CellEventCategory.DELETED,
                     }"
                   >
-                    <span class="icon bright">
+                    <span
+                      class="icon bright"
+                      v-if="cell.events.category > CellEventCategory.MINISCULE"
+                    >
                       <img :src="`/icons/event/${cell.events.mainFlag}.png`" />
                     </span>
                   </button>
                   <template #content>
-                    <div style="min-width: 100px; text-align: center">
-                      {{ cell.events.list.length }} change{{ cell.events.list.length > 1 ? 's' : '' }}
+                    <div class="is-size-7 mb-1" style="min-width: 100px; text-align: center">
+                      {{ cell.events.list.length }} change{{
+                        cell.events.list.length > 1 ? 's:' : ':'
+                      }}
                     </div>
+                    <table
+                      class="table prop-table w-100 is-bordered is-striped is-hoverable is-narrow mb-0"
+                    >
+                      <tbody>
+                        <template v-for="event of cell.events.list" :key="event.state.commit">
+                          <tr class="is-selected">
+                            <th colspan="2">
+                              <small class="is-size-7"
+                                >{{ event.commit.hash }} on
+                                {{ prettyDateString(event.commit.date) }}</small
+                              >
+                              <abbr
+                                :title="
+                                  event.commit.summary +
+                                  (event.commit.desc ? '\n\n' + event.commit.desc : '')
+                                "
+                              >
+                                {{ event.commit.summary }}
+                              </abbr>
+                            </th>
+                          </tr>
+                          <tr v-if="event.state.cause.startsWith('SUCCEEDED')">
+                            <td colspan="2" class="has-text-centered">Branched or merged</td>
+                          </tr>
+                          <tr v-if="event.state.cause === ChangeCause.DELETED">
+                            <td colspan="2" class="has-text-centered">Symbol deleted</td>
+                          </tr>
+                          <template
+                            v-for="prop of getDisplayProperties(event.state)"
+                            :key="prop.key"
+                          >
+                            <tr v-for="(value, index) of prop.values" :key="index">
+                              <th
+                                v-if="index === 0"
+                                class="prop-table-prop has-text-right has-text-weight-normal"
+                                :rowspan="prop.values.length"
+                              >
+                                {{ prop.name }}
+                              </th>
+                              <td>{{ value }}</td>
+                            </tr>
+                          </template>
+                        </template>
+                      </tbody>
+                    </table>
                   </template>
                 </AnPopover>
                 <div v-if="cell.events.list.length > 1" class="bar-plus">
@@ -486,7 +600,7 @@ function iconNeedsPadding(icon: string): boolean {
                 </div>
               </div>
               <footer
-                v-if="cell.events != null"
+                v-if="cell.events != null && cell.events.category > CellEventCategory.MINISCULE"
                 class="is-flex is-align-items-center is-justify-content-center"
               >
                 <div class="chips">
@@ -686,19 +800,35 @@ main {
 }
 
 .bar-spot {
-  $radius: calc($timeline-spot-outline-diameter / 2);
+  --diameter: #{$timeline-spot-outline-diameter};
   background-color: lightskyblue;
-  border-radius: $radius;
+  border-radius: calc(var(--diameter) / 2);
   position: absolute;
   top: 50%;
   left: 50%;
-  width: $timeline-spot-outline-diameter;
-  height: $timeline-spot-outline-diameter;
-  margin-top: -$radius;
-  margin-left: -$radius;
+  width: var(--diameter);
+  height: var(--diameter);
+  margin-top: calc(var(--diameter) / -2);
+  margin-left: calc(var(--diameter) / -2);
   display: flex;
   align-items: center;
   justify-content: center;
+
+  &.bar-spot-miniscule {
+    --diameter: 16px;
+
+    button {
+      margin-top: calc((#{$timeline-bar-width} - var(--diameter)) / 2);
+      padding-inline: 0 !important;
+      width: var(--diameter);
+      height: var(--diameter);
+    }
+
+    .bar-plus {
+      right: -1rem;
+      bottom: -0.75rem;
+    }
+  }
 
   button {
     border: 1px solid #fafafa;
@@ -769,8 +899,51 @@ $cell-hover-color: #f0f0f0;
     }
   }
 
-  .timeline-pane:has(.timeline-column:nth-child(#{$i}):hover) .timeline-header > .column-header:nth-child(#{$i}) {
+  .timeline-pane:has(.timeline-column:nth-child(#{$i}):hover)
+    .timeline-header
+    > .column-header:nth-child(#{$i}) {
     background-color: $cell-hover-color;
+  }
+}
+
+.prop-table {
+  --prop-table-radius: 6px;
+  border-collapse: separate;
+  border-radius: var(--prop-table-radius);
+  overflow: hidden;
+  font-size: 0.9rem;
+
+  tr:first-of-type :first-child {
+    border-top-left-radius: var(--prop-table-radius);
+  }
+
+  tr:first-of-type :last-child {
+    border-top-right-radius: var(--prop-table-radius);
+  }
+
+  tr:last-of-type :first-child {
+    border-bottom-left-radius: var(--prop-table-radius);
+  }
+
+  tr:last-of-type :last-child {
+    border-bottom-right-radius: var(--prop-table-radius);
+  }
+
+  tr.is-selected {
+    th {
+      text-align: center;
+      text-wrap: nowrap;
+    }
+
+    small {
+      display: block;
+      margin-bottom: -4px;
+    }
+  }
+
+  .prop-table-prop {
+    text-wrap: nowrap;
+    vertical-align: middle;
   }
 }
 

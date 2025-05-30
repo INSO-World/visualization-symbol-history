@@ -49,3 +49,4 @@ vite.config.*.timestamp*
 .local
 *.zip
 *.7z
+/result*.json

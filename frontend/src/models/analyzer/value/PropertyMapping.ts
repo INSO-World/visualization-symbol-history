@@ -6,23 +6,27 @@ import type { Visibility } from "@/models/analyzer/value/Visibility"
 import type { TypeParameter } from "@/models/analyzer/value/TypeParameter"
 import type { Range } from "@/models/common"
 
-type Expression = string;
+type Expression = string & {};
 
-export type PropertyMapping = Partial<{
-  _level: AnalyzerLevel;
-  annotations: Type[];
-  body: number;
-  enumArguments: Expression[];
-  initialValue: Expression;
-  kind: Kind;
-  lines: Range;
-  modifiers: Modifier[];
-  parent: number;
-  path: string;
-  realizations: Type[];
-  simpleName: string;
-  supertypes: Type[];
-  typeParameters: TypeParameter[];
-  type: Type;
-  visibility: Visibility;
-}>
+export type PropertyKey = keyof FullPropertyMapping
+
+export type FullPropertyMapping = {
+  _level: AnalyzerLevel
+  annotations: Type[]
+  body: number
+  enumArguments: Expression[]
+  initialValue: Expression
+  kind: Kind
+  lines: Range
+  modifiers: Modifier[]
+  parent: number
+  path: string
+  realizations: Type[]
+  simpleName: string
+  supertypes: Type[]
+  typeParameters: TypeParameter[]
+  type: Type
+  visibility: Visibility
+}
+
+export type PropertyMapping = Partial<FullPropertyMapping>

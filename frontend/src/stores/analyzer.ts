@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { KeyDto, RootDto, StateDto, SymbolDto } from '@/models/analyzer'
+import type { CommitDto, KeyDto, RootDto, StateDto, SymbolDto } from '@/models/analyzer'
 import Fuse from 'fuse.js'
 import { fuseOptions } from '@/constants/fuse-options'
 import type { Range } from '@/models/common'
@@ -84,6 +84,9 @@ export const useAnalyzerStore = defineStore('analyzer', {
     },
     commitDate(index: number): Date {
       return new Date(this.root.commits[index].date)
+    },
+    getCommit(commitId: number): CommitDto {
+      return this.root.commits[commitId]
     },
     search(query: string): SearchResult[] {
       const results = this.globalFuse.search(query).flatMap((result) => {

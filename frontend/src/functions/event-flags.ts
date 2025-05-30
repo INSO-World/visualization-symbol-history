@@ -1,4 +1,4 @@
-import { ChangeCause, type StateDto, type StateField, UpdateFlag } from '@/models/analyzer'
+import { ChangeCause, type PropertyKey, type StateDto, UpdateFlag } from '@/models/analyzer'
 import { CellEventCategory, EventFlag } from '@/models/Cell'
 
 const UPDATE_FLAG_MAPPING: Record<UpdateFlag, EventFlag | undefined> = {
@@ -30,7 +30,7 @@ export function getEventFlags(state: StateDto): Set<EventFlag> {
     }
     eventFlags.forEach((f) => result.add(f))
   }
-  const updatedSet = new Set<StateField>(state.updated)
+  const updatedSet = new Set<PropertyKey>(state.updated)
   if (updatedSet.has('initialValue') || updatedSet.has('enumArguments')) {
     result.add(EventFlag.VALUE)
   }

@@ -5,5 +5,5 @@ export function addDays(date: Date, days: number): Date {
 }
 
 export function normalizeDate(date: Date): Date {
-  return new Date(date.toISOString().substring(0, 10))
+  return new Date(`${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`)
 }

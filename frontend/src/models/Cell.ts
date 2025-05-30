@@ -1,4 +1,4 @@
-import type { StateDto } from "@/models/analyzer"
+import type { CommitDto, StateDto } from "@/models/analyzer"
 
 export enum EventFlag {
   ADDED = 'added',
@@ -31,6 +31,7 @@ export enum CellEventCategory {
 export type CellEvent = {
   category: CellEventCategory
   state: StateDto
+  commit: CommitDto
   flags: Set<EventFlag>
   authors: string[]
 }

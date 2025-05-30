@@ -25,7 +25,7 @@ export function resultToElement(result: SearchResult, analyzerStore: AnalyzerSto
   }
   if (kindInfo.typed) {
     const type = keyState.properties['type']
-    if (type != null) {
+    if (type != null && type.qualifiedName !== 'var') {
       suffixText += `: ${typeToText(type, TYPE_CHARACTER_LIMIT)}`
     }
   }

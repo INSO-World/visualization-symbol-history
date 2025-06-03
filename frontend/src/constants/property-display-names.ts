@@ -13,6 +13,7 @@ export const PROPERTY_DISPLAY_NAMES: Record<PropertyKey, string> = {
   path: "Path",
   realizations: "Implements",
   simpleName: "Name",
+  spoonPath: "Unique path",
   supertypes: "Extends",
   typeParameters: "Type parameters",
   type: "Type",

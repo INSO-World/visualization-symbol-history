@@ -6,7 +6,7 @@ import type { Visibility } from "@/models/analyzer/value/Visibility"
 import type { TypeParameter } from "@/models/analyzer/value/TypeParameter"
 import type { Range } from "@/models/common"
 
-type Expression = string & {};
+export type Expression = string & {};
 
 export type PropertyKey = keyof FullPropertyMapping
 
@@ -23,6 +23,7 @@ export type FullPropertyMapping = {
   path: string
   realizations: Type[]
   simpleName: string
+  spoonPath: never
   supertypes: Type[]
   typeParameters: TypeParameter[]
   type: Type

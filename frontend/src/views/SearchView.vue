@@ -1,7 +1,13 @@
 <!--suppress HtmlRequiredAltAttribute -->
 <script setup lang="ts">
 import { computed, ref, shallowRef, triggerRef } from 'vue'
-import { type Cell, type CellEvent, CellEventCategory, EventFlag } from '@/models/Cell'
+import {
+  type Cell,
+  type CellEvent,
+  CellEventCategory,
+  type EventCell,
+  EventFlag,
+} from '@/models/Cell'
 import type { SymbolEvent } from '@/models/SymbolEvent'
 import { toDateObject } from '@/models/DateObject'
 import type { SymbolElement } from '@/models/SymbolElement'
@@ -12,14 +18,15 @@ import debounce from 'debounce'
 import { addDays, normalizeDate } from '@/functions/date'
 import { union } from '@/functions/lang'
 import { resultToElement } from '@/functions/element'
-import { getCellEventCategory, getEventFlags } from '@/functions/event-flags'
+import { EVENT_FLAG_NAMES, getCellEventCategory, getEventFlags } from '@/functions/event-flags'
 import AnPopover from '@/components/AnPopover.vue'
 import {
   type DisplayPropertyKey,
   PROPERTIES_TO_DISPLAY,
   PROPERTY_DISPLAY_NAMES,
 } from '@/constants/property-display-names'
-import { PROPERTY_DISPLAYS } from '@/functions/displays'
+import { asDisplayArray, type Display, PROPERTY_DISPLAYS } from '@/functions/displays'
+import ConditionalAbbr from '@/components/ConditionalAbbr.vue'
 
 const analyzerStore = useAnalyzerStore()
 
@@ -43,7 +50,6 @@ const yearMonths = computed(() => {
   result.sort()
   return result
 })
-const symbolEvents = ref([] as SymbolEvent[][])
 const searchResults = ref([] as SymbolElement[])
 const ELEMENT_SPAN = 6
 const elements = computed(() =>
@@ -142,7 +148,11 @@ function elementTimes(date: Date) {
 }
 
 function updateView() {
-  const newSymbolEvents: SymbolEvent[][] = []
+  console.group('Update')
+  console.log(startDate.value)
+  console.log(elements.value)
+  console.groupEnd()
+  const symbolEvents: SymbolEvent[][] = []
   for (const element of elements.value) {
     const events: SymbolEvent[] = []
     for (const yearMonth of yearMonths.value) {
@@ -151,19 +161,25 @@ function updateView() {
         continue
       }
       events.push(
-        ...ymEvents.map((state) => ({
-          state,
-          date: normalizeDate(analyzerStore.commitDate(state.commit)),
-          authors: ['AM307'],
-        })),
+        ...ymEvents.flatMap((state) => {
+          const { updated } = state
+          if (updated != null && updated.length === 1 && updated[0] === 'spoonPath') {
+            return []
+          }
+          return [
+            {
+              state,
+              date: normalizeDate(analyzerStore.commitDate(state.commit)),
+              authors: ['AM307'],
+            },
+          ]
+        }),
       )
     }
-    newSymbolEvents.push(events)
+    symbolEvents.push(events)
   }
-  //console.log(newSymbolEvents)
-  symbolEvents.value = newSymbolEvents
 
-  const started: boolean[] = symbolEvents.value.map((_a, i) => {
+  const started: boolean[] = symbolEvents.map((_a, i) => {
     const element = elements.value[i]
     if (element.deletedAt != null && +element.deletedAt < +startDate.value) {
       return false
@@ -173,7 +189,7 @@ function updateView() {
 
   const eventsToProcess = [
     ...Map.groupBy(
-      symbolEvents.value.flatMap((a, i) => a.map((e) => ({ index: i, ...e }))),
+      symbolEvents.flatMap((a, i) => a.map((e) => ({ index: i, ...e }))),
       (e: SymbolEvent & { index: number }) => normalizeDate(e.date).valueOf(),
     ),
   ].map(([date, entries]) => ({ date, entries }))
@@ -193,7 +209,7 @@ function updateView() {
     if (eventsToProcess.length > 0 && +eventsToProcess[0].date === +date) {
       dateEvents.push(...eventsToProcess.shift()!.entries)
     }
-    for (let e = 0; e < symbolEvents.value.length; e++) {
+    for (let e = 0; e < symbolEvents.length; e++) {
       const events = dateEvents.filter((ev) => ev.index === e)
       if (events.length > 0) {
         events.sort((a, b) => +a.date - +b.date)
@@ -207,6 +223,9 @@ function updateView() {
             category,
             state: ev.state,
             commit: analyzerStore.getCommit(ev.state.commit),
+            sourceCommits: (ev.state.origins ?? [])
+              .map((o) => o.sourceCommit)
+              .map((c) => analyzerStore.getCommit(c)),
             flags,
             authors: ev.authors,
           }
@@ -216,27 +235,25 @@ function updateView() {
         const mainFlagCandidates: EventFlag[] = list
           .flatMap((ev) => [...ev.flags])
           .filter((f) => getCellEventCategory(f) === mainCategory)
-        const cell: Cell = {
+        const mainFlag = mainFlagCandidates.at(-1)
+        const hoverText = (mainCategory === CellEventCategory.MINISCULE) ? 'Minor changes' : EVENT_FLAG_NAMES[mainFlag!]
+        const cell: EventCell = {
           events: {
             list,
             category: mainCategory,
             flags: allFlags,
-            mainFlag: mainFlagCandidates.at(-1)!,
+            mainFlag,
+            hoverText,
             authors: [...new Set(list.flatMap((ev) => ev.authors))],
           },
           starts: false,
           ends: false,
         }
-        /*if (cell.events!.category === CellEventCategory.MINISCULE) {
-          const running = started[e]
-          column.push({ starts: !running, ends: !running })
-          continue
-        }*/
-        if (cell.events!.flags.has(EventFlag.ADDED)) {
+        if (cell.events.flags.has(EventFlag.ADDED)) {
           started[e] = true
           cell.starts = true
         }
-        if (cell.events!.flags.has(EventFlag.DELETED)) {
+        if (cell.events.flags.has(EventFlag.DELETED)) {
           started[e] = false
           cell.ends = true
         }
@@ -256,22 +273,34 @@ function iconNeedsPadding(icon: string): boolean {
   return ['field_injected', 'field', 'constant'].includes(icon)
 }
 
-function columnHash(cells: Cell[]): string {
-  return cells
-    .map((cell) => {
-      if (cell.events == null) {
-        return '='
-      }
-      return cell.events.list.map((e) => `${e.state.symbolId}@${e.state.commit}`)
-    })
-    .join(' ')
+function cellHash(cell: Cell, rowIndex: number, columnIndex: number): string {
+  const prefix = `${columnIndex}/${rowIndex}~`
+  let suffix: string
+  if (cell.events == null) {
+    if (cell.starts && cell.ends) {
+      suffix = 'o'
+    } else if (cell.starts) {
+      suffix = '<'
+    } else if (cell.ends) {
+      suffix = '>'
+    } else {
+      suffix = '='
+    }
+  } else {
+    suffix = cell.events.list.map((e) => `${e.state.symbolId}@${e.state.commit}`).join(' ')
+  }
+  return prefix + suffix
+}
+
+function columnHash(cells: Cell[], columnIndex: number): string {
+  return `${columnIndex}\n\n${cells.map((cell, rowIndex) => cellHash(cell, rowIndex, columnIndex)).join('\n')}`
 }
 
 function getDisplayProperties(
   state: StateDto,
-): Array<{ key: DisplayPropertyKey; name: string; values: string[] }> {
+): Array<{ key: DisplayPropertyKey; name: string; values: Display[] }> {
   const updatedKeys: PropertyKey[] =
-    state.cause === ChangeCause.ADDED
+    state.cause === ChangeCause.ADDED || state.cause === ChangeCause.DELETED
       ? (Object.keys(state.properties).filter((k) => k !== 'body') as PropertyKey[])
       : (state.updated ?? [])
   const keys = updatedKeys.filter((key) => PROPERTIES_TO_DISPLAY.has(key)) as DisplayPropertyKey[]
@@ -283,12 +312,12 @@ function getDisplayProperties(
     return {
       key,
       name,
-      values: PROPERTY_DISPLAYS[key](state.properties[key]! as never),
+      values: asDisplayArray(PROPERTY_DISPLAYS[key](state.properties[key]! as never)),
     }
   })
 }
 
-const UK_DATE_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+const UK_DATETIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
   month: 'numeric',
   year: 'numeric',
@@ -297,9 +326,29 @@ const UK_DATE_FORMATTER = new Intl.DateTimeFormat('en-GB', {
   timeZoneName: 'short',
 })
 
-function prettyDateString(dateString: string): string {
-  return UK_DATE_FORMATTER.format(new Date(dateString))
+const UK_DATE_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'numeric',
+  year: 'numeric',
+})
+
+// noinspection SpellCheckingInspection
+function dateifyParam<T>(fn: (d: Date) => T): (d: string | Date) => T {
+  return (date: string | Date) => {
+    if (typeof date === 'string') {
+      date = new Date(date)
+    }
+    return fn(date)
+  }
 }
+
+const prettyDateTimeString = dateifyParam((date: Date) => {
+  return UK_DATETIME_FORMATTER.format(date)
+})
+
+const prettyDateString = dateifyParam((date: Date) => {
+  return UK_DATE_FORMATTER.format(normalizeDate(date))
+})
 </script>
 
 <template>
@@ -451,7 +500,7 @@ function prettyDateString(dateString: string): string {
                 style="box-shadow: none; margin-left: 6rem"
                 @click="elementTimes(element.createdAt)"
               >
-                <span>Created on {{ element.createdAt.toISOString().substring(0, 10) }}</span>
+                <span>Created on {{ prettyDateString(element.createdAt) }}</span>
                 <span class="icon">
                   <i class="mdi mdi-chevron-right"></i>
                 </span>
@@ -508,12 +557,12 @@ function prettyDateString(dateString: string): string {
         >
           <div
             v-for="(column, columnIndex) in cells"
-            :key="columnIndex"
+            :key="columnHash(column, columnIndex)"
             class="timeline-column is-flex-static is-flex is-flex-direction-column is-align-items-stretch"
           >
             <div
               v-for="(cell, rowIndex) in column"
-              :key="rowIndex"
+              :key="cellHash(cell, rowIndex, columnIndex)"
               class="timeline-cell is-flex-static"
             >
               <div v-if="!cell.starts" class="bar-start"></div>
@@ -525,7 +574,13 @@ function prettyDateString(dateString: string): string {
                   'bar-spot-miniscule': cell.events.category === CellEventCategory.MINISCULE,
                 }"
               >
-                <AnPopover arrow>
+                <AnPopover arrow class="bar-spot-popover" zIndex="9998">
+                  <AnPopover arrow hover openDelay="200" closeDelay="100" placement="top" class="bar-spot-desc" zIndex="9999">
+                    <template #content>
+                    <span class="is-size-7 is-block" style="margin-top: -4px; margin-bottom: -2px; white-space: nowrap">
+                      {{ cell.events.hoverText }}
+                    </span>
+                    </template>
                   <button
                     class="button is-small is-rounded bar-event"
                     :class="{
@@ -542,7 +597,9 @@ function prettyDateString(dateString: string): string {
                       <img :src="`/icons/event/${cell.events.mainFlag}.png`" />
                     </span>
                   </button>
+                  </AnPopover>
                   <template #content>
+                    <div class="bar-spot-popover-content">
                     <div class="is-size-7 mb-1" style="min-width: 100px; text-align: center">
                       {{ cell.events.list.length }} change{{
                         cell.events.list.length > 1 ? 's:' : ':'
@@ -557,20 +614,40 @@ function prettyDateString(dateString: string): string {
                             <th colspan="2">
                               <small class="is-size-7"
                                 >{{ event.commit.hash }} on
-                                {{ prettyDateString(event.commit.date) }}</small
+                                {{ prettyDateTimeString(event.commit.date) }}</small
                               >
-                              <abbr
+                              <ConditionalAbbr
                                 :title="
-                                  event.commit.summary +
-                                  (event.commit.desc ? '\n\n' + event.commit.desc : '')
+                                  event.commit.desc
+                                    ? event.commit.summary + '\n\n' + event.commit.desc
+                                    : null
                                 "
                               >
                                 {{ event.commit.summary }}
-                              </abbr>
+                              </ConditionalAbbr>
                             </th>
                           </tr>
-                          <tr v-if="event.state.cause.startsWith('SUCCEEDED')">
-                            <td colspan="2" class="has-text-centered">Branched or merged</td>
+                          <tr v-if="event.state.cause === ChangeCause.SUCCEEDED_PURE">
+                            <td colspan="2" class="has-text-centered">
+                              Branched or merged unchanged
+                            </td>
+                          </tr>
+                          <tr v-if="event.state.cause === ChangeCause.SUCCEEDED_CHANGED">
+                            <th class="prop-table-prop">Merged from</th>
+                            <td>
+                              <ConditionalAbbr
+                                :title="
+                                  event.sourceCommits[0].desc
+                                    ? event.sourceCommits[0].summary +
+                                      '\n\n' +
+                                      event.sourceCommits[0].desc
+                                    : null
+                                "
+                              >
+                                {{ event.sourceCommits[0].hash }}
+                                {{ event.sourceCommits[0].summary }}
+                              </ConditionalAbbr>
+                            </td>
                           </tr>
                           <tr v-if="event.state.cause === ChangeCause.DELETED">
                             <td colspan="2" class="has-text-centered">Symbol deleted</td>
@@ -582,17 +659,22 @@ function prettyDateString(dateString: string): string {
                             <tr v-for="(value, index) of prop.values" :key="index">
                               <th
                                 v-if="index === 0"
-                                class="prop-table-prop has-text-right has-text-weight-normal"
+                                class="prop-table-prop"
                                 :rowspan="prop.values.length"
                               >
                                 {{ prop.name }}
                               </th>
-                              <td>{{ value }}</td>
+                              <td>
+                                <ConditionalAbbr :title="value.abbr">
+                                  {{ value.text }}
+                                </ConditionalAbbr>
+                              </td>
                             </tr>
                           </template>
                         </template>
                       </tbody>
                     </table>
+                    </div>
                   </template>
                 </AnPopover>
                 <div v-if="cell.events.list.length > 1" class="bar-plus">
@@ -605,8 +687,8 @@ function prettyDateString(dateString: string): string {
               >
                 <div class="chips">
                   <img
-                    v-for="(author, authorIndex) in cell.events.authors"
-                    :key="authorIndex"
+                    v-for="author in cell.events.authors"
+                    :key="author"
                     :src="`https://github.com/${author}.png`"
                   />
                 </div>
@@ -847,6 +929,12 @@ main {
     padding: 0 4px 2px;
     user-select: none;
   }
+
+  .bar-spot-popover :deep(.popper) .bar-spot-popover-content {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 0 14px 8px;
+  }
 }
 
 .explore-path-name {
@@ -942,8 +1030,14 @@ $cell-hover-color: #f0f0f0;
   }
 
   .prop-table-prop {
+    text-align: right;
+    font-weight: 400;
     text-wrap: nowrap;
     vertical-align: middle;
+
+    + td {
+      white-space: nowrap;
+    }
   }
 }
 

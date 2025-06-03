@@ -96,3 +96,23 @@ export function getCellEventCategory(flag: EventFlag): CellEventCategory {
   }
   return CellEventCategory.MINISCULE
 }
+
+export const EVENT_FLAG_NAMES: Record<EventFlag, string> = {
+  added: "Added",
+  annotations: "Annotations",
+  body: "Method body",
+  branched: "Branched",
+  deleted: "Deleted",
+  kind: "Kind",
+  modifiers: "Modifiers",
+  moved: "Moved",
+  realizations: "Interfaces",
+  renamed: "Renamed",
+  reordered: "Re-ordered",
+  replaced: "Replaced",
+  supertypes: "Supertypes",
+  type: "Type",
+  typeParameters: "Type parameters",
+  value: "Initial value",
+  visibility: "Visibility",
+}

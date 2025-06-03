@@ -6,6 +6,6 @@ export interface CommitDto {
   hash: string;
   date: RawZonedDateTime;
   summary: string;
-  desc: string;
+  desc?: string;
   parents: number[];
 }

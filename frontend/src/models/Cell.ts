@@ -32,6 +32,7 @@ export type CellEvent = {
   category: CellEventCategory
   state: StateDto
   commit: CommitDto
+  sourceCommits: CommitDto[]
   flags: Set<EventFlag>
   authors: string[]
 }
@@ -41,9 +42,12 @@ export type Cell = {
     list: CellEvent[]
     category: CellEventCategory
     flags: Set<EventFlag>
-    mainFlag: EventFlag
+    mainFlag?: EventFlag
+    hoverText: string
     authors: string[]
   }
   starts: boolean
   ends: boolean
 }
+
+export type EventCell = Required<Cell>

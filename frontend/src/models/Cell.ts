@@ -20,6 +20,26 @@ export enum EventFlag {
   VISIBILITY = 'visibility',
 }
 
+export const EVENT_FLAG_PILLS: Record<EventFlag, string> = {
+  added: "ADD",
+  annotations: "ANO",
+  body: "BOD",
+  branched: "BRN",
+  deleted: "DEL",
+  kind: "KIND",
+  modifiers: "MOD",
+  moved: "MOV",
+  realizations: "INTF",
+  renamed: "REN",
+  reordered: "ORD",
+  replaced: "REPL",
+  supertypes: "SUP",
+  type: "TYPE",
+  typeParameters: "TPAR",
+  value: "VAL",
+  visibility: "VIS",
+}
+
 export enum CellEventCategory {
   MINISCULE = 1,
   MINOR,

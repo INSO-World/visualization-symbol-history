@@ -5,6 +5,7 @@ import {
   type Cell,
   type CellEvent,
   CellEventCategory,
+  EVENT_FLAG_PILLS,
   type EventCell,
   EventFlag,
 } from '@/models/Cell'
@@ -25,8 +26,9 @@ import {
   PROPERTIES_TO_DISPLAY,
   PROPERTY_DISPLAY_NAMES,
 } from '@/constants/property-display-names'
-import { asDisplayArray, type Display, PROPERTY_DISPLAYS } from '@/functions/displays'
+import { asDisplayArray, type Display, NONE_VALUE_TEXTS, PROPERTY_DISPLAYS } from '@/functions/displays'
 import ConditionalAbbr from '@/components/ConditionalAbbr.vue'
+import { lcs_myers_linear_space } from "@algorithm.ts/lcs"
 
 const analyzerStore = useAnalyzerStore()
 
@@ -307,9 +309,13 @@ function columnHash(cells: Cell[], columnIndex: number): string {
 
 function getDisplayProperties(
   state: StateDto,
+  rowIndex: number,
 ): Array<{ key: DisplayPropertyKey; name: string; values: Display[] }> {
+  const symbolId = elements.value[rowIndex].result.id
+  const priorState = analyzerStore.getPriorState(state, symbolId)
+  const endState = state.cause === ChangeCause.ADDED || state.cause === ChangeCause.DELETED
   const updatedKeys: PropertyKey[] =
-    state.cause === ChangeCause.ADDED || state.cause === ChangeCause.DELETED
+    endState
       ? (Object.keys(state.properties).filter((k) => k !== 'body') as PropertyKey[])
       : (state.updated ?? [])
   const keys = updatedKeys.filter((key) => PROPERTIES_TO_DISPLAY.has(key)) as DisplayPropertyKey[]
@@ -318,12 +324,102 @@ function getDisplayProperties(
     if (key === 'type' && state.properties.kind === Kind.METHOD) {
       name = 'Return ' + name.toLowerCase()
     }
+    let newDisplayArray = asDisplayArray(PROPERTY_DISPLAYS[key](state.properties[key]! as never))
+    if (priorState != null) {
+      const oldPropertyValue = priorState.properties[key]
+      if (typeof oldPropertyValue === 'undefined') {
+        newDisplayArray.forEach((d) => d.marker = 1)
+      } else {
+        const oldDisplayArray = asDisplayArray(PROPERTY_DISPLAYS[key](oldPropertyValue as never))
+        if (oldDisplayArray.length === 1 && oldDisplayArray.length === newDisplayArray.length) {
+          const { text: oldText, abbr: oldAbbr } = oldDisplayArray[0]
+          const { text: newText, abbr: newAbbr } = newDisplayArray[0]
+          newDisplayArray[0].text = `${oldText} → ${newText}`
+          if (newAbbr != null && oldAbbr != null) {
+            newDisplayArray[0].abbr = `${oldAbbr}\n→\n${newAbbr}`
+          }
+          newDisplayArray[0].marker = NONE_VALUE_TEXTS.has(newText) ? -1 : 0
+        } else {
+          const lcsIndices = lcs_myers_linear_space(
+            oldDisplayArray.length,
+            newDisplayArray.length,
+            (i1, i2) => oldDisplayArray[i1].text === newDisplayArray[i2].text
+          )
+          // Zipping along the LCS
+          const updatedDisplayArray: Display[] = []
+          let oldIndex = 0
+          let newIndex = 0
+          let lcsIndex = 0
+          while (oldIndex < oldDisplayArray.length || newIndex < newDisplayArray.length) {
+            const nextLcsPair = lcsIndex < lcsIndices.length ? lcsIndices[lcsIndex] : null
+            if (nextLcsPair != null && oldIndex === nextLcsPair[0] && newIndex === nextLcsPair[1]) {
+              updatedDisplayArray.push(newDisplayArray[newIndex]) // no marker, since the value is "unchanged"
+              oldIndex++
+              newIndex++
+              lcsIndex++
+            } else {
+              const oldInRange = oldIndex < oldDisplayArray.length
+              const newInRange = newIndex < newDisplayArray.length
+              const takeOld = !newInRange || (oldInRange && (!nextLcsPair || oldIndex < nextLcsPair[0]))
+              if (takeOld && oldInRange) {
+                const d = oldDisplayArray[oldIndex]
+                updatedDisplayArray.push({ text: d.text, abbr: d.abbr, marker: -1 })
+                oldIndex++
+              } else if (newInRange) {
+                const d = newDisplayArray[newIndex]
+                updatedDisplayArray.push({ text: d.text, abbr: d.abbr, marker: 1 })
+                newIndex++
+              }
+            }
+          }
+          newDisplayArray = updatedDisplayArray
+        }
+      }
+    }
     return {
       key,
       name,
-      values: asDisplayArray(PROPERTY_DISPLAYS[key](state.properties[key]! as never)),
+      values: newDisplayArray,
     }
   })
+    .filter((v) => v != null)
+}
+
+type EventPill = {
+  flag: EventFlag | 'plus'
+  text: string
+}
+
+function getPills(cell: Cell): EventPill[] {
+  if (cell.events == null) {
+    return []
+  }
+  let flags = [...cell.events.flags].filter((f) => getCellEventCategory(f) > CellEventCategory.MINISCULE)
+  const flagMap = new Map<CellEventCategory, EventFlag[]>()
+  for (const flag of flags) {
+    const category = getCellEventCategory(flag)
+    const array = flagMap.get(category) || []
+    array.push(flag)
+    if (array.length < 2) {
+      flagMap.set(category, array)
+    }
+  }
+  flags = []
+  for (const category of [CellEventCategory.DELETED, CellEventCategory.ADDED, CellEventCategory.MAJOR, CellEventCategory.MINOR]) {
+    const flagPart = flagMap.get(category) || []
+    flagPart.reverse()
+    flags.push(...flagPart)
+  }
+  const flagOverflow = flags.length > 4
+  const flagPills = flags.slice(0, flagOverflow ? 3 : 4).map((flag) => {
+    const text = EVENT_FLAG_PILLS[flag]
+    return {
+      flag,
+      text,
+    }
+  })
+  const bonusPills = flagOverflow ? [{ flag: 'plus' as const, text: `+${flags.length - 3}` }] : []
+  return [...flagPills, ...bonusPills]
 }
 
 const UK_DATETIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
@@ -511,7 +607,7 @@ function copyToClipboard(text: string): void {
               <button
                 class="button is-rounded is-small is-flex-static"
                 style="box-shadow: none"
-                :style="{'margin-left': element.chips.length < 2 ? '6rem' : '2rem'}"
+                :style="{ 'margin-left': element.chips.length < 2 ? '6rem' : '2rem' }"
                 @click="elementTimes(element.createdAt)"
               >
                 <span>Created on {{ prettyDateString(element.createdAt) }}</span>
@@ -579,6 +675,11 @@ function copyToClipboard(text: string): void {
               :key="cellHash(cell, rowIndex, columnIndex)"
               class="timeline-cell is-flex-static"
             >
+              <header v-if="cell.events != null" class="bar-pills">
+                <div v-for="pill in getPills(cell)" :key="pill.flag">
+                  {{ pill.text }}
+                </div>
+              </header>
               <div v-if="cell.last" class="bar-last"></div>
               <div v-if="!cell.starts" class="bar-start"></div>
               <div v-if="!cell.ends" class="bar-end"></div>
@@ -590,9 +691,20 @@ function copyToClipboard(text: string): void {
                 }"
               >
                 <AnPopover arrow class="bar-spot-popover" zIndex="9998">
-                  <AnPopover arrow hover openDelay="200" closeDelay="100" placement="top" class="bar-spot-desc" zIndex="9999">
+                  <AnPopover
+                    arrow
+                    hover
+                    openDelay="200"
+                    closeDelay="100"
+                    placement="top"
+                    class="bar-spot-desc"
+                    zIndex="9999"
+                  >
                     <template #content>
-                      <span class="is-size-7 is-block" style="margin-top: -4px; margin-bottom: -2px; white-space: nowrap">
+                      <span
+                        class="is-size-7 is-block"
+                        style="margin-top: -4px; margin-bottom: -2px; white-space: nowrap"
+                      >
                         {{ cell.events.hoverText }}
                       </span>
                     </template>
@@ -600,7 +712,8 @@ function copyToClipboard(text: string): void {
                       class="button is-small is-rounded bar-event"
                       :class="{
                         'is-info': cell.events.category === CellEventCategory.MINOR,
-                        'has-background-warning-45': cell.events.category === CellEventCategory.MAJOR,
+                        'has-background-warning-45':
+                          cell.events.category === CellEventCategory.MAJOR,
                         'is-success': cell.events.category === CellEventCategory.ADDED,
                         'is-danger': cell.events.category === CellEventCategory.DELETED,
                       }"
@@ -618,7 +731,8 @@ function copyToClipboard(text: string): void {
                       <div class="is-size-7 mb-1" style="min-width: 100px; text-align: center">
                         {{ cell.events.list.length }} commit{{
                           cell.events.list.length > 1 ? 's' : ''
-                        }} with changes:
+                        }}
+                        with changes:
                       </div>
                       <table
                         class="table prop-table w-100 is-bordered is-striped is-hoverable is-narrow mb-0"
@@ -626,7 +740,11 @@ function copyToClipboard(text: string): void {
                         <tbody>
                           <template v-for="event of cell.events.list" :key="event.state.commit">
                             <tr class="is-selected">
-                              <th colspan="2" @click="copyToClipboard(event.commit.hash)" style="cursor: pointer">
+                              <th
+                                colspan="2"
+                                @click="copyToClipboard(event.commit.hash)"
+                                style="cursor: pointer"
+                              >
                                 <small class="is-size-7"
                                   >{{ event.commit.hash }} on
                                   {{ prettyDateTimeString(event.commit.date) }}</small
@@ -649,7 +767,10 @@ function copyToClipboard(text: string): void {
                             </tr>
                             <tr v-if="event.state.cause === ChangeCause.SUCCEEDED_CHANGED">
                               <th class="prop-table-prop">Merged from</th>
-                              <td @click="copyToClipboard(event.sourceCommits[0].hash)" style="cursor: pointer">
+                              <td
+                                @click="copyToClipboard(event.sourceCommits[0].hash)"
+                                style="cursor: pointer"
+                              >
                                 <ConditionalAbbr
                                   :title="
                                     event.sourceCommits[0].desc
@@ -665,10 +786,12 @@ function copyToClipboard(text: string): void {
                               </td>
                             </tr>
                             <tr v-if="event.state.cause === ChangeCause.DELETED">
-                              <td colspan="2" class="has-text-centered">Symbol deleted with these properties:</td>
+                              <td colspan="2" class="has-text-centered">
+                                Symbol deleted with these properties:
+                              </td>
                             </tr>
                             <template
-                              v-for="prop of getDisplayProperties(event.state)"
+                              v-for="prop of getDisplayProperties(event.state, rowIndex)"
                               :key="prop.key"
                             >
                               <tr v-for="(value, index) of prop.values" :key="index">
@@ -679,7 +802,7 @@ function copyToClipboard(text: string): void {
                                 >
                                   {{ prop.name }}
                                 </th>
-                                <td>
+                                <td :class="{ 'prop-deleted-part': value.marker === -1, 'prop-added-part': value.marker === 1 }">
                                   <ConditionalAbbr :title="value.abbr">
                                     {{ value.text }}
                                   </ConditionalAbbr>
@@ -701,11 +824,20 @@ function copyToClipboard(text: string): void {
                 class="is-flex is-align-items-center is-justify-content-center"
               >
                 <div class="chips">
-                  <template v-for="author in cell.events.authors"
-                            :key="author">
-                    <AnPopover arrow hover openDelay="200" closeDelay="100" placement="bottom" zIndex="9998">
+                  <template v-for="author in cell.events.authors" :key="author">
+                    <AnPopover
+                      arrow
+                      hover
+                      openDelay="200"
+                      closeDelay="100"
+                      placement="bottom"
+                      zIndex="9998"
+                    >
                       <template #content>
-                        <span class="is-size-7 is-block" style="margin-top: -4px; margin-bottom: -2px">
+                        <span
+                          class="is-size-7 is-block"
+                          style="margin-top: -4px; margin-bottom: -2px"
+                        >
                           {{ author }}
                         </span>
                       </template>
@@ -724,6 +856,7 @@ function copyToClipboard(text: string): void {
 
 <style scoped lang="scss">
 @use '@/assets/main' as *;
+@use 'sass:color';
 
 #wrapper {
   position: absolute;
@@ -882,6 +1015,39 @@ main {
   }
 }
 
+.bar-pills {
+  $bar-column-gap: 2px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(($cell-height - $timeline-spot-outline-diameter) / 2);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  flex-direction: row;
+  column-gap: $bar-column-gap;
+  row-gap: 2px;
+  align-content: center;
+
+  > div {
+    font-size: 0.55rem;
+    font-weight: bold;
+    background-color: color.adjust(lightskyblue, $lightness: -40%);
+    color: white;
+    display: inline-block;
+    width: calc($cell-width / 2 - 2 * $bar-column-gap);
+    text-align: center;
+    user-select: none;
+    border-radius: 9999px;
+    line-height: 10px;
+    letter-spacing: 0.025rem;
+    text-transform: uppercase;
+    height: 11px;
+  }
+}
+
 .bar-start,
 .bar-end {
   $offset: calc($timeline-bar-width / 2);
@@ -915,15 +1081,15 @@ main {
   right: -$secondary-border-width;
 
   &::after {
-    content: "End";
+    content: 'End';
     display: block;
-    font-size: .75rem;
+    font-size: 0.75rem;
     font-weight: 600;
     z-index: 9997;
     position: absolute;
     top: 50%;
-    margin-top: -.6rem;
-    left: .5rem;
+    margin-top: -0.6rem;
+    left: 0.5rem;
     text-wrap: nowrap;
     color: #333;
   }
@@ -1085,6 +1251,41 @@ $cell-hover-color: #f0f0f0;
 
     + td {
       white-space: nowrap;
+    }
+  }
+
+  .prop-added-part, .prop-deleted-part {
+    position: relative;
+
+    &::after {
+      display: inline-block;
+      color: white;
+      font-weight: bold;
+      width: 1rem;
+      text-align: center;
+      margin-left: 8px;
+      height: 1rem;
+      border-radius: 99px;
+      line-height: .8rem;
+      transform: translateY(-1px);
+    }
+  }
+
+  .prop-added-part {
+    background-color: color.adjust(lightgreen, $lightness: 20%);
+
+    &::after {
+      content: "+";
+      background-color: green;
+    }
+  }
+
+  .prop-deleted-part {
+    background-color: color.adjust(lightcoral, $lightness: 25%);
+
+    &::after {
+      content: "-";
+      background-color: darkred;
     }
   }
 }

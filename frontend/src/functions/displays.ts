@@ -45,6 +45,7 @@ function expression(expression: Expression): Display {
 export type Display = {
   text: string
   abbr?: string
+  marker?: -1 | 0 | 1
 }
 
 type DisplayMapping<R> = {
@@ -171,3 +172,15 @@ export const PROPERTY_DISPLAYS: DisplayMapping<string | string[] | Display | Dis
     return visibility.toLowerCase()
   },
 }
+
+export const NONE_VALUE_TEXTS = new Set<string>([
+  '(All annotations removed)',
+  '(Removed)',
+  '(No longer initialized)',
+  '(Unknown)',
+  '(All modifiers removed)',
+  '(None)',
+  '(No longer generic)',
+  '(No longer typed)',
+  '(No longer a type or type member)',
+])

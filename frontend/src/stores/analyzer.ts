@@ -1,9 +1,16 @@
 import { defineStore } from 'pinia'
-import type { CommitDto, KeyDto, RootDto, StateDto, SymbolDto } from '@/models/analyzer'
+import {
+  ChangeCause,
+  type CommitDto,
+  type KeyDto,
+  type RootDto,
+  type StateDto,
+  type SymbolDto,
+} from '@/models/analyzer'
 import Fuse from 'fuse.js'
 import { fuseOptions } from '@/constants/fuse-options'
 import type { Range } from '@/models/common'
-import { normalizeDate } from "@/functions/date"
+import { normalizeDate } from '@/functions/date'
 
 type KeyRecord = {
   id: number
@@ -93,20 +100,22 @@ export const useAnalyzerStore = defineStore('analyzer', {
       const results = this.globalFuse.search(query).flatMap((result) => {
         const record: KeyRecord = result.item
         const symbol = this.root.symbols[record.id]
-        if (symbol.id === 0 || symbol.keys.every(k => k.name === "serialVersionUID")) {
+        if (symbol.id === 0 || symbol.keys.every((k) => k.name === 'serialVersionUID')) {
           return []
         }
         let score = Math.max(1 - Math.max(result.score! - 2e-6, 0) / 2, 0)
         if (symbol.deleted) {
           score -= 0.0001
         }
-        return [{
-          symbol,
-          key: [...new Set(record.keys)][0]!,
-          score,
-          match: result.matches![0].indices.map(([from, to]) => [from, to + 1]),
-          refIndex: result.refIndex,
-        } satisfies SearchResult]
+        return [
+          {
+            symbol,
+            key: [...new Set(record.keys)][0]!,
+            score,
+            match: result.matches![0].indices.map(([from, to]) => [from, to + 1]),
+            refIndex: result.refIndex,
+          } satisfies SearchResult,
+        ]
       })
       results.sort((a, b) => b.score - a.score)
       const ids = new Set<number>()
@@ -119,11 +128,14 @@ export const useAnalyzerStore = defineStore('analyzer', {
       })
     },
     findKeyState(symbol: SymbolDto, key: KeyDto): StateDto {
-      const keyIndex = symbol.keys.findIndex((k) => k.parent === key.parent
-        && k.from === key.from
-        && k.to === key.to
-        && k.name === key.name
-        && k.kind === key.kind)
+      const keyIndex = symbol.keys.findIndex(
+        (k) =>
+          k.parent === key.parent &&
+          k.from === key.from &&
+          k.to === key.to &&
+          k.name === key.name &&
+          k.kind === key.kind,
+      )
       if (keyIndex !== -1) {
         let offset = keyIndex
         const yearMonths = Object.keys(symbol.states)
@@ -160,7 +172,9 @@ export const useAnalyzerStore = defineStore('analyzer', {
           }
         }
       }
-      return strongCandidate ?? weakCandidate ?? weakestCandidate ?? Object.values(symbol.states)[0][0]
+      return (
+        strongCandidate ?? weakCandidate ?? weakestCandidate ?? Object.values(symbol.states)[0][0]
+      )
     },
     findKey(symbol: SymbolDto, wantedTimestamp: number): KeyDto {
       let weakTimestamp: number | null = null
@@ -194,7 +208,30 @@ export const useAnalyzerStore = defineStore('analyzer', {
     },
     getLastChangeDate(symbolId: number): Date {
       return normalizeDate(new Date(this.root.symbols[symbolId].keys.at(-1)!.from))
-    }
+    },
+    getPriorState(state: StateDto, symbolId: number): StateDto | null {
+      if (state.cause === ChangeCause.ADDED || state.cause === ChangeCause.DELETED) {
+        return null
+      }
+      const symbol = this.root.symbols[symbolId]
+      const yearMonths = Object.keys(symbol.states)
+      yearMonths.sort()
+      const candidates = new Map(
+        yearMonths
+          .flatMap((ym) => symbol.states[ym] as StateDto[])
+          .filter((s) => s.commit < state.commit)
+          .map((s) => [s.commit, s]),
+      )
+      let commit = this.getCommit(state.commit)
+      while (commit.parents.length > 0) {
+        const parentIndex = commit.parents[0]
+        if (candidates.has(parentIndex)) {
+          return candidates.get(parentIndex)!
+        }
+        commit = this.getCommit(parentIndex)
+      }
+      return null
+    },
   },
   getters: {
     metadata: (state) => state.root.meta,

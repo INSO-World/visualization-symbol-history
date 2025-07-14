@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       vue(),
-      vueDevTools(),
+      // vueDevTools(),
     ],
     resolve: {
       alias: {

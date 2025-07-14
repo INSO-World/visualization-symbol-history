@@ -31,7 +31,7 @@ const QUALIFIED_PREFIX_REGEX = /(?<![a-z]\.)(?<=[. (\[]|^)(?:[a-z\d]+\.)+/g
 
 function expression(expression: Expression): Display {
   const short = expression.replace(QUALIFIED_PREFIX_REGEX, '')
-  if (short.length <= 20) {
+  if (short.length <= 32) {
     return {
       text: short,
     }

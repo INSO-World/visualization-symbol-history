@@ -4,7 +4,7 @@ import { KIND_MAPPING, typeToText } from '@/functions/analyzer'
 import { ChangeCause, Modifier } from '@/models/analyzer'
 import { capitalize } from '@/functions/lang'
 
-const TYPE_CHARACTER_LIMIT = 24
+const TYPE_CHARACTER_LIMIT = 20
 const PATH_CHARACTER_LIMIT = 32
 
 export function resultToElement(result: SearchResult, analyzerStore: AnalyzerStore): SymbolElement {
@@ -50,6 +50,24 @@ export function resultToElement(result: SearchResult, analyzerStore: AnalyzerSto
     .filter((s) => s.cause === ChangeCause.DELETED)
   const deletedAt =
     deletedStates.length > 0 ? analyzerStore.commitDate(deletedStates.at(-1)!.commit) : undefined
+  const chips = [
+    {
+      username: 'AM307',
+      percentage: 100,
+    },
+  ]
+  if (result.key.name === 'idCounter') {
+    chips.splice(0, 1, ...[
+      {
+        username: 'AM307',
+        percentage: 50,
+      },
+      {
+        username: 'torvalds',
+        percentage: 50,
+      },
+    ])
+  }
   return {
     result: result.symbol,
     header: headerText,
@@ -59,14 +77,10 @@ export function resultToElement(result: SearchResult, analyzerStore: AnalyzerSto
     },
     path: parentText,
     name: result.key.name,
+    allNames: [],
     suffix: suffixText,
     highlights: result.match,
-    chips: [
-      {
-        username: 'AM307',
-        percentage: 100,
-      },
-    ],
+    chips,
     score: result.score,
     createdAt,
     deletedAt,

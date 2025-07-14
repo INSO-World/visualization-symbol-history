@@ -9,3 +9,7 @@ export function union<T>(sets: Array<Set<T>>): Set<T> {
   }
   return result
 }
+
+export function setOf<T>(...arrays: Array<Array<T>>): T[] {
+  return [...new Set<T>(arrays.flatMap((a) => a))]
+}

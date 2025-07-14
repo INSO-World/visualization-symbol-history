@@ -4,4 +4,5 @@ export type SymbolEvent = {
   state: StateDto
   date: Date
   authors: string[]
+  last: boolean
 }

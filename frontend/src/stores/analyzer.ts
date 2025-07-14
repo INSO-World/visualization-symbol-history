@@ -3,6 +3,7 @@ import type { CommitDto, KeyDto, RootDto, StateDto, SymbolDto } from '@/models/a
 import Fuse from 'fuse.js'
 import { fuseOptions } from '@/constants/fuse-options'
 import type { Range } from '@/models/common'
+import { normalizeDate } from "@/functions/date"
 
 type KeyRecord = {
   id: number
@@ -108,9 +109,33 @@ export const useAnalyzerStore = defineStore('analyzer', {
         } satisfies SearchResult]
       })
       results.sort((a, b) => b.score - a.score)
-      return results
+      const ids = new Set<number>()
+      return results.filter((result) => {
+        if (ids.has(result.symbol.id)) {
+          return false
+        }
+        ids.add(result.symbol.id)
+        return true
+      })
     },
     findKeyState(symbol: SymbolDto, key: KeyDto): StateDto {
+      const keyIndex = symbol.keys.findIndex((k) => k.parent === key.parent
+        && k.from === key.from
+        && k.to === key.to
+        && k.name === key.name
+        && k.kind === key.kind)
+      if (keyIndex !== -1) {
+        let offset = keyIndex
+        const yearMonths = Object.keys(symbol.states)
+        yearMonths.sort()
+        for (const ym of yearMonths) {
+          const states = symbol.states[ym]
+          if (offset < states.length) {
+            return states[offset]
+          }
+          offset -= states.length
+        }
+      }
       const keyTimestamp = new Date(key.from).valueOf()
       let weakTimestamp: number | null = null
       let strongCandidate: StateDto | null = null
@@ -167,6 +192,9 @@ export const useAnalyzerStore = defineStore('analyzer', {
       parents.push(key)
       return parents
     },
+    getLastChangeDate(symbolId: number): Date {
+      return normalizeDate(new Date(this.root.symbols[symbolId].keys.at(-1)!.from))
+    }
   },
   getters: {
     metadata: (state) => state.root.meta,

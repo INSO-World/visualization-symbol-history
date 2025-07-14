@@ -35,6 +35,7 @@ export type CellEvent = {
   sourceCommits: CommitDto[]
   flags: Set<EventFlag>
   authors: string[]
+  last: boolean
 }
 
 export type Cell = {
@@ -48,6 +49,7 @@ export type Cell = {
   }
   starts: boolean
   ends: boolean
+  last: boolean
 }
 
 export type EventCell = Required<Cell>

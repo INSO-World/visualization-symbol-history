@@ -16,7 +16,7 @@ import { useAnalyzerStore } from '@/stores/analyzer'
 import HighlightedText from '@/components/HighlightedText.vue'
 import debounce from 'debounce'
 import { addDays, normalizeDate } from '@/functions/date'
-import { union } from '@/functions/lang'
+import { setOf, union } from '@/functions/lang'
 import { resultToElement } from '@/functions/element'
 import { EVENT_FLAG_NAMES, getCellEventCategory, getEventFlags } from '@/functions/event-flags'
 import AnPopover from '@/components/AnPopover.vue'
@@ -154,6 +154,7 @@ function updateView() {
   console.groupEnd()
   const symbolEvents: SymbolEvent[][] = []
   for (const element of elements.value) {
+    const lastDate: Date | null = element.deletedAt == null ? analyzerStore.getLastChangeDate(element.result.id) : null
     const events: SymbolEvent[] = []
     for (const yearMonth of yearMonths.value) {
       const ymEvents: StateDto[] | undefined = element.result.states[yearMonth]
@@ -166,11 +167,17 @@ function updateView() {
           if (updated != null && updated.length === 1 && updated[0] === 'spoonPath') {
             return []
           }
+          const date = normalizeDate(analyzerStore.commitDate(state.commit))
+          const authors = ['AM307']
+          if (state.updated != null && state.updated.includes('path') && date.getMonth() === 4 && date.getDate() === 15) {
+            authors.splice(0, 1, 'torvalds')
+          }
           return [
             {
               state,
-              date: normalizeDate(analyzerStore.commitDate(state.commit)),
-              authors: ['AM307'],
+              date,
+              authors,
+              last: lastDate != null && +lastDate === +date,
             },
           ]
         }),
@@ -228,6 +235,7 @@ function updateView() {
               .map((c) => analyzerStore.getCommit(c)),
             flags,
             authors: ev.authors,
+            last: ev.last,
           }
         })
         const mainCategory = Math.max(...list.map((ev) => ev.category))
@@ -244,10 +252,11 @@ function updateView() {
             flags: allFlags,
             mainFlag,
             hoverText,
-            authors: [...new Set(list.flatMap((ev) => ev.authors))],
+            authors: setOf(list.flatMap((ev) => ev.authors)),
           },
           starts: false,
           ends: false,
+          last: list.some((ev) => ev.last),
         }
         if (cell.events.flags.has(EventFlag.ADDED)) {
           started[e] = true
@@ -260,7 +269,7 @@ function updateView() {
         column.push(cell)
       } else {
         const running = started[e]
-        column.push({ starts: !running, ends: !running })
+        column.push({ starts: !running, ends: !running, last: false })
       }
     }
     newCells.push(column)
@@ -349,6 +358,10 @@ const prettyDateTimeString = dateifyParam((date: Date) => {
 const prettyDateString = dateifyParam((date: Date) => {
   return UK_DATE_FORMATTER.format(normalizeDate(date))
 })
+
+function copyToClipboard(text: string): void {
+  navigator.clipboard.writeText(text)
+}
 </script>
 
 <template>
@@ -497,7 +510,8 @@ const prettyDateString = dateifyParam((date: Date) => {
               </div>
               <button
                 class="button is-rounded is-small is-flex-static"
-                style="box-shadow: none; margin-left: 6rem"
+                style="box-shadow: none"
+                :style="{'margin-left': element.chips.length < 2 ? '6rem' : '2rem'}"
                 @click="elementTimes(element.createdAt)"
               >
                 <span>Created on {{ prettyDateString(element.createdAt) }}</span>
@@ -565,6 +579,7 @@ const prettyDateString = dateifyParam((date: Date) => {
               :key="cellHash(cell, rowIndex, columnIndex)"
               class="timeline-cell is-flex-static"
             >
+              <div v-if="cell.last" class="bar-last"></div>
               <div v-if="!cell.starts" class="bar-start"></div>
               <div v-if="!cell.ends" class="bar-end"></div>
               <div
@@ -577,103 +592,103 @@ const prettyDateString = dateifyParam((date: Date) => {
                 <AnPopover arrow class="bar-spot-popover" zIndex="9998">
                   <AnPopover arrow hover openDelay="200" closeDelay="100" placement="top" class="bar-spot-desc" zIndex="9999">
                     <template #content>
-                    <span class="is-size-7 is-block" style="margin-top: -4px; margin-bottom: -2px; white-space: nowrap">
-                      {{ cell.events.hoverText }}
-                    </span>
+                      <span class="is-size-7 is-block" style="margin-top: -4px; margin-bottom: -2px; white-space: nowrap">
+                        {{ cell.events.hoverText }}
+                      </span>
                     </template>
-                  <button
-                    class="button is-small is-rounded bar-event"
-                    :class="{
-                      'is-info': cell.events.category === CellEventCategory.MINOR,
-                      'has-background-warning-45': cell.events.category === CellEventCategory.MAJOR,
-                      'is-success': cell.events.category === CellEventCategory.ADDED,
-                      'is-danger': cell.events.category === CellEventCategory.DELETED,
-                    }"
-                  >
-                    <span
-                      class="icon bright"
-                      v-if="cell.events.category > CellEventCategory.MINISCULE"
+                    <button
+                      class="button is-small is-rounded bar-event"
+                      :class="{
+                        'is-info': cell.events.category === CellEventCategory.MINOR,
+                        'has-background-warning-45': cell.events.category === CellEventCategory.MAJOR,
+                        'is-success': cell.events.category === CellEventCategory.ADDED,
+                        'is-danger': cell.events.category === CellEventCategory.DELETED,
+                      }"
                     >
-                      <img :src="`/icons/event/${cell.events.mainFlag}.png`" />
-                    </span>
-                  </button>
+                      <span
+                        class="icon bright"
+                        v-if="cell.events.category > CellEventCategory.MINISCULE"
+                      >
+                        <img :src="`/icons/event/${cell.events.mainFlag}.png`" />
+                      </span>
+                    </button>
                   </AnPopover>
                   <template #content>
                     <div class="bar-spot-popover-content">
-                    <div class="is-size-7 mb-1" style="min-width: 100px; text-align: center">
-                      {{ cell.events.list.length }} change{{
-                        cell.events.list.length > 1 ? 's:' : ':'
-                      }}
-                    </div>
-                    <table
-                      class="table prop-table w-100 is-bordered is-striped is-hoverable is-narrow mb-0"
-                    >
-                      <tbody>
-                        <template v-for="event of cell.events.list" :key="event.state.commit">
-                          <tr class="is-selected">
-                            <th colspan="2">
-                              <small class="is-size-7"
-                                >{{ event.commit.hash }} on
-                                {{ prettyDateTimeString(event.commit.date) }}</small
-                              >
-                              <ConditionalAbbr
-                                :title="
-                                  event.commit.desc
-                                    ? event.commit.summary + '\n\n' + event.commit.desc
-                                    : null
-                                "
-                              >
-                                {{ event.commit.summary }}
-                              </ConditionalAbbr>
-                            </th>
-                          </tr>
-                          <tr v-if="event.state.cause === ChangeCause.SUCCEEDED_PURE">
-                            <td colspan="2" class="has-text-centered">
-                              Branched or merged unchanged
-                            </td>
-                          </tr>
-                          <tr v-if="event.state.cause === ChangeCause.SUCCEEDED_CHANGED">
-                            <th class="prop-table-prop">Merged from</th>
-                            <td>
-                              <ConditionalAbbr
-                                :title="
-                                  event.sourceCommits[0].desc
-                                    ? event.sourceCommits[0].summary +
-                                      '\n\n' +
-                                      event.sourceCommits[0].desc
-                                    : null
-                                "
-                              >
-                                {{ event.sourceCommits[0].hash }}
-                                {{ event.sourceCommits[0].summary }}
-                              </ConditionalAbbr>
-                            </td>
-                          </tr>
-                          <tr v-if="event.state.cause === ChangeCause.DELETED">
-                            <td colspan="2" class="has-text-centered">Symbol deleted</td>
-                          </tr>
-                          <template
-                            v-for="prop of getDisplayProperties(event.state)"
-                            :key="prop.key"
-                          >
-                            <tr v-for="(value, index) of prop.values" :key="index">
-                              <th
-                                v-if="index === 0"
-                                class="prop-table-prop"
-                                :rowspan="prop.values.length"
-                              >
-                                {{ prop.name }}
+                      <div class="is-size-7 mb-1" style="min-width: 100px; text-align: center">
+                        {{ cell.events.list.length }} commit{{
+                          cell.events.list.length > 1 ? 's' : ''
+                        }} with changes:
+                      </div>
+                      <table
+                        class="table prop-table w-100 is-bordered is-striped is-hoverable is-narrow mb-0"
+                      >
+                        <tbody>
+                          <template v-for="event of cell.events.list" :key="event.state.commit">
+                            <tr class="is-selected">
+                              <th colspan="2" @click="copyToClipboard(event.commit.hash)" style="cursor: pointer">
+                                <small class="is-size-7"
+                                  >{{ event.commit.hash }} on
+                                  {{ prettyDateTimeString(event.commit.date) }}</small
+                                >
+                                <ConditionalAbbr
+                                  :title="
+                                    event.commit.desc
+                                      ? event.commit.summary + '\n\n' + event.commit.desc
+                                      : null
+                                  "
+                                >
+                                  {{ event.commit.summary }}
+                                </ConditionalAbbr>
                               </th>
-                              <td>
-                                <ConditionalAbbr :title="value.abbr">
-                                  {{ value.text }}
+                            </tr>
+                            <tr v-if="event.state.cause === ChangeCause.SUCCEEDED_PURE">
+                              <td colspan="2" class="has-text-centered">
+                                Branched or merged unchanged
+                              </td>
+                            </tr>
+                            <tr v-if="event.state.cause === ChangeCause.SUCCEEDED_CHANGED">
+                              <th class="prop-table-prop">Merged from</th>
+                              <td @click="copyToClipboard(event.sourceCommits[0].hash)" style="cursor: pointer">
+                                <ConditionalAbbr
+                                  :title="
+                                    event.sourceCommits[0].desc
+                                      ? event.sourceCommits[0].summary +
+                                        '\n\n' +
+                                        event.sourceCommits[0].desc
+                                      : null
+                                  "
+                                >
+                                  {{ event.sourceCommits[0].hash }}
+                                  {{ event.sourceCommits[0].summary }}
                                 </ConditionalAbbr>
                               </td>
                             </tr>
+                            <tr v-if="event.state.cause === ChangeCause.DELETED">
+                              <td colspan="2" class="has-text-centered">Symbol deleted with these properties:</td>
+                            </tr>
+                            <template
+                              v-for="prop of getDisplayProperties(event.state)"
+                              :key="prop.key"
+                            >
+                              <tr v-for="(value, index) of prop.values" :key="index">
+                                <th
+                                  v-if="index === 0"
+                                  class="prop-table-prop"
+                                  :rowspan="prop.values.length"
+                                >
+                                  {{ prop.name }}
+                                </th>
+                                <td>
+                                  <ConditionalAbbr :title="value.abbr">
+                                    {{ value.text }}
+                                  </ConditionalAbbr>
+                                </td>
+                              </tr>
+                            </template>
                           </template>
-                        </template>
-                      </tbody>
-                    </table>
+                        </tbody>
+                      </table>
                     </div>
                   </template>
                 </AnPopover>
@@ -686,11 +701,17 @@ const prettyDateString = dateifyParam((date: Date) => {
                 class="is-flex is-align-items-center is-justify-content-center"
               >
                 <div class="chips">
-                  <img
-                    v-for="author in cell.events.authors"
-                    :key="author"
-                    :src="`https://github.com/${author}.png`"
-                  />
+                  <template v-for="author in cell.events.authors"
+                            :key="author">
+                    <AnPopover arrow hover openDelay="200" closeDelay="100" placement="bottom" zIndex="9998">
+                      <template #content>
+                        <span class="is-size-7 is-block" style="margin-top: -4px; margin-bottom: -2px">
+                          {{ author }}
+                        </span>
+                      </template>
+                      <img :src="`https://github.com/${author}.png`" />
+                    </AnPopover>
+                  </template>
                 </div>
               </footer>
             </div>
@@ -852,10 +873,10 @@ main {
         display: block;
         width: $timeline-profile-size;
         height: $timeline-profile-size;
+      }
 
-        + img {
-          margin-left: $timeline-profile-border-width;
-        }
+      > div + div {
+        margin-left: -12px + $timeline-profile-border-width !important;
       }
     }
   }
@@ -879,6 +900,33 @@ main {
 .bar-end {
   right: -$secondary-border-width;
   width: calc(50% + $secondary-border-width + 1px);
+}
+
+.bar-last {
+  $height: $timeline-spot-outline-diameter;
+  $width: 8px;
+  $offset: calc($height / 2);
+  position: absolute;
+  top: 50%;
+  margin-top: -$offset;
+  background-color: lightskyblue;
+  height: $height;
+  width: $width;
+  right: -$secondary-border-width;
+
+  &::after {
+    content: "End";
+    display: block;
+    font-size: .75rem;
+    font-weight: 600;
+    z-index: 9997;
+    position: absolute;
+    top: 50%;
+    margin-top: -.6rem;
+    left: .5rem;
+    text-wrap: nowrap;
+    color: #333;
+  }
 }
 
 .bar-spot {

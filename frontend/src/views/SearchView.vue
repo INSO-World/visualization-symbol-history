@@ -12,7 +12,7 @@ import {
 import type { SymbolEvent } from '@/models/SymbolEvent'
 import { toDateObject } from '@/models/DateObject'
 import type { SymbolElement } from '@/models/SymbolElement'
-import { ChangeCause, Kind, type PropertyKey, type StateDto } from '@/models/analyzer'
+import { ChangeCause, Kind, type PropertyKey, type StateDto, UpdateFlag } from '@/models/analyzer'
 import { useAnalyzerStore } from '@/stores/analyzer'
 import HighlightedText from '@/components/HighlightedText.vue'
 import debounce from 'debounce'
@@ -26,9 +26,14 @@ import {
   PROPERTIES_TO_DISPLAY,
   PROPERTY_DISPLAY_NAMES,
 } from '@/constants/property-display-names'
-import { asDisplayArray, type Display, NONE_VALUE_TEXTS, PROPERTY_DISPLAYS } from '@/functions/displays'
+import {
+  asDisplayArray,
+  type Display,
+  NONE_VALUE_TEXTS,
+  PROPERTY_DISPLAYS,
+} from '@/functions/displays'
 import ConditionalAbbr from '@/components/ConditionalAbbr.vue'
-import { lcs_myers_linear_space } from "@algorithm.ts/lcs"
+import { lcs_myers_linear_space } from '@algorithm.ts/lcs'
 
 const analyzerStore = useAnalyzerStore()
 
@@ -156,7 +161,8 @@ function updateView() {
   console.groupEnd()
   const symbolEvents: SymbolEvent[][] = []
   for (const element of elements.value) {
-    const lastDate: Date | null = element.deletedAt == null ? analyzerStore.getLastChangeDate(element.result.id) : null
+    const lastDate: Date | null =
+      element.deletedAt == null ? analyzerStore.getLastChangeDate(element.result.id) : null
     const events: SymbolEvent[] = []
     for (const yearMonth of yearMonths.value) {
       const ymEvents: StateDto[] | undefined = element.result.states[yearMonth]
@@ -171,7 +177,13 @@ function updateView() {
           }
           const date = normalizeDate(analyzerStore.commitDate(state.commit))
           const authors = ['AM307']
-          if (state.updated != null && state.updated.includes('path') && date.getMonth() === 4 && date.getDate() === 15) {
+          if (
+            state.updated != null &&
+            state.updated.includes('path') &&
+            date.getMonth() === 4 &&
+            date.getDate() === 15 &&
+            state.properties.simpleName === 'idCounter'
+          ) {
             authors.splice(0, 1, 'torvalds')
           }
           return [
@@ -246,7 +258,10 @@ function updateView() {
           .flatMap((ev) => [...ev.flags])
           .filter((f) => getCellEventCategory(f) === mainCategory)
         const mainFlag = mainFlagCandidates.at(-1)
-        const hoverText = (mainCategory === CellEventCategory.MINISCULE) ? 'Minor changes' : EVENT_FLAG_NAMES[mainFlag!]
+        const hoverText =
+          mainCategory === CellEventCategory.MINISCULE
+            ? 'Minor changes'
+            : EVENT_FLAG_NAMES[mainFlag!]
         const cell: EventCell = {
           events: {
             list,
@@ -314,74 +329,89 @@ function getDisplayProperties(
   const symbolId = elements.value[rowIndex].result.id
   const priorState = analyzerStore.getPriorState(state, symbolId)
   const endState = state.cause === ChangeCause.ADDED || state.cause === ChangeCause.DELETED
-  const updatedKeys: PropertyKey[] =
-    endState
-      ? (Object.keys(state.properties).filter((k) => k !== 'body') as PropertyKey[])
-      : (state.updated ?? [])
+  const updatedKeys: PropertyKey[] = endState
+    ? (Object.keys(state.properties).filter((k) => k !== 'body') as PropertyKey[])
+    : (state.updated ?? [])
   const keys = updatedKeys.filter((key) => PROPERTIES_TO_DISPLAY.has(key)) as DisplayPropertyKey[]
-  return keys.map((key) => {
-    let name = PROPERTY_DISPLAY_NAMES[key]
-    if (key === 'type' && state.properties.kind === Kind.METHOD) {
-      name = 'Return ' + name.toLowerCase()
-    }
-    let newDisplayArray = asDisplayArray(PROPERTY_DISPLAYS[key](state.properties[key]! as never))
-    if (priorState != null) {
-      const oldPropertyValue = priorState.properties[key]
-      if (typeof oldPropertyValue === 'undefined') {
-        newDisplayArray.forEach((d) => d.marker = 1)
-      } else {
-        const oldDisplayArray = asDisplayArray(PROPERTY_DISPLAYS[key](oldPropertyValue as never))
-        if (oldDisplayArray.length === 1 && oldDisplayArray.length === newDisplayArray.length) {
-          const { text: oldText, abbr: oldAbbr } = oldDisplayArray[0]
-          const { text: newText, abbr: newAbbr } = newDisplayArray[0]
-          newDisplayArray[0].text = `${oldText} → ${newText}`
-          if (newAbbr != null && oldAbbr != null) {
-            newDisplayArray[0].abbr = `${oldAbbr}\n→\n${newAbbr}`
-          }
-          newDisplayArray[0].marker = NONE_VALUE_TEXTS.has(newText) ? -1 : 0
+  return keys
+    .map((key) => {
+      let name = PROPERTY_DISPLAY_NAMES[key]
+      if (key === 'type' && state.properties.kind === Kind.METHOD) {
+        name = 'Return ' + name.toLowerCase()
+      }
+      let newDisplayArray = asDisplayArray(PROPERTY_DISPLAYS[key](state.properties[key]! as never))
+      if (priorState != null) {
+        const oldPropertyValue = priorState.properties[key]
+        if (typeof oldPropertyValue === 'undefined') {
+          newDisplayArray.forEach((d) => (d.marker = 1))
         } else {
-          const lcsIndices = lcs_myers_linear_space(
-            oldDisplayArray.length,
-            newDisplayArray.length,
-            (i1, i2) => oldDisplayArray[i1].text === newDisplayArray[i2].text
-          )
-          // Zipping along the LCS
-          const updatedDisplayArray: Display[] = []
-          let oldIndex = 0
-          let newIndex = 0
-          let lcsIndex = 0
-          while (oldIndex < oldDisplayArray.length || newIndex < newDisplayArray.length) {
-            const nextLcsPair = lcsIndex < lcsIndices.length ? lcsIndices[lcsIndex] : null
-            if (nextLcsPair != null && oldIndex === nextLcsPair[0] && newIndex === nextLcsPair[1]) {
-              updatedDisplayArray.push(newDisplayArray[newIndex]) // no marker, since the value is "unchanged"
-              oldIndex++
-              newIndex++
-              lcsIndex++
-            } else {
-              const oldInRange = oldIndex < oldDisplayArray.length
-              const newInRange = newIndex < newDisplayArray.length
-              const takeOld = !newInRange || (oldInRange && (!nextLcsPair || oldIndex < nextLcsPair[0]))
-              if (takeOld && oldInRange) {
-                const d = oldDisplayArray[oldIndex]
-                updatedDisplayArray.push({ text: d.text, abbr: d.abbr, marker: -1 })
+          const oldDisplayArray = asDisplayArray(PROPERTY_DISPLAYS[key](oldPropertyValue as never))
+          if (oldDisplayArray.length === 1 && oldDisplayArray.length === newDisplayArray.length) {
+            const { text: oldText, abbr: oldAbbr } = oldDisplayArray[0]
+            const { text: newText, abbr: newAbbr } = newDisplayArray[0]
+            // Hotfix for erroneous path change detection
+            if (
+              state.flags != null &&
+              !state.flags.includes(UpdateFlag.MOVED) &&
+              key === 'path' &&
+              oldText === newText &&
+              oldAbbr === newAbbr
+            ) {
+              return null
+            }
+            newDisplayArray[0].text = `${oldText} → ${newText}`
+            if (newAbbr != null && oldAbbr != null) {
+              newDisplayArray[0].abbr = `${oldAbbr}\n→\n${newAbbr}`
+            }
+            newDisplayArray[0].marker = NONE_VALUE_TEXTS.has(newText) ? -1 : 0
+          } else {
+            const lcsIndices = lcs_myers_linear_space(
+              oldDisplayArray.length,
+              newDisplayArray.length,
+              (i1, i2) => oldDisplayArray[i1].text === newDisplayArray[i2].text,
+            )
+            // Zipping along the LCS
+            const updatedDisplayArray: Display[] = []
+            let oldIndex = 0
+            let newIndex = 0
+            let lcsIndex = 0
+            while (oldIndex < oldDisplayArray.length || newIndex < newDisplayArray.length) {
+              const nextLcsPair = lcsIndex < lcsIndices.length ? lcsIndices[lcsIndex] : null
+              if (
+                nextLcsPair != null &&
+                oldIndex === nextLcsPair[0] &&
+                newIndex === nextLcsPair[1]
+              ) {
+                updatedDisplayArray.push(newDisplayArray[newIndex]) // no marker, since the value is "unchanged"
                 oldIndex++
-              } else if (newInRange) {
-                const d = newDisplayArray[newIndex]
-                updatedDisplayArray.push({ text: d.text, abbr: d.abbr, marker: 1 })
                 newIndex++
+                lcsIndex++
+              } else {
+                const oldInRange = oldIndex < oldDisplayArray.length
+                const newInRange = newIndex < newDisplayArray.length
+                const takeOld =
+                  !newInRange || (oldInRange && (!nextLcsPair || oldIndex < nextLcsPair[0]))
+                if (takeOld && oldInRange) {
+                  const d = oldDisplayArray[oldIndex]
+                  updatedDisplayArray.push({ text: d.text, abbr: d.abbr, marker: -1 })
+                  oldIndex++
+                } else if (newInRange) {
+                  const d = newDisplayArray[newIndex]
+                  updatedDisplayArray.push({ text: d.text, abbr: d.abbr, marker: 1 })
+                  newIndex++
+                }
               }
             }
+            newDisplayArray = updatedDisplayArray
           }
-          newDisplayArray = updatedDisplayArray
         }
       }
-    }
-    return {
-      key,
-      name,
-      values: newDisplayArray,
-    }
-  })
+      return {
+        key,
+        name,
+        values: newDisplayArray,
+      }
+    })
     .filter((v) => v != null)
 }
 
@@ -394,7 +424,9 @@ function getPills(cell: Cell): EventPill[] {
   if (cell.events == null) {
     return []
   }
-  let flags = [...cell.events.flags].filter((f) => getCellEventCategory(f) > CellEventCategory.MINISCULE)
+  let flags = [...cell.events.flags].filter(
+    (f) => getCellEventCategory(f) > CellEventCategory.MINISCULE,
+  )
   const flagMap = new Map<CellEventCategory, EventFlag[]>()
   for (const flag of flags) {
     const category = getCellEventCategory(flag)
@@ -405,7 +437,12 @@ function getPills(cell: Cell): EventPill[] {
     }
   }
   flags = []
-  for (const category of [CellEventCategory.DELETED, CellEventCategory.ADDED, CellEventCategory.MAJOR, CellEventCategory.MINOR]) {
+  for (const category of [
+    CellEventCategory.DELETED,
+    CellEventCategory.ADDED,
+    CellEventCategory.MAJOR,
+    CellEventCategory.MINOR,
+  ]) {
     const flagPart = flagMap.get(category) || []
     flagPart.reverse()
     flags.push(...flagPart)
@@ -802,7 +839,12 @@ function copyToClipboard(text: string): void {
                                 >
                                   {{ prop.name }}
                                 </th>
-                                <td :class="{ 'prop-deleted-part': value.marker === -1, 'prop-added-part': value.marker === 1 }">
+                                <td
+                                  :class="{
+                                    'prop-deleted-part': value.marker === -1,
+                                    'prop-added-part': value.marker === 1,
+                                  }"
+                                >
                                   <ConditionalAbbr :title="value.abbr">
                                     {{ value.text }}
                                   </ConditionalAbbr>
@@ -1254,7 +1296,8 @@ $cell-hover-color: #f0f0f0;
     }
   }
 
-  .prop-added-part, .prop-deleted-part {
+  .prop-added-part,
+  .prop-deleted-part {
     position: relative;
 
     &::after {
@@ -1266,7 +1309,7 @@ $cell-hover-color: #f0f0f0;
       margin-left: 8px;
       height: 1rem;
       border-radius: 99px;
-      line-height: .8rem;
+      line-height: 0.8rem;
       transform: translateY(-1px);
     }
   }
@@ -1275,7 +1318,7 @@ $cell-hover-color: #f0f0f0;
     background-color: color.adjust(lightgreen, $lightness: 20%);
 
     &::after {
-      content: "+";
+      content: '+';
       background-color: green;
     }
   }
@@ -1284,7 +1327,7 @@ $cell-hover-color: #f0f0f0;
     background-color: color.adjust(lightcoral, $lightness: 25%);
 
     &::after {
-      content: "-";
+      content: '-';
       background-color: darkred;
     }
   }
@@ -1304,5 +1347,9 @@ $cell-hover-color: #f0f0f0;
   flex-shrink: 0 !important;
   display: flex !important;
   align-items: stretch !important;
+}
+
+.table tr.is-selected {
+  background-color: color.adjust(hsl(171deg, 100%, 41%), $lightness: 30%, $saturation: -40%);
 }
 </style>

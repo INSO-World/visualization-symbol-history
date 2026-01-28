@@ -43,4 +43,11 @@ public class StateDto {
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
   Set<@NotNull UpdateFlag> flags = Collections.emptySet();
 
+  @NonNull
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
+  Set<@NotNull EventFlag> events;
+
+  @NonNull
+  EventFlag mainEvent;
+
 }

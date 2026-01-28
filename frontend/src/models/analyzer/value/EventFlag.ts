@@ -1,0 +1,43 @@
+import { EventCategory } from '@/models/analyzer/value/EventCategory'
+
+export enum EventFlag {
+  NONE = 'none',
+  ADDED = 'added',
+  DELETED = 'deleted',
+  BRANCHED = 'branched',
+  REPLACED = 'replaced',
+  VALUE = 'value',
+  ANNOTATIONS = 'annotations',
+  KIND = 'kind',
+  MOVED = 'moved',
+  RENAMED = 'renamed',
+  REORDERED = 'reordered',
+  BODY = 'body',
+  MODIFIERS = 'modifiers',
+  REALIZATIONS = 'realizations',
+  SUPERTYPES = 'supertypes',
+  TYPE_PARAMETERS = 'type_parameters',
+  TYPE = 'type',
+  VISIBILITY = 'visibility',
+}
+
+export const EVENT_FLAG_CATEGORIES: Record<EventFlag, EventCategory> = {
+  none: EventCategory.MINISCULE,
+  added: EventCategory.ADDED,
+  deleted: EventCategory.DELETED,
+  branched: EventCategory.MINOR,
+  replaced: EventCategory.MAJOR,
+  value: EventCategory.MINOR,
+  annotations: EventCategory.MAJOR,
+  kind: EventCategory.MAJOR,
+  moved: EventCategory.MAJOR,
+  renamed: EventCategory.MAJOR,
+  reordered: EventCategory.MINOR,
+  body: EventCategory.MINOR,
+  modifiers: EventCategory.MAJOR,
+  realizations: EventCategory.MAJOR,
+  supertypes: EventCategory.MAJOR,
+  type_parameters: EventCategory.MAJOR,
+  type: EventCategory.MAJOR,
+  visibility: EventCategory.MAJOR,
+}

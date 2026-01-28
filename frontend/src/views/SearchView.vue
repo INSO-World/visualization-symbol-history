@@ -1,25 +1,28 @@
 <!--suppress HtmlRequiredAltAttribute -->
 <script setup lang="ts">
 import { computed, ref, shallowRef, triggerRef } from 'vue'
-import {
-  type Cell,
-  type CellEvent,
-  CellEventCategory,
-  EVENT_FLAG_PILLS,
-  type EventCell,
-  EventFlag,
-} from '@/models/Cell'
+import { type Cell, type CellEvent, EVENT_FLAG_PILLS, type EventCell } from '@/models/Cell'
 import type { SymbolEvent } from '@/models/SymbolEvent'
 import { toDateObject } from '@/models/DateObject'
 import type { SymbolElement } from '@/models/SymbolElement'
-import { ChangeCause, Kind, type PropertyKey, type StateDto, UpdateFlag } from '@/models/analyzer'
+import {
+  ChangeCause,
+  EVENT_FLAG_CATEGORIES,
+  EventCategory,
+  EventFlag,
+  Kind,
+  maxCategory,
+  type PropertyKey,
+  type StateDto,
+  UpdateFlag,
+} from '@/models/analyzer'
 import { useAnalyzerStore } from '@/stores/analyzer'
 import HighlightedText from '@/components/HighlightedText.vue'
 import debounce from 'debounce'
 import { addDays, normalizeDate } from '@/functions/date'
 import { setOf, union } from '@/functions/lang'
 import { resultToElement } from '@/functions/element'
-import { EVENT_FLAG_NAMES, getCellEventCategory, getEventFlags } from '@/functions/event-flags'
+import { EVENT_FLAG_NAMES } from '@/functions/event-flags'
 import AnPopover from '@/components/AnPopover.vue'
 import {
   type DisplayPropertyKey,
@@ -240,11 +243,8 @@ function updateView() {
       if (events.length > 0) {
         events.sort((a, b) => +a.date - +b.date)
         const list: CellEvent[] = events.map((ev) => {
-          const flags = getEventFlags(ev.state)
-          const category = Math.max(
-            CellEventCategory.MINISCULE,
-            ...[...flags].map((f) => getCellEventCategory(f)),
-          )
+          const flags = new Set(ev.state.events || [])
+          const category = EVENT_FLAG_CATEGORIES[ev.state.mainEvent]
           return {
             category,
             state: ev.state,
@@ -257,16 +257,14 @@ function updateView() {
             last: ev.last,
           }
         })
-        const mainCategory = Math.max(...list.map((ev) => ev.category))
+        const mainCategory = maxCategory(...list.map((ev) => ev.category))
         const allFlags = union(list.map((ev) => ev.flags))
         const mainFlagCandidates: EventFlag[] = list
-          .flatMap((ev) => [...ev.flags])
-          .filter((f) => getCellEventCategory(f) === mainCategory)
+          .map((ev) => ev.state.mainEvent)
+          .filter((f) => EVENT_FLAG_CATEGORIES[f] === mainCategory)
         const mainFlag = mainFlagCandidates.at(-1)
         const hoverText =
-          mainCategory === CellEventCategory.MINISCULE
-            ? 'Minor changes'
-            : EVENT_FLAG_NAMES[mainFlag!]
+          mainCategory === EventCategory.MINISCULE ? 'Minor changes' : EVENT_FLAG_NAMES[mainFlag!]
         const cell: EventCell = {
           events: {
             list,
@@ -430,11 +428,11 @@ function getPills(cell: Cell): EventPill[] {
     return []
   }
   let flags = [...cell.events.flags].filter(
-    (f) => getCellEventCategory(f) > CellEventCategory.MINISCULE,
+    (f) => EVENT_FLAG_CATEGORIES[f] > EventCategory.MINISCULE,
   )
-  const flagMap = new Map<CellEventCategory, EventFlag[]>()
+  const flagMap = new Map<EventCategory, EventFlag[]>()
   for (const flag of flags) {
-    const category = getCellEventCategory(flag)
+    const category = EVENT_FLAG_CATEGORIES[flag]
     const array = flagMap.get(category) || []
     array.push(flag)
     if (array.length < 2) {
@@ -443,10 +441,10 @@ function getPills(cell: Cell): EventPill[] {
   }
   flags = []
   for (const category of [
-    CellEventCategory.DELETED,
-    CellEventCategory.ADDED,
-    CellEventCategory.MAJOR,
-    CellEventCategory.MINOR,
+    EventCategory.DELETED,
+    EventCategory.ADDED,
+    EventCategory.MAJOR,
+    EventCategory.MINOR,
   ]) {
     const flagPart = flagMap.get(category) || []
     flagPart.reverse()
@@ -729,7 +727,7 @@ function copyToClipboard(text: string): void {
                 v-if="cell.events != null"
                 class="bar-spot"
                 :class="{
-                  'bar-spot-miniscule': cell.events.category === CellEventCategory.MINISCULE,
+                  'bar-spot-miniscule': cell.events.category === EventCategory.MINISCULE,
                 }"
               >
                 <AnPopover arrow class="bar-spot-popover" zIndex="9998">
@@ -753,16 +751,15 @@ function copyToClipboard(text: string): void {
                     <button
                       class="button is-small is-rounded bar-event"
                       :class="{
-                        'is-info': cell.events.category === CellEventCategory.MINOR,
-                        'has-background-warning-45':
-                          cell.events.category === CellEventCategory.MAJOR,
-                        'is-success': cell.events.category === CellEventCategory.ADDED,
-                        'is-danger': cell.events.category === CellEventCategory.DELETED,
+                        'is-info': cell.events.category === EventCategory.MINOR,
+                        'has-background-warning-45': cell.events.category === EventCategory.MAJOR,
+                        'is-success': cell.events.category === EventCategory.ADDED,
+                        'is-danger': cell.events.category === EventCategory.DELETED,
                       }"
                     >
                       <span
                         class="icon bright"
-                        v-if="cell.events.category > CellEventCategory.MINISCULE"
+                        v-if="cell.events.category > EventCategory.MINISCULE"
                       >
                         <img :src="`/icons/event/${cell.events.mainFlag}.png`" />
                       </span>
@@ -867,7 +864,7 @@ function copyToClipboard(text: string): void {
                 </div>
               </div>
               <footer
-                v-if="cell.events != null && cell.events.category > CellEventCategory.MINISCULE"
+                v-if="cell.events != null && cell.events.category > EventCategory.MINISCULE"
                 class="is-flex is-align-items-center is-justify-content-center"
               >
                 <div class="chips">

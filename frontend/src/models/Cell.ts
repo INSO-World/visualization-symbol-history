@@ -1,26 +1,9 @@
 import type { CommitDto, StateDto } from "@/models/analyzer"
-
-export enum EventFlag {
-  ADDED = 'added',
-  DELETED = 'deleted',
-  BRANCHED = 'branched',
-  REPLACED = 'replaced',
-  VALUE = 'value',
-  ANNOTATIONS = 'annotations',
-  KIND = 'kind',
-  MOVED = 'moved',
-  RENAMED = 'renamed',
-  REORDERED = 'reordered',
-  BODY = 'body',
-  MODIFIERS = 'modifiers',
-  REALIZATIONS = 'realizations',
-  SUPERTYPES = 'supertypes',
-  TYPE_PARAMETERS = 'typeParameters',
-  TYPE = 'type',
-  VISIBILITY = 'visibility',
-}
+import type { EventFlag } from '@/models/analyzer/value/EventFlag'
+import type { EventCategory } from '@/models/analyzer/value/EventCategory'
 
 export const EVENT_FLAG_PILLS: Record<EventFlag, string> = {
+  none: "-",
   added: "ADD",
   annotations: "ANO",
   body: "BOD",
@@ -35,21 +18,13 @@ export const EVENT_FLAG_PILLS: Record<EventFlag, string> = {
   replaced: "REPL",
   supertypes: "SUP",
   type: "TYPE",
-  typeParameters: "TPAR",
+  type_parameters: "TPAR",
   value: "VAL",
   visibility: "VIS",
 }
 
-export enum CellEventCategory {
-  MINISCULE = 1,
-  MINOR,
-  MAJOR,
-  ADDED,
-  DELETED,
-}
-
 export type CellEvent = {
-  category: CellEventCategory
+  category: EventCategory
   state: StateDto
   commit: CommitDto
   sourceCommits: CommitDto[]
@@ -61,7 +36,7 @@ export type CellEvent = {
 export type Cell = {
   events?: {
     list: CellEvent[]
-    category: CellEventCategory
+    category: EventCategory
     flags: Set<EventFlag>
     mainFlag?: EventFlag
     hoverText: string

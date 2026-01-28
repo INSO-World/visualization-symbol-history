@@ -362,12 +362,17 @@ public class Serializer {
       var id = wipResult.keysToIds().get(addition.getKey());
       wipResult.lastSeenProperties().put(id, addition.getProperties());
       var stateProperties = addition.getProperties().clone();
+      var cause = ChangeCause.ADDED;
+      var events = EventFlags.forState(cause, null, stateProperties.keySet());
+      var mainEvent = EventFlags.getMainEvent(events);
       var stateDto = StateDto.builder()
-        .cause(ChangeCause.ADDED)
+        .cause(cause)
         .commit(diffContext.commitId())
         .origins(Collections.emptyList())
         .symbolId(addition.getKey().symbolId())
         .properties(stateProperties)
+        .events(events)
+        .mainEvent(mainEvent)
         //.updated(stateProperties.keySet())
         .build();
       wipResult.symbolStates().put(id, stateDto);
@@ -391,14 +396,21 @@ public class Serializer {
       var stateProperties = properties.clone();
       var originDto = OriginDto.of(
         update.getParentIndex(), wipResult.commitIndex().get(update.getSourceContext().commit()).index());
+      var cause = hasSuccession ? ChangeCause.SUCCEEDED_CHANGED : ChangeCause.CHANGED;
+      var flags = update.getFlags();
+      var updated = update.getProperties().keySet();
+      var events = EventFlags.forState(cause, flags, updated);
+      var mainEvent = EventFlags.getMainEvent(events);
       var stateDto = StateDto.builder()
-        .cause(hasSuccession ? ChangeCause.SUCCEEDED_CHANGED : ChangeCause.CHANGED)
+        .cause(cause)
         .commit(diffContext.commitId())
         .origins(List.of(originDto))
         .symbolId(key.symbolId())
         .properties(stateProperties)
-        .updated(update.getProperties().keySet())
-        .flags(update.getFlags())
+        .updated(updated)
+        .flags(flags)
+        .events(events)
+        .mainEvent(mainEvent)
         .build();
       wipResult.symbolStates().put(id, stateDto);
     }
@@ -411,12 +423,17 @@ public class Serializer {
       var stateProperties = deletion.getProperties();
       var sourceCommitHash = deletion.getContext().getOrThrow().commit();
       var parentIndex = diffContext.diff().getParentCommits().indexOf(sourceCommitHash);
+      var cause = ChangeCause.DELETED;
+      var events = EventFlags.forState(cause, null, null);
+      var mainEvent = EventFlags.getMainEvent(events);
       var stateDto = StateDto.builder()
-        .cause(ChangeCause.DELETED)
+        .cause(cause)
         .commit(diffContext.commitId())
         .origins(List.of(OriginDto.of(parentIndex, wipResult.commitIndex().get(sourceCommitHash).index())))
         .symbolId(deletion.getKey().symbolId())
         .properties(stateProperties)
+        .events(events)
+        .mainEvent(mainEvent)
         .build();
       wipResult.symbolStates().put(id, stateDto);
       wipResult.deletedAts().merge(id, diffContext.commitDate(), ZonedDateTimes::max);
@@ -440,12 +457,17 @@ public class Serializer {
         // If symbol changed relative to ALL parents, do not create a pure succession entry
         continue;
       }
+      var cause = ChangeCause.SUCCEEDED_PURE;
+      var events = EventFlags.forState(cause, null, null);
+      var mainEvent = EventFlags.getMainEvent(events);
       var stateDto = StateDto.builder()
-        .cause(ChangeCause.SUCCEEDED_PURE)
+        .cause(cause)
         .commit(diffContext.commitId())
         .origins(origins)
         .symbolId(succession.getKey().symbolId())
         .properties(stateProperties)
+        .events(events)
+        .mainEvent(mainEvent)
         .build();
       wipResult.symbolStates().put(id, stateDto);
     }

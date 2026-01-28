@@ -1,5 +1,7 @@
 export * from './AnalyzerLevel'
 export * from './ChangeCause'
+export * from './EventCategory'
+export * from './EventFlag'
 export * from './Kind'
 export * from './Modifier'
 export * from './PropertyMapping'

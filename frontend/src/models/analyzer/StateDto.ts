@@ -2,6 +2,7 @@ import type { ChangeCause } from "@/models/analyzer/value/ChangeCause"
 import type { PropertyKey, PropertyMapping } from "@/models/analyzer/value/PropertyMapping"
 import type { OriginDto } from "@/models/analyzer/OriginDto"
 import type { UpdateFlag } from "@/models/analyzer/value/UpdateFlag"
+import type { EventFlag } from "@/models/analyzer/value/EventFlag"
 
 export type StateDto = AdditionStateDto | DeletionStateDto | PureSuccessionStateDto | ChangeStateDto | ChangeSuccessionStateDto;
 
@@ -12,6 +13,8 @@ interface BaseStateDto {
   symbolId: number;
   updated?: PropertyKey[];
   flags?: UpdateFlag[];
+  events?: EventFlag[];
+  mainEvent: EventFlag;
   properties: PropertyMapping;
 }
 

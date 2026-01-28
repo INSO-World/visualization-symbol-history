@@ -352,7 +352,8 @@ function getDisplayProperties(
           if (oldDisplayArray.length === 1 && oldDisplayArray.length === newDisplayArray.length) {
             const { text: oldText, abbr: oldAbbr } = oldDisplayArray[0]
             const { text: newText, abbr: newAbbr } = newDisplayArray[0]
-            // Hotfix for erroneous path change detection
+
+            // TODO: Remove hotfix for erroneous path change detection
             if (
               state.flags != null &&
               !state.flags.includes(UpdateFlag.MOVED) &&
@@ -362,6 +363,7 @@ function getDisplayProperties(
             ) {
               return null
             }
+
             newDisplayArray[0].text = `${oldText} → ${newText}`
             if (newAbbr != null && oldAbbr != null) {
               newDisplayArray[0].abbr = `${oldAbbr}\n→\n${newAbbr}`

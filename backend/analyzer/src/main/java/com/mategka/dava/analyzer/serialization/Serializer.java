@@ -1,5 +1,6 @@
 package com.mategka.dava.analyzer.serialization;
 
+import com.mategka.dava.analyzer.collections.CountingMap;
 import com.mategka.dava.analyzer.collections.Stack;
 import com.mategka.dava.analyzer.extension.CollectorsX;
 import com.mategka.dava.analyzer.extension.IterablesX;
@@ -7,6 +8,7 @@ import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
+import com.mategka.dava.analyzer.git.AuthorInfo;
 import com.mategka.dava.analyzer.git.CommitInfo;
 import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.serialization.model.*;
@@ -46,13 +48,30 @@ public class Serializer {
   public void writeJson(@NotNull History history, List<CommitInfo> commits, @NotNull String path) throws IOException {
     var strands = history.getStrandDag().nodes();
 
-    Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex = AnStream.fromIndexed(commits)
-      .collect(CollectorsX.mapToKey(p -> p.left().hash()));
+    List<AuthorInfo> authors = commits.stream()
+      .map(CommitInfo::author)
+      .distinct()
+      .toList();
+    Map<AuthorInfo, @NotNull Integer> authorIndex = AnStream.fromIndexed(authors).collect(CollectorsX.pairsToMap());
+
+    Map<Hash, CommitEntry> commitIndex = AnStream.fromIndexed(commits)
+      .map(p -> CommitEntry.fromPair(p, authorIndex))
+      .collect(CollectorsX.mapToKey(e -> e.commit().hash()));
+
     var dateBounds = IterablesX.minmax(commits.stream().map(CommitInfo::date).iterator());
     ZonedDateTime createdAt = dateBounds.map(Pair::left).getOrCompute(ZonedDateTimes::nowWithSecondPrecision);
     ZonedDateTime updatedAt = dateBounds.map(Pair::right).getOrElse(ZonedDateTimes.EPOCH);
+
     commits.clear();
 
+    List<AuthorDto> authorDtos = AnStream.fromIndexed(authors)
+      .map(Pair.folding((author, id) -> AuthorDto.builder()
+        .id(id)
+        .name(author.name())
+        .email(author.email())
+        .build()
+      ))
+      .toList();
     List<CommitDto> commitDtos = getCommitDtos(commitIndex, history.getStrandMapping());
 
     AbstractIdAssignment assignment = getAbstractIdAssignment(strands);
@@ -79,6 +98,7 @@ public class Serializer {
 
     var rootDto = RootDto.builder()
       .meta(metaDto)
+      .authors(authorDtos)
       .commits(commitDtos)
       .symbols(symbolDtos)
       .indices(indexDto)
@@ -89,10 +109,10 @@ public class Serializer {
     }
   }
 
-  private static void closeOpenKeyDtos(Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex, Hash commitHash,
+  private static void closeOpenKeyDtos(Map<Hash, CommitEntry> commitIndex, Hash commitHash,
                                        Map<Hash, KeyDto> openKeyDtos, ZonedDateTime date) {
     Set<Hash> visited2 = new HashSet<>();
-    Queue<Hash> queue = new ArrayDeque<>(commitIndex.get(commitHash).left().parents());
+    Queue<Hash> queue = new ArrayDeque<>(commitIndex.get(commitHash).commit().parents());
     while (!queue.isEmpty()) {
       var hash = queue.poll();
       if (visited2.contains(hash)) {
@@ -102,7 +122,7 @@ public class Serializer {
       if (openKeyDtos.containsKey(hash)) {
         openKeyDtos.remove(hash).setTo(date);
       }
-      queue.addAll(commitIndex.get(hash).left().parents());
+      queue.addAll(commitIndex.get(hash).commit().parents());
     }
   }
 
@@ -164,18 +184,19 @@ public class Serializer {
     return new AbstractIdAssignment(idCounter, keysToIds);
   }
 
-  private static @NotNull List<CommitDto> getCommitDtos(Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
+  private static @NotNull List<CommitDto> getCommitDtos(Map<Hash, CommitEntry> commitIndex,
                                                         Map<Hash, Strand> strandMapping) {
     List<CommitDto> commitDtos = new ArrayList<>();
-    for (var commitTuple : commitIndex.values()) {
-      var commit = commitTuple.left();
+    for (var commitEntry : commitIndex.values()) {
+      var commit = commitEntry.commit();
       var commitDto = CommitDto.builder()
-        .id(commitTuple.right())
+        .id(commitEntry.index())
         .hash(commit.hash())
         .date(commit.date())
+        .author(commitEntry.authorIndex())
         .summary(commit.summary())
         .desc(commit.description())
-        .parents(ListsX.map(commit.parents(), h -> commitIndex.get(h).right()))
+        .parents(ListsX.map(commit.parents(), h -> commitIndex.get(h).index()))
         .strand(strandMapping.get(commit.hash()).getId())
         .build();
       commitDtos.add(commitDto);
@@ -249,7 +270,7 @@ public class Serializer {
 
   private static @NotNull List<SymbolDto> getSymbolDtos(
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates, List<CommitDto> commitDtos,
-    Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex, Map<@NotNull SymbolKey, @NotNull Long> keysToIds,
+    Map<Hash, CommitEntry> commitIndex, Map<@NotNull SymbolKey, @NotNull Long> keysToIds,
     Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts) {
     List<SymbolDto> symbolDtos = new ArrayList<>();
     for (var stateEntry : symbolStates.asMap().entrySet()) {
@@ -259,10 +280,27 @@ public class Serializer {
         Comparator.comparing(s -> commitDtos.get(s.getCommit()).getDate())
       ).toList();
       SortedMap<@NotNull YearMonth, List<StateDto>> groupedStates = new TreeMap<>();
+      CountingMap<@NotNull Integer> authorContributions = new CountingMap<>();
+      int totalContributions = 0;
       for (var state : sortedStates) {
-        var yearMonth = YearMonth.from(commitDtos.get(state.getCommit()).getDate());
+        var commitDto = commitDtos.get(state.getCommit());
+        var yearMonth = YearMonth.from(commitDto.getDate());
         groupedStates.computeIfAbsent(yearMonth, k -> new ArrayList<>()).add(state);
+        if (state.getMainEvent().getCategory().getValue() > EventCategory.MINISCULE.getValue()) {
+          var authorIndex = commitIndex.get(commitDto.getHash()).authorIndex();
+          authorContributions.increment(authorIndex);
+          totalContributions++;
+        }
       }
+      final int finalTotalContributions = totalContributions;
+      assert finalTotalContributions > 0;
+      var contributions = AnStream.from(authorContributions)
+        .map(e -> ContributionDto.builder()
+          .author(e.getKey())
+          .percent(Math.floorDiv(e.getValue() * 100, finalTotalContributions)).build()
+        )
+        .sorted((a, b) -> b.getPercent() - a.getPercent())
+        .toList();
       List<KeyDto> keyDtos = new ArrayList<>();
       Map<Hash, KeyDto> openKeyDtos = new HashMap<>();
       for (var state : sortedStates) {
@@ -289,6 +327,7 @@ public class Serializer {
         .deletedAt(deletedAts.get(id))
         .states(groupedStates)
         .keys(keyDtos)
+        .contributions(contributions)
         .build();
       symbolDtos.add(symbolDto);
     }
@@ -296,13 +335,14 @@ public class Serializer {
   }
 
   private static @NotNull SymbolStatesResult getSymbolStatesResult(Set<Strand> strands,
-                                                                   Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
+                                                                   Map<Hash, CommitEntry> commitIndex,
                                                                    Map<@NotNull SymbolKey, @NotNull Long> keysToIds) {
     SymbolStatesWipResult wipResult = SymbolStatesWipResult.create(commitIndex, keysToIds);
     for (var strand : strands) {
       for (var diff : IterablesX.consuming(strand.getCommitDiffs())) {
-        int commitId = commitIndex.get(diff.getCommit()).right();
-        SymbolStatesDiffContext diffContext = SymbolStatesDiffContext.create(diff, commitId);
+        int commitId = commitIndex.get(diff.getCommit()).index();
+        ZonedDateTime commitDate = commitIndex.get(diff.getCommit()).commit().date();
+        SymbolStatesDiffContext diffContext = SymbolStatesDiffContext.create(diff, commitId, commitDate);
         putAdditionStates(wipResult, diffContext);
         for (var succession : diff.getSuccessions()) {
           var id = keysToIds.get(succession.getKey());
@@ -350,7 +390,7 @@ public class Serializer {
       }
       var stateProperties = properties.clone();
       var originDto = OriginDto.of(
-        update.getParentIndex(), wipResult.commitIndex().get(update.getSourceContext().commit()).right());
+        update.getParentIndex(), wipResult.commitIndex().get(update.getSourceContext().commit()).index());
       var stateDto = StateDto.builder()
         .cause(hasSuccession ? ChangeCause.SUCCEEDED_CHANGED : ChangeCause.CHANGED)
         .commit(diffContext.commitId())
@@ -374,7 +414,7 @@ public class Serializer {
       var stateDto = StateDto.builder()
         .cause(ChangeCause.DELETED)
         .commit(diffContext.commitId())
-        .origins(List.of(OriginDto.of(parentIndex, wipResult.commitIndex().get(sourceCommitHash).right())))
+        .origins(List.of(OriginDto.of(parentIndex, wipResult.commitIndex().get(sourceCommitHash).index())))
         .symbolId(deletion.getKey().symbolId())
         .properties(stateProperties)
         .build();
@@ -393,7 +433,7 @@ public class Serializer {
       for (int parentIndex = 0; parentIndex < diff.getParentCommits().size(); parentIndex++) {
         if (!diffContext.successionHandledParents().containsEntry(id, parentIndex)) {
           var sourceCommitHash = diff.getParentCommits().get(parentIndex);
-          origins.add(OriginDto.of(parentIndex, wipResult.commitIndex().get(sourceCommitHash).right()));
+          origins.add(OriginDto.of(parentIndex, wipResult.commitIndex().get(sourceCommitHash).index()));
         }
       }
       if (origins.isEmpty()) {
@@ -411,15 +451,24 @@ public class Serializer {
     }
   }
 
+  private record CommitEntry(CommitInfo commit, int index, int authorIndex) {
+
+    public static CommitEntry fromPair(Pair<CommitInfo, @NotNull Integer> p, Map<AuthorInfo, @NotNull Integer> authorIndex) {
+      return new CommitEntry(p.left(), p.right(), authorIndex.get(p.left().author()));
+    }
+
+  }
+
   private record SymbolStatesDiffContext(
     CommitDiff diff,
     int commitId,
+    ZonedDateTime commitDate,
     Multimap<@NotNull Long, @NotNull Integer> successionHandledParents,
     Map<@NotNull Long, @NotNull Symbol> successions
   ) {
 
-    public static SymbolStatesDiffContext create(CommitDiff diff, int commitId) {
-      return new SymbolStatesDiffContext(diff, commitId, HashMultimap.create(), new HashMap<>());
+    public static SymbolStatesDiffContext create(CommitDiff diff, int commitId, ZonedDateTime commitDate) {
+      return new SymbolStatesDiffContext(diff, commitId, commitDate, HashMultimap.create(), new HashMap<>());
     }
 
   }
@@ -428,11 +477,11 @@ public class Serializer {
     Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts,
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates,
     Map<@NotNull Long, @NotNull PropertyMap> lastSeenProperties,
-    Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
+    Map<Hash, CommitEntry> commitIndex,
     Map<@NotNull SymbolKey, @NotNull Long> keysToIds
   ) {
 
-    public static SymbolStatesWipResult create(Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
+    public static SymbolStatesWipResult create(Map<Hash, CommitEntry> commitIndex,
                                                Map<@NotNull SymbolKey, @NotNull Long> keysToIds) {
       return new SymbolStatesWipResult(
         new HashMap<@NotNull Long, @NotNull ZonedDateTime>(),

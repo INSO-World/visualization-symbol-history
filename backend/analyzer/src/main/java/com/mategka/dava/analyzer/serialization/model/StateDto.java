@@ -25,8 +25,7 @@ public class StateDto {
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
   List<OriginDto> origins;
 
-  @NonNull
-  Integer commit;
+  int commit;
 
   long symbolId;
 

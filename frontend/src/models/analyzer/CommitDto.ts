@@ -5,6 +5,7 @@ export interface CommitDto {
   strand: number;
   hash: string;
   date: RawZonedDateTime;
+  author: number;
   summary: string;
   desc?: string;
   parents: number[];

@@ -17,17 +17,25 @@ public class CommitDto {
 
   @NonNull
   Integer id;
+
   @NonNull
   Long strand;
+
   @NonNull
   Hash hash;
+
   @NonNull
   ZonedDateTime date;
+
+  int author;
+
   @NonNull
   String summary;
+
   @NonNull
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
   String desc;
+
   @NonNull
   List<@NotNull Integer> parents;
 

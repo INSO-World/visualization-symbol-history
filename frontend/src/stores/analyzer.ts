@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import {
+  type AuthorDto,
   ChangeCause,
   type CommitDto,
   type KeyDto,
@@ -30,6 +31,9 @@ export type SearchResult = {
 }
 
 export type AnalyzerStore = ReturnType<typeof useAnalyzerStore>
+
+const MOCK_GITHUB_USERNAME_PRIMARY: string = 'AM307'
+const MOCK_GITHUB_USERNAME_SECONDARY: string = 'torvalds'
 
 export const useAnalyzerStore = defineStore('analyzer', {
   state: () => ({
@@ -92,6 +96,13 @@ export const useAnalyzerStore = defineStore('analyzer', {
     },
     commitDate(index: number): Date {
       return new Date(this.root.commits[index].date)
+    },
+    getAuthorGitHubUsername(authorId: number): string {
+      // TODO: Remove mock data, fetch data from GitHub
+      return MOCK_GITHUB_USERNAME_PRIMARY
+    },
+    getAuthor(authorId: number): AuthorDto {
+      return this.root.authors[authorId]
     },
     getCommit(commitId: number): CommitDto {
       return this.root.commits[commitId]
@@ -235,5 +246,7 @@ export const useAnalyzerStore = defineStore('analyzer', {
   },
   getters: {
     metadata: (state) => state.root.meta,
+    mockUsernamePrimary: () => MOCK_GITHUB_USERNAME_PRIMARY,
+    mockUsernameSecondary: () => MOCK_GITHUB_USERNAME_SECONDARY,
   },
 })

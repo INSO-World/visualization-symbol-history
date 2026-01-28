@@ -15,6 +15,9 @@ public class RootDto {
   MetaDto meta;
 
   @NonNull
+  List<@NotNull AuthorDto> authors;
+
+  @NonNull
   List<@NotNull CommitDto> commits;
 
   @NonNull

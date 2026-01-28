@@ -24,6 +24,9 @@ public class SymbolDto {
   List<@NotNull KeyDto> keys;
 
   @NonNull
+  List<@NotNull ContributionDto> contributions;
+
+  @NonNull
   SequencedMap<@NotNull YearMonth, List<@NotNull StateDto>> states;
 
 }

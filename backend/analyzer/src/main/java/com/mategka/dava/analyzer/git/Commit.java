@@ -29,6 +29,12 @@ public final class Commit {
   @Getter(lazy = true)
   Hash hash = new Hash(revCommit.getId().getName());
 
+  public AuthorInfo author() {
+    assertParsed();
+    var author = revCommit.getAuthorIdent();
+    return new AuthorInfo(author.getName(), author.getEmailAddress());
+  }
+
   public ZonedDateTime dateTime() {
     assertParsed();
     var instant = Instant.ofEpochSecond(revCommit.getCommitTime());
@@ -51,7 +57,7 @@ public final class Commit {
     summaryEnd = (summaryEnd == -1) ? Math.max(message.length() - 1, 0) : summaryEnd;
     var summary = message.substring(0, summaryEnd);
     var description = message.substring(Math.min(message.length(), summaryEnd + 2));
-    return new CommitInfo(hash(), summary, description, dateTime(), ListsX.map(parents(), Commit::hash));
+    return new CommitInfo(hash(), summary, description, dateTime(), author(), ListsX.map(parents(), Commit::hash));
   }
 
   public List<Commit> parents() {

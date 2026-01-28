@@ -176,7 +176,11 @@ function updateView() {
             return []
           }
           const date = normalizeDate(analyzerStore.commitDate(state.commit))
-          const authors = ['AM307']
+          const authors = element.result.contributions.map((contribution) =>
+            analyzerStore.getAuthorGitHubUsername(contribution.author),
+          )
+
+          // TODO: Remove mock data insertion
           if (
             state.updated != null &&
             state.updated.includes('path') &&
@@ -184,8 +188,9 @@ function updateView() {
             date.getDate() === 15 &&
             state.properties.simpleName === 'idCounter'
           ) {
-            authors.splice(0, 1, 'torvalds')
+            authors.splice(0, 1, analyzerStore.mockUsernameSecondary)
           }
+
           return [
             {
               state,

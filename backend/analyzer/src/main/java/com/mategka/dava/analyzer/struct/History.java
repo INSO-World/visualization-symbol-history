@@ -6,7 +6,7 @@ import com.mategka.dava.analyzer.git.*;
 import com.mategka.dava.analyzer.struct.symbol.Symbol;
 
 import lombok.*;
-import org.eclipse.jgit.lib.Ref;
+import org.eclipse.jgit.lib.ObjectId;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -66,7 +66,7 @@ public class History {
   // In final result: include final state of all then-present and removed symbols on branch of HEAD
 
   @SuppressWarnings("UnstableApiUsage")
-  public static History emptyOfBranch(@NotNull Repository repository, Ref head) throws IOException {
+  public static History emptyOfBranch(@NotNull Repository repository, ObjectId head) throws IOException {
     Set<Strand> baseStrands = new HashSet<>();
     var strandDag = new DAG<Strand>();
     Map<Hash, Strand> strandMapping = new HashMap<>();

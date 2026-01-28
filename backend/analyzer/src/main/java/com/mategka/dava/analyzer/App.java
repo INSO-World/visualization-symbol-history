@@ -20,7 +20,8 @@ import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
 import com.mategka.dava.analyzer.util.Benchmark;
 
 import com.google.common.graph.Graph;
-import org.eclipse.jgit.lib.Ref;
+import org.eclipse.jgit.errors.RepositoryNotFoundException;
+import org.eclipse.jgit.lib.ObjectId;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -32,12 +33,14 @@ import java.util.stream.Collectors;
 public class App {
 
   public static void main(String[] args) {
-    // ?REPO
-    // ?REPO
-    // NOTE: Previous best profiling on analyzer repository took 99.4s with 93.12% = 92.6s Spoon time, and ~825MB memory
-    // NOTE: Last profiling on analyzer repository took 84.3s with 94.46% = 79.6s Spoon time, and ~575MB memory
-    try (Repository repository = Repository.open("?REPO")) {
-      Ref mainBranch = repository.resolveRef("HEAD").getOrThrow();
+    if (args.length < 1 || args.length > 2) {
+      System.err.println("Usage: analyzer <Git repository directory> [branch|commit]");
+      System.exit(1);
+    }
+    String repositoryPath = args[0];
+    String name = (args.length == 2) ? args[1] : "HEAD";
+    try (Repository repository = Repository.open(repositoryPath)) {
+      ObjectId mainBranch = repository.resolveObjectId(name).getOrThrow();
       var benchmark = Benchmark.start();
       var history = History.emptyOfBranch(repository, mainBranch);
       var strandMapping = history.getStrandMapping();
@@ -121,6 +124,9 @@ public class App {
       }
       System.out.printf("Done in %.1f seconds%n", time.toMillis() / 1000d);
       Serializer.writeJson(history, commits, "result.json");
+    } catch (RepositoryNotFoundException e) {
+      System.err.println(e.getMessage());
+      System.exit(1);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

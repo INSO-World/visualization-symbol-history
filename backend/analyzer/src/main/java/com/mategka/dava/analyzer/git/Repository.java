@@ -49,9 +49,9 @@ public class Repository implements AutoCloseable {
     throw new FileNotFoundException(folder.getPath());
   }
 
-  public CommitWalk commitsUpTo(@NotNull Ref head, CommitOrder order) throws IOException {
+  public CommitWalk commitsUpTo(@NotNull ObjectId head, CommitOrder order) throws IOException {
     var revWalk = new RevWalk(jgitRepository);
-    var startCommit = revWalk.parseCommit(head.getObjectId());
+    var startCommit = revWalk.parseCommit(head);
     revWalk.markStart(startCommit);
     order.applyTo(revWalk);
     return new CommitWalk(revWalk);
@@ -114,8 +114,8 @@ public class Repository implements AutoCloseable {
     return result;
   }
 
-  public Option<Ref> resolveRef(@NotNull String name) {
-    return Options.fromCallable(() -> jgitRepository.findRef(name));
+  public Option<ObjectId> resolveObjectId(@NotNull String name) {
+    return Options.fromCallable(() -> jgitRepository.resolve(name));
   }
 
   @Override

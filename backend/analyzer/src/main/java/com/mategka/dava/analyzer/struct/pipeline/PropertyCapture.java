@@ -134,10 +134,12 @@ public class PropertyCapture {
     var kind = modifiers.containsAll(Modifier.CONSTANT_FIELD_MODIFIERS)
       ? Kind.CONSTANT_FIELD
       : Kind.FIELD;
+    var visibility = Visibility.fromModifiable(field);
     var initialValue = parseNullableExpression(field.getDefaultExpression()).map(InitialValueProperty::new);
     var properties = commonPropertiesBuilder(field)
       .property(kind.toProperty())
       .property(initialValue)
+      .property(visibility.toProperty())
       .build();
     return Symbol.withPropertyMap(properties);
   }

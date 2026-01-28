@@ -9,11 +9,6 @@ import org.jetbrains.annotations.NotNull;
 @PropertyKey("path")
 public record PathProperty(String value) implements StringProperty {
 
-  @Deprecated
-  public static PathProperty fromCtPathProperty(@NotNull CtPathProperty ctPathProperty) {
-    return new PathProperty(ctPathProperty.value().toUnorderedString());
-  }
-
   @Contract("_ -> new")
   public static @NotNull PathProperty fromSpoonPathProperty(@NotNull SpoonPathProperty spoonPathProperty) {
     return new PathProperty(SpoonPaths.simplify(spoonPathProperty.value()));

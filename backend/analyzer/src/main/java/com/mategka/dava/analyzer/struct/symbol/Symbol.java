@@ -3,7 +3,6 @@ package com.mategka.dava.analyzer.struct.symbol;
 import com.mategka.dava.analyzer.extension.Copyable;
 import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.struct.Pair;
-import com.mategka.dava.analyzer.spoon.path.CtEqPath;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyIndexable;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
@@ -93,15 +92,6 @@ public final class Symbol implements PropertyIndexable, Copyable<Symbol>, Serial
     return getPropertyValue(ParentProperty.class)
       .map(symbolId -> new SymbolKey(symbolId, getKey().strandId()))
       .getOrThrow(() -> new NoSuchElementException("Symbol has no known parent (might it be the root package?)"));
-  }
-
-  /**
-   * @deprecated Use {@link #getSpoonPath()} instead.
-   */
-  @Deprecated
-  public @NotNull CtEqPath getPath() throws NoSuchElementException {
-    return getPropertyValue(CtPathProperty.class)
-      .getOrThrow(() -> new NoSuchElementException("Symbol has no known path"));
   }
 
   public List<Pair<PrdRole, SymbolKey>> getPredecessors() {

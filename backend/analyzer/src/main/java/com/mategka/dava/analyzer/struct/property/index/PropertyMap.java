@@ -20,9 +20,7 @@ import java.util.stream.Stream;
 
 public class PropertyMap extends HashMap<String, @NotNull Property> implements PropertyIndexable {
 
-  @SuppressWarnings("deprecation")
   private static final Set<String> ABBREVIATED_PROPERTIES = Stream.of(
-      CtPathProperty.class,
       SpoonPathProperty.class,
       InitialValueProperty.class,
       BodyHashProperty.class,

@@ -9,7 +9,4 @@ public enum PrdRole {
   MERGED,
   /// Symbol existed before LCA fork, had DIRECT or UPDATED successions on at least one parent ever since
   UPDATED,
-  ;
-
-  static final int SIZE = values().length;
 }

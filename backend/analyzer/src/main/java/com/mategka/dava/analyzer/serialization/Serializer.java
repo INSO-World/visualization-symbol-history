@@ -60,9 +60,9 @@ public class Serializer {
 
     SymbolStatesResult symbolStatesResult = getSymbolStatesResult(strands, commitIndex, keysToIds);
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates = symbolStatesResult.symbolStates();
-    Set<@NotNull Long> deletedIds = symbolStatesResult.deletedIds();
+    Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts = symbolStatesResult.deletedAts();
 
-    List<SymbolDto> symbolDtos = getSymbolDtos(symbolStates, commitDtos, commitIndex, keysToIds, deletedIds);
+    List<SymbolDto> symbolDtos = getSymbolDtos(symbolStates, commitDtos, commitIndex, keysToIds, deletedAts);
 
     MetaDto metaDto = MetaDto.builder()
       .name(history.getName())
@@ -215,7 +215,7 @@ public class Serializer {
       .flatMap(s -> {
         var start = IterablesX.getFirst(s.getStates().sequencedKeySet());
         YearMonth end;
-        if (s.isDeleted()) {
+        if (s.getDeletedAt() != null) {
           end = IterablesX.getFirst(s.getStates().sequencedKeySet().reversed());
         } else {
           end = YearMonth.now();
@@ -250,7 +250,7 @@ public class Serializer {
   private static @NotNull List<SymbolDto> getSymbolDtos(
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates, List<CommitDto> commitDtos,
     Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex, Map<@NotNull SymbolKey, @NotNull Long> keysToIds,
-    Set<@NotNull Long> deletedIds) {
+    Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts) {
     List<SymbolDto> symbolDtos = new ArrayList<>();
     for (var stateEntry : symbolStates.asMap().entrySet()) {
       var id = stateEntry.getKey();
@@ -286,7 +286,7 @@ public class Serializer {
       }
       var symbolDto = SymbolDto.builder()
         .id(id)
-        .deleted(deletedIds.contains(id))
+        .deletedAt(deletedAts.get(id))
         .states(groupedStates)
         .keys(keyDtos)
         .build();
@@ -331,7 +331,7 @@ public class Serializer {
         //.updated(stateProperties.keySet())
         .build();
       wipResult.symbolStates().put(id, stateDto);
-      wipResult.deletedIds().remove(id);
+      wipResult.deletedAts().remove(id);
     }
   }
 
@@ -379,7 +379,7 @@ public class Serializer {
         .properties(stateProperties)
         .build();
       wipResult.symbolStates().put(id, stateDto);
-      wipResult.deletedIds().add(id);
+      wipResult.deletedAts().merge(id, diffContext.commitDate(), ZonedDateTimes::max);
     }
   }
 
@@ -425,7 +425,7 @@ public class Serializer {
   }
 
   private record SymbolStatesWipResult(
-    Set<@NotNull Long> deletedIds,
+    Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts,
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates,
     Map<@NotNull Long, @NotNull PropertyMap> lastSeenProperties,
     Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
@@ -435,7 +435,7 @@ public class Serializer {
     public static SymbolStatesWipResult create(Map<Hash, Pair<CommitInfo, @NotNull Integer>> commitIndex,
                                                Map<@NotNull SymbolKey, @NotNull Long> keysToIds) {
       return new SymbolStatesWipResult(
-        new HashSet<@NotNull Long>(),
+        new HashMap<@NotNull Long, @NotNull ZonedDateTime>(),
         ArrayListMultimap.<@NotNull Long, @NotNull StateDto>create(),
         new HashMap<@NotNull Long, @NotNull PropertyMap>(),
         commitIndex,
@@ -444,13 +444,13 @@ public class Serializer {
     }
 
     public SymbolStatesResult toFinalResult() {
-      return new SymbolStatesResult(deletedIds, symbolStates);
+      return new SymbolStatesResult(deletedAts, symbolStates);
     }
 
   }
 
   private record SymbolStatesResult(
-    Set<Long> deletedIds,
+    Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts,
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates
   ) {
 

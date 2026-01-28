@@ -104,7 +104,7 @@ export const useAnalyzerStore = defineStore('analyzer', {
           return []
         }
         let score = Math.max(1 - Math.max(result.score! - 2e-6, 0) / 2, 0)
-        if (symbol.deleted) {
+        if (symbol.deletedAt != null) {
           score -= 0.0001
         }
         return [

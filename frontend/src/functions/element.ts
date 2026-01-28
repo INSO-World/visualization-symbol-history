@@ -1,7 +1,7 @@
 import { type AnalyzerStore, type SearchResult } from '@/stores/analyzer'
 import type { SymbolElement } from '@/models/SymbolElement'
 import { KIND_MAPPING, typeToText } from '@/functions/analyzer'
-import { ChangeCause, Modifier } from '@/models/analyzer'
+import { Modifier } from '@/models/analyzer'
 import { capitalize } from '@/functions/lang'
 
 const TYPE_CHARACTER_LIMIT = 20
@@ -45,17 +45,13 @@ export function resultToElement(result: SearchResult, analyzerStore: AnalyzerSto
   }
   headerText += ` in ${parentText}`
   const createdAt = new Date(result.symbol.keys[0].from)
-  const deletedStates = Object.values(result.symbol.states)
-    .flatMap((s) => s)
-    .filter((s) => s.cause === ChangeCause.DELETED)
-  const deletedAt =
-    deletedStates.length > 0 ? analyzerStore.commitDate(deletedStates.at(-1)!.commit) : undefined
   const chips = [
     {
       username: 'AM307',
       percentage: 100,
     },
   ]
+  const deletedAt = result.symbol.deletedAt != null ? new Date(result.symbol.deletedAt) : undefined
   if (result.key.name === 'idCounter') {
     chips.splice(0, 1, ...[
       {

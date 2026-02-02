@@ -6,6 +6,7 @@ import com.mategka.dava.analyzer.extension.CollectorsX;
 import com.mategka.dava.analyzer.extension.IterablesX;
 import com.mategka.dava.analyzer.extension.ListsX;
 import com.mategka.dava.analyzer.extension.option.Option;
+import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.git.AuthorInfo;
@@ -32,8 +33,12 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 import lombok.experimental.UtilityClass;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -79,9 +84,9 @@ public class Serializer {
 
     SymbolStatesResult symbolStatesResult = getSymbolStatesResult(strands, commitIndex, keysToIds);
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates = symbolStatesResult.symbolStates();
-    Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts = symbolStatesResult.deletedAts();
+    Map<@NotNull Long, @NotNull Deletion> deletions = symbolStatesResult.deletions();
 
-    List<SymbolDto> symbolDtos = getSymbolDtos(symbolStates, commitDtos, commitIndex, keysToIds, deletedAts);
+    List<SymbolDto> symbolDtos = getSymbolDtos(symbolStates, commitDtos, commitIndex, keysToIds, deletions);
 
     MetaDto metaDto = MetaDto.builder()
       .name(history.getName())
@@ -271,7 +276,7 @@ public class Serializer {
   private static @NotNull List<SymbolDto> getSymbolDtos(
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates, List<CommitDto> commitDtos,
     Map<Hash, CommitEntry> commitIndex, Map<@NotNull SymbolKey, @NotNull Long> keysToIds,
-    Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts) {
+    Map<@NotNull Long, @NotNull Deletion> deletions) {
     List<SymbolDto> symbolDtos = new ArrayList<>();
     for (var stateEntry : symbolStates.asMap().entrySet()) {
       var id = stateEntry.getKey();
@@ -324,7 +329,7 @@ public class Serializer {
       }
       var symbolDto = SymbolDto.builder()
         .id(id)
-        .deletedAt(deletedAts.get(id))
+        .deletedAt(deletions.get(id).deletedAtOrNull())
         .states(groupedStates)
         .keys(keyDtos)
         .contributions(contributions)
@@ -348,6 +353,7 @@ public class Serializer {
           var id = keysToIds.get(succession.getKey());
           wipResult.lastSeenProperties().put(id, succession.getProperties());
           diffContext.successions().put(id, succession);
+          Options.fromNullable(wipResult.deletions().get(id)).ifSome(Deletion::deactivate);
         }
         putDeletionStates(wipResult, diffContext);
         putChangedStates(wipResult, diffContext);
@@ -376,7 +382,7 @@ public class Serializer {
         //.updated(stateProperties.keySet())
         .build();
       wipResult.symbolStates().put(id, stateDto);
-      wipResult.deletedAts().remove(id);
+      Options.fromNullable(wipResult.deletions().get(id)).ifSome(Deletion::deactivate);
     }
   }
 
@@ -436,7 +442,12 @@ public class Serializer {
         .mainEvent(mainEvent)
         .build();
       wipResult.symbolStates().put(id, stateDto);
-      wipResult.deletedAts().merge(id, diffContext.commitDate(), ZonedDateTimes::max);
+      var deletionInMap = wipResult.deletions().get(id);
+      if (deletionInMap != null) {
+        deletionInMap.updateDeletedAt(diffContext.commitDate());
+      } else {
+        wipResult.deletions().put(id, new Deletion(diffContext.commitDate()));
+      }
     }
   }
 
@@ -496,7 +507,7 @@ public class Serializer {
   }
 
   private record SymbolStatesWipResult(
-    Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts,
+    Map<@NotNull Long, @NotNull Deletion> deletions,
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates,
     Map<@NotNull Long, @NotNull PropertyMap> lastSeenProperties,
     Map<Hash, CommitEntry> commitIndex,
@@ -506,7 +517,7 @@ public class Serializer {
     public static SymbolStatesWipResult create(Map<Hash, CommitEntry> commitIndex,
                                                Map<@NotNull SymbolKey, @NotNull Long> keysToIds) {
       return new SymbolStatesWipResult(
-        new HashMap<@NotNull Long, @NotNull ZonedDateTime>(),
+        new HashMap<@NotNull Long, @NotNull Deletion>(),
         ArrayListMultimap.<@NotNull Long, @NotNull StateDto>create(),
         new HashMap<@NotNull Long, @NotNull PropertyMap>(),
         commitIndex,
@@ -515,19 +526,44 @@ public class Serializer {
     }
 
     public SymbolStatesResult toFinalResult() {
-      return new SymbolStatesResult(deletedAts, symbolStates);
+      return new SymbolStatesResult(deletions, symbolStates);
     }
 
   }
 
   private record SymbolStatesResult(
-    Map<@NotNull Long, @NotNull ZonedDateTime> deletedAts,
+    Map<@NotNull Long, @NotNull Deletion> deletions,
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates
   ) {
 
   }
 
   private record AbstractIdAssignment(long idCount, Map<@NotNull SymbolKey, @NotNull Long> keysToIds) {
+
+  }
+
+  @Getter
+  @FieldDefaults(level = AccessLevel.PRIVATE)
+  @RequiredArgsConstructor
+  @EqualsAndHashCode
+  private class Deletion {
+
+    boolean active = true;
+    @NonNull ZonedDateTime deletedAt;
+
+    public void deactivate() {
+      this.active = false;
+    }
+
+    public void updateDeletedAt(@NotNull ZonedDateTime deletedAt) {
+      active = true;
+      this.deletedAt = ZonedDateTimes.max(this.deletedAt, deletedAt);
+    }
+
+    @Contract(pure = true)
+    public @Nullable ZonedDateTime deletedAtOrNull() {
+      return active ? this.deletedAt : null;
+    }
 
   }
 

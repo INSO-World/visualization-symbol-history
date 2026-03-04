@@ -330,9 +330,10 @@ public class Serializer {
         keyDtos.add(keyDto);
         openKeyDtos.put(commitHash, keyDto);
       }
+      var deletedAt = Options.fromNullable(deletions.get(id)).map(Deletion::deletedAtOrNull);
       var symbolDto = SymbolDto.builder()
         .id(id)
-        .deletedAt(deletions.get(id).deletedAtOrNull())
+        .deletedAt(deletedAt.getOrNull())
         .states(groupedStates)
         .keys(keyDtos)
         .contributions(contributions)

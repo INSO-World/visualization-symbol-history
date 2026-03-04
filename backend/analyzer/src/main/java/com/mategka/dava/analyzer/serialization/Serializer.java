@@ -21,8 +21,7 @@ import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
 import com.mategka.dava.analyzer.struct.property.value.Visibility;
 import com.mategka.dava.analyzer.struct.property.value.type.UnknownType;
-import com.mategka.dava.analyzer.struct.symbol.Symbol;
-import com.mategka.dava.analyzer.struct.symbol.SymbolKey;
+import com.mategka.dava.analyzer.struct.symbol.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -350,8 +349,9 @@ public class Serializer {
         SymbolStatesDiffContext diffContext = SymbolStatesDiffContext.create(diff, commitId, commitDate);
         putAdditionStates(wipResult, diffContext);
         for (var succession : diff.getSuccessions()) {
-          var id = keysToIds.get(succession.getKey());
-          wipResult.lastSeenProperties().put(id, succession.getProperties());
+          var key = succession.getKey();
+          var id = keysToIds.get(key);
+          wipResult.lastSeenProperties().put(key, succession.getProperties());
           diffContext.successions().put(id, succession);
           Options.fromNullable(wipResult.deletions().get(id)).ifSome(Deletion::deactivate);
         }
@@ -365,8 +365,9 @@ public class Serializer {
 
   private static void putAdditionStates(SymbolStatesWipResult wipResult, SymbolStatesDiffContext diffContext) {
     for (var addition : diffContext.diff().getAdditions()) {
-      var id = wipResult.keysToIds().get(addition.getKey());
-      wipResult.lastSeenProperties().put(id, addition.getProperties());
+      var key = addition.getKey();
+      var id = wipResult.keysToIds().get(key);
+      wipResult.lastSeenProperties().put(key, addition.getProperties());
       var stateProperties = addition.getProperties().clone();
       var cause = ChangeCause.ADDED;
       var events = EventFlags.forState(cause, null, stateProperties.keySet());
@@ -395,7 +396,7 @@ public class Serializer {
         diffContext.successionHandledParents().put(id, update.getParentIndex());
       }
 
-      var properties = wipResult.lastSeenProperties().get(id);
+      var properties = wipResult.lastSeenProperties().get(key);
       if (!hasSuccession) {
         properties.applyUpdate(update.getProperties());
       }
@@ -424,8 +425,9 @@ public class Serializer {
 
   private static void putDeletionStates(SymbolStatesWipResult wipResult, SymbolStatesDiffContext diffContext) {
     for (var deletion : diffContext.diff().getDeletions()) {
-      var id = wipResult.keysToIds().get(deletion.getKey());
-      wipResult.lastSeenProperties().remove(id);
+      var key = deletion.getKey();
+      var id = wipResult.keysToIds().get(key);
+      wipResult.lastSeenProperties().remove(key);
       var stateProperties = deletion.getProperties();
       var sourceCommitHash = deletion.getContext().getOrThrow().commit();
       var parentIndex = diffContext.diff().getParentCommits().indexOf(sourceCommitHash);
@@ -509,7 +511,7 @@ public class Serializer {
   private record SymbolStatesWipResult(
     Map<@NotNull Long, @NotNull Deletion> deletions,
     ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates,
-    Map<@NotNull Long, @NotNull PropertyMap> lastSeenProperties,
+    Map<@NotNull SymbolKey, @NotNull PropertyMap> lastSeenProperties,
     Map<Hash, CommitEntry> commitIndex,
     Map<@NotNull SymbolKey, @NotNull Long> keysToIds
   ) {
@@ -519,7 +521,7 @@ public class Serializer {
       return new SymbolStatesWipResult(
         new HashMap<@NotNull Long, @NotNull Deletion>(),
         ArrayListMultimap.<@NotNull Long, @NotNull StateDto>create(),
-        new HashMap<@NotNull Long, @NotNull PropertyMap>(),
+        new HashMap<@NotNull SymbolKey, @NotNull PropertyMap>(),
         commitIndex,
         keysToIds
       );

@@ -33,6 +33,7 @@ public class MappingProcessing {
                                                            Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps) {
     List<SymbolUpdate> updates = new ArrayList<>();
     Set<Symbol> movedTargetSymbols = new HashSet<>();
+    Set<@NotNull Long> reusedIds = new HashSet<>();
     for (var targetNode : Using.iterator(targetWorkspace.getTree(), TreeOrder.PREORDER)) {
       var targetSymbol = targetNode.value();
       //noinspection CodeBlock2Expr
@@ -60,17 +61,26 @@ public class MappingProcessing {
         .map(Context::key)
         .map(SymbolKey::symbolId)
         .toSet();
-      var consistentSymbolId = parentSymbolIds.size() == 1;
-      long symbolId = consistentSymbolId
-        ? IterablesX.getOnlyElement(parentSymbolIds)
-        : context.symbolIdCounter().getAndIncrement();
+      var symbolIdIsConsistent = parentSymbolIds.size() == 1;
+      long symbolId = -1;
+      if (symbolIdIsConsistent) {
+        long consistentSymbolId = IterablesX.getOnlyElement(parentSymbolIds);
+        if (!reusedIds.contains(consistentSymbolId)) {
+          symbolId = consistentSymbolId;
+          reusedIds.add(consistentSymbolId);
+        }
+      }
+      if (symbolId == -1) {
+        symbolId = context.symbolIdCounter().getAndIncrement();
+      }
       Hash symbolCommit = parentContexts.size() == 1 && !context.hasStrandChange()
         ? parentContexts.getFirst().commit()
         : context.commit();
       var symbolContext = new Context(new SymbolKey(symbolId, context.strandId()), symbolCommit);
       targetSymbol.setContext(symbolContext);
-      var collectingJoinPredecessors = context.hasStrandChange() && consistentSymbolId;
-      var collectingMergePredecessors = context.hasStrandChange() && !consistentSymbolId;
+
+      var collectingJoinPredecessors = context.hasStrandChange() && symbolIdIsConsistent;
+      var collectingMergePredecessors = context.hasStrandChange() && !symbolIdIsConsistent;
       for (var sourceRecord : sourceRecords) {
         var parentIndex = sourceRecord.parentIndex();
         var unchangedSymbols = targetWorkspace.getUnchangedFromParent(parentIndex);

@@ -68,14 +68,7 @@ public class Serializer {
 
     commits.clear();
 
-    List<AuthorDto> authorDtos = AnStream.fromIndexed(authors)
-      .map(Pair.folding((author, id) -> AuthorDto.builder()
-        .id(id)
-        .name(author.name())
-        .email(author.email())
-        .build()
-      ))
-      .toList();
+    List<AuthorDto> authorDtos = getAuthorDtos(authors);
     List<CommitDto> commitDtos = getCommitDtos(commitIndex, history.getStrandMapping());
 
     AbstractIdAssignment assignment = getAbstractIdAssignment(strands);
@@ -111,6 +104,17 @@ public class Serializer {
     try (FileOutputStream fos = new FileOutputStream(path)) {
       getObjectMapper().writeValue(fos, rootDto);
     }
+  }
+
+  private static @NotNull List<AuthorDto> getAuthorDtos(List<AuthorInfo> authors) {
+    return AnStream.fromIndexed(authors)
+      .map(Pair.folding((author, id) -> AuthorDto.builder()
+        .id(id)
+        .name(author.name())
+        .email(author.email())
+        .build()
+      ))
+      .toList();
   }
 
   private static void closeOpenKeyDtos(Map<Hash, CommitEntry> commitIndex, Hash commitHash,

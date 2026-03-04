@@ -22,6 +22,8 @@ import java.util.List;
 @EqualsAndHashCode
 public final class Commit {
 
+  private static final String DESCRIPTION_SEPARATOR = "\n\n";
+
   @NonNull
   RevCommit revCommit;
 
@@ -53,10 +55,10 @@ public final class Commit {
   public @NotNull CommitInfo info() {
     assertParsed();
     var message = revCommit.getFullMessage();
-    var summaryEnd = message.indexOf("\n\n");
-    summaryEnd = (summaryEnd == -1) ? Math.max(message.length() - 1, 0) : summaryEnd;
-    var summary = message.substring(0, summaryEnd);
-    var description = message.substring(Math.min(message.length(), summaryEnd + 2));
+    var summaryEnd = message.indexOf(DESCRIPTION_SEPARATOR);
+    summaryEnd = (summaryEnd == -1) ? message.length() : summaryEnd;
+    var summary = message.substring(0, summaryEnd).trim();
+    var description = message.substring(Math.min(message.length(), summaryEnd + 2)).trim();
     return new CommitInfo(hash(), summary, description, dateTime(), author(), ListsX.map(parents(), Commit::hash));
   }
 

@@ -9,6 +9,7 @@ import com.mategka.dava.analyzer.extension.option.Option;
 import com.mategka.dava.analyzer.extension.option.Options;
 import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
+import com.mategka.dava.analyzer.extension.time.ZonedDateTimes;
 import com.mategka.dava.analyzer.git.AuthorInfo;
 import com.mategka.dava.analyzer.git.CommitInfo;
 import com.mategka.dava.analyzer.git.Hash;
@@ -21,7 +22,9 @@ import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
 import com.mategka.dava.analyzer.struct.property.value.Visibility;
 import com.mategka.dava.analyzer.struct.property.value.type.UnknownType;
-import com.mategka.dava.analyzer.struct.symbol.*;
+import com.mategka.dava.analyzer.struct.symbol.Symbol;
+import com.mategka.dava.analyzer.struct.symbol.SymbolKey;
+import com.mategka.dava.analyzer.util.Benchmark;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -35,12 +38,14 @@ import com.google.common.graph.MutableGraph;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.UtilityClass;
+import me.tongfei.progressbar.*;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.YearMonth;
 import java.time.ZonedDateTime;
 import java.util.*;
@@ -49,61 +54,83 @@ import java.util.stream.Stream;
 @UtilityClass
 public class Serializer {
 
+  private final int PROGRESS_STEPS = 5;
+
   public void writeJson(@NotNull History history, List<CommitInfo> commits, @NotNull String path) throws IOException {
-    var strands = history.getStrandDag().nodes();
+    try (
+      ProgressBar progressBar = new ProgressBarBuilder()
+        .setInitialMax(PROGRESS_STEPS)
+        .setStyle(ProgressBarStyle.ASCII)
+        .setTaskName("  Computing JSON")
+        .setConsumer(new ConsoleProgressBarConsumer(System.out, 97))
+        .build()
+    ) {
+      var benchmark = Benchmark.start();
+      progressBar.setExtraMessage("Compiling authors");
+      var strands = history.getStrandDag().nodes();
+      List<AuthorInfo> authors = commits.stream()
+        .map(CommitInfo::author)
+        .distinct()
+        .toList();
+      Map<AuthorInfo, @NotNull Integer> authorIndex = AnStream.fromIndexed(authors).collect(CollectorsX.pairsToMap());
+      progressBar.step();
 
-    List<AuthorInfo> authors = commits.stream()
-      .map(CommitInfo::author)
-      .distinct()
-      .toList();
-    Map<AuthorInfo, @NotNull Integer> authorIndex = AnStream.fromIndexed(authors).collect(CollectorsX.pairsToMap());
+      progressBar.setExtraMessage("Compiling commits");
+      Map<Hash, CommitEntry> commitIndex = AnStream.fromIndexed(commits)
+        .map(p -> CommitEntry.fromPair(p, authorIndex))
+        .collect(CollectorsX.mapToKey(e -> e.commit().hash()));
+      var dateBounds = IterablesX.minmax(commits.stream().map(CommitInfo::date).iterator());
+      ZonedDateTime createdAt = dateBounds.map(Pair::left).getOrCompute(ZonedDateTimes::nowWithSecondPrecision);
+      ZonedDateTime updatedAt = dateBounds.map(Pair::right).getOrElse(ZonedDateTimes.EPOCH);
+      commits.clear();
 
-    Map<Hash, CommitEntry> commitIndex = AnStream.fromIndexed(commits)
-      .map(p -> CommitEntry.fromPair(p, authorIndex))
-      .collect(CollectorsX.mapToKey(e -> e.commit().hash()));
+      List<AuthorDto> authorDtos = getAuthorDtos(authors);
+      List<CommitDto> commitDtos = getCommitDtos(commitIndex, history.getStrandMapping());
+      progressBar.step();
 
-    var dateBounds = IterablesX.minmax(commits.stream().map(CommitInfo::date).iterator());
-    ZonedDateTime createdAt = dateBounds.map(Pair::left).getOrCompute(ZonedDateTimes::nowWithSecondPrecision);
-    ZonedDateTime updatedAt = dateBounds.map(Pair::right).getOrElse(ZonedDateTimes.EPOCH);
+      progressBar.setExtraMessage("Compiling symbols");
+      AbstractIdAssignment assignment = getAbstractIdAssignment(strands);
+      Map<@NotNull SymbolKey, @NotNull Long> keysToIds = assignment.keysToIds();
 
-    commits.clear();
+      SymbolStatesResult symbolStatesResult = getSymbolStatesResult(strands, commitIndex, keysToIds);
+      ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates = symbolStatesResult.symbolStates();
+      Map<@NotNull Long, @NotNull Deletion> deletions = symbolStatesResult.deletions();
+      List<SymbolDto> symbolDtos = getSymbolDtos(symbolStates, commitDtos, commitIndex, keysToIds, deletions);
+      progressBar.step();
 
-    List<AuthorDto> authorDtos = getAuthorDtos(authors);
-    List<CommitDto> commitDtos = getCommitDtos(commitIndex, history.getStrandMapping());
+      progressBar.setExtraMessage("Creating indices");
+      MetaDto metaDto = MetaDto.builder()
+        .name(history.getName())
+        .createdAt(createdAt)
+        .updatedAt(updatedAt)
+        .indexedAt(ZonedDateTime.now())
+        .commitCount(commitDtos.size())
+        .strandCount(strands.size())
+        .strandSymbolCount(keysToIds.size())
+        .symbolCount(assignment.idCount())
+        .build();
 
-    AbstractIdAssignment assignment = getAbstractIdAssignment(strands);
-    Map<@NotNull SymbolKey, @NotNull Long> keysToIds = assignment.keysToIds();
+      IndexRootDto indexDto = getIndexRootDto(symbolDtos);
 
-    SymbolStatesResult symbolStatesResult = getSymbolStatesResult(strands, commitIndex, keysToIds);
-    ArrayListMultimap<@NotNull Long, @NotNull StateDto> symbolStates = symbolStatesResult.symbolStates();
-    Map<@NotNull Long, @NotNull Deletion> deletions = symbolStatesResult.deletions();
+      var rootDto = RootDto.builder()
+        .meta(metaDto)
+        .authors(authorDtos)
+        .commits(commitDtos)
+        .symbols(symbolDtos)
+        .indices(indexDto)
+        .build();
+      progressBar.step();
 
-    List<SymbolDto> symbolDtos = getSymbolDtos(symbolStates, commitDtos, commitIndex, keysToIds, deletions);
+      progressBar.setExtraMessage("Writing JSON");
+      try (FileOutputStream fos = new FileOutputStream(path)) {
+        getObjectMapper().writeValue(fos, rootDto);
+      }
+      progressBar.step();
 
-    MetaDto metaDto = MetaDto.builder()
-      .name(history.getName())
-      .createdAt(createdAt)
-      .updatedAt(updatedAt)
-      .indexedAt(ZonedDateTime.now())
-      .commitCount(commitDtos.size())
-      .strandCount(strands.size())
-      .strandSymbolCount(keysToIds.size())
-      .symbolCount(assignment.idCount())
-      .build();
-
-    IndexRootDto indexDto = getIndexRootDto(symbolDtos);
-
-    var rootDto = RootDto.builder()
-      .meta(metaDto)
-      .authors(authorDtos)
-      .commits(commitDtos)
-      .symbols(symbolDtos)
-      .indices(indexDto)
-      .build();
-
-    try (FileOutputStream fos = new FileOutputStream(path)) {
-      getObjectMapper().writeValue(fos, rootDto);
+      var time = benchmark.end();
+      progressBar.setExtraMessage("Done in %.1f seconds".formatted(time.toMillis() / 1000d));
     }
+    System.out.println("Output written to " + Path.of(path));
   }
 
   private static @NotNull List<AuthorDto> getAuthorDtos(List<AuthorInfo> authors) {

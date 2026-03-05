@@ -64,9 +64,11 @@ public class History {
   //              keep track of all latest symbol states for all branch IDs
   // On merge commits: assume changes from incoming branch are "incorporated" (n-way merge necessary)
   // In final result: include final state of all then-present and removed symbols on branch of HEAD
+  int commitCount;
 
   @SuppressWarnings("UnstableApiUsage")
   public static History emptyOfBranch(@NotNull Repository repository, ObjectId head) throws IOException {
+    int commitCount = 0;
     Set<Strand> baseStrands = new HashSet<>();
     var strandDag = new DAG<Strand>();
     Map<Hash, Strand> strandMapping = new HashMap<>();
@@ -75,6 +77,7 @@ public class History {
     try (CommitWalk commitWalk = repository.commitsUpTo(head, CommitOrder.TOPOLOGICAL)) {
       for (Commit commit : commitWalk) {
         commit.disposeBody();
+        commitCount++;
         commit.parents().stream()
           .map(Commit::hash)
           .forEach((parentHash) -> {
@@ -135,6 +138,7 @@ public class History {
       .baseStrands(baseStrands)
       .strandDag(strandDag)
       .strandMapping(strandMapping)
+      .commitCount(commitCount)
       .build();
   }
 

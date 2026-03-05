@@ -20,6 +20,7 @@ import com.mategka.dava.analyzer.struct.symbol.SymbolCreationContext;
 import com.mategka.dava.analyzer.util.Benchmark;
 
 import com.google.common.graph.Graph;
+import me.tongfei.progressbar.*;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.ObjectId;
 import org.jetbrains.annotations.NotNull;
@@ -49,11 +50,21 @@ public class App {
       List<CommitInfo> commits = new ArrayList<>(64);
       CountingMap<@NotNull Long> workspaceCountdown = initWorkspaceCountdown(history.getStrandDag());
       Map<@NotNull Long, SymbolWorkspace> workspaces = new HashMap<>();
-      try (CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL)) {
+      try (
+        CommitWalk commitWalk = repository.commitsUpTo(mainBranch, CommitOrder.REVERSE_TOPOLOGICAL);
+        ProgressBar progressBar = new ProgressBarBuilder()
+          .setInitialMax(history.getCommitCount())
+          .setStyle(ProgressBarStyle.ASCII)
+          .setTaskName("Indexing commits")
+          .setConsumer(new ConsoleProgressBarConsumer(System.out, 100))
+          .build()
+      ) {
         for (Commit commit : commitWalk) {
           var hash = commit.hash();
-          commits.add(commit.info());
           System.out.println("-".repeat(10) + hash.abbreviated() + "-".repeat(10));
+          var info = commit.info();
+          progressBar.setExtraMessage("%s @ %s".formatted(hash.abbreviated(), info.date().toLocalDate().toString()));
+          commits.add(info);
           var strand = strandMapping.get(hash);
           var strandId = strand.getId();
           var commitPaths = repository.readRelevantPaths(commit);
@@ -104,9 +115,11 @@ public class App {
               System.gc();
             }
           }
+          progressBar.step();
         }
+        var time = benchmark.end();
+        progressBar.setExtraMessage("Done in %.1f seconds".formatted(time.toMillis() / 1000d));
       }
-      var time = benchmark.end();
       {
         //noinspection UnusedAssignment
         mainBranch = null;
@@ -122,7 +135,6 @@ public class App {
         workspaces = null;
         System.gc();
       }
-      System.out.printf("Done in %.1f seconds%n", time.toMillis() / 1000d);
       Serializer.writeJson(history, commits, "result.json");
     } catch (RepositoryNotFoundException e) {
       System.err.println(e.getMessage());

@@ -1,4 +1,4 @@
-package com.mategka.dava.analyzer.serialization;
+package com.mategka.dava.analyzer.extension.time;
 
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
@@ -15,6 +15,10 @@ public class ZonedDateTimes {
 
   public ZonedDateTime nowWithSecondPrecision() {
     return ZonedDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+  }
+
+  public ZonedDateTime min(@NotNull ZonedDateTime zdt1, @NotNull ZonedDateTime zdt2) {
+    return zdt1.isBefore(zdt2) ? zdt1 : zdt2;
   }
 
   public ZonedDateTime max(@NotNull ZonedDateTime zdt1, @NotNull ZonedDateTime zdt2) {

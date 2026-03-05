@@ -35,7 +35,7 @@ public class App {
 
   public static void main(String[] args) {
     if (args.length < 1 || args.length > 2) {
-      System.err.println("Usage: analyzer <Git repository directory> [branch|commit]");
+      System.err.println("Usage: java -jar analyzer.jar <Git repository directory> [branch|commit]");
       System.exit(1);
     }
     String repositoryPath = args[0];

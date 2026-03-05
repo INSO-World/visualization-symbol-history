@@ -240,6 +240,9 @@ function updateView() {
     }
     for (let e = 0; e < symbolEvents.length; e++) {
       const events = dateEvents.filter((ev) => ev.index === e)
+      const element = elements.value[e]
+      const createdAtTimestamp = normalizeDate(element.createdAt).valueOf()
+      const deletedAtTimestamp = (element.deletedAt != null) ? normalizeDate(element.deletedAt).valueOf() : Infinity
       if (events.length > 0) {
         events.sort((a, b) => +a.date - +b.date)
         const list: CellEvent[] = events.map((ev) => {
@@ -278,11 +281,11 @@ function updateView() {
           ends: false,
           last: list.some((ev) => ev.last),
         }
-        if (cell.events.flags.has(EventFlag.ADDED)) {
+        if (cell.events.flags.has(EventFlag.ADDED) && +date === createdAtTimestamp) {
           started[e] = true
           cell.starts = true
         }
-        if (cell.events.flags.has(EventFlag.DELETED)) {
+        if (cell.events.flags.has(EventFlag.DELETED) && +date === deletedAtTimestamp) {
           started[e] = false
           cell.ends = true
         }

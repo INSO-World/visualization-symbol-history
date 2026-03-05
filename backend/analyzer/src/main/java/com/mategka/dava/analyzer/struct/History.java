@@ -11,7 +11,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Value
 @Builder(access = AccessLevel.PRIVATE)
@@ -53,20 +52,8 @@ public class History {
   @NonNull
   Map<Hash, Strand> strandMapping;
 
-  // Symbols are associated with a running ID
-  // Property Update = Sealed hierarchy of types with unique name, new value and commit SHA
-  // Initial commit / Addition = new ID key + property updates for all mandatory and present optional properties
-  // Deletion = ID key of removed symbol + removal commit SHA
-  // Update = ID key of symbol + property updates, commit SHA
-  // Refactoring = Sealed hierarchy of types with input symbol ID keys, output symbol ID keys and commit SHA
-  //               (including output symbol property updates IF output symbol is NEW)
-  // During scan: commits have branch ID based on concurrent traversal path counts
-  //              keep track of all latest symbol states for all branch IDs
-  // On merge commits: assume changes from incoming branch are "incorporated" (n-way merge necessary)
-  // In final result: include final state of all then-present and removed symbols on branch of HEAD
   int commitCount;
 
-  @SuppressWarnings("UnstableApiUsage")
   public static History emptyOfBranch(@NotNull Repository repository, ObjectId head) throws IOException {
     int commitCount = 0;
     Set<Strand> baseStrands = new HashSet<>();
@@ -114,25 +101,6 @@ public class History {
         }
       }
     }
-    System.out.println(
-      strandDag.edges().stream()
-        .map(e -> "%d %d".formatted(e.nodeU().getId(), e.nodeV().getId()))
-        .collect(Collectors.joining("\n"))
-    );
-    System.out.println(
-      strandDag.nodes().stream()
-        .map(b -> "%s -> %d -> %s".formatted(
-          strandDag.predecessors(b).stream().map(Strand::getId).toList(),
-          b.getId(),
-          strandDag.successors(b).stream().map(Strand::getId).toList()
-        ))
-        .collect(Collectors.joining("\n"))
-    );
-    System.out.println(
-      strandDag.nodes().stream()
-        .map(b -> "%d %s".formatted(b.getId(), b.getName()))
-        .collect(Collectors.joining("\n"))
-    );
     return History.builder()
       .name(repository.getName())
       .baseStrands(baseStrands)

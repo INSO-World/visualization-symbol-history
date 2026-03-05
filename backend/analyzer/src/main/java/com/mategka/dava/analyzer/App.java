@@ -61,7 +61,6 @@ public class App {
       ) {
         for (Commit commit : commitWalk) {
           var hash = commit.hash();
-          System.out.println("-".repeat(10) + hash.abbreviated() + "-".repeat(10));
           var info = commit.info();
           progressBar.setExtraMessage("%s @ %s".formatted(hash.abbreviated(), info.date().toLocalDate().toString()));
           commits.add(info);
@@ -98,7 +97,6 @@ public class App {
             .deletions(symbolMapping.deletions())
             .updates(symbolMapping.updates())
             .build();
-          diff.printDebug();
           strand.getCommitDiffs().add(diff);
 
           if (breakCommit) {

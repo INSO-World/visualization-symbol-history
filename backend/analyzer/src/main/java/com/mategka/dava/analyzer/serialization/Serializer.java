@@ -304,7 +304,6 @@ public class Serializer {
     multimapSerializerModule.addSerializer(Multimap.class, new MultimapSerializer());
     mapper.registerModule(multimapSerializerModule);
     mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-    mapper.enable(SerializationFeature.INDENT_OUTPUT);
     return mapper;
   }
 

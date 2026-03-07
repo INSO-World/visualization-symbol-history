@@ -34,6 +34,11 @@ public final class UnknownType implements Type {
     return qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1);
   }
 
+  @JsonIgnore
+  public boolean isInferred() {
+    return "var".equals(qualifiedName);
+  }
+
   @Override
   public @NotNull String toString() {
     return getSimpleName() + (typeArguments.isEmpty()

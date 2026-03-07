@@ -75,8 +75,14 @@ public class PropertyCapture {
       builder.property(ModifiersProperty.fromModifiable(modifiable));
     }
     if (element instanceof CtTypedElement<?> typedElement) {
-      // TODO: Replace with known type where applicable (may be generic type parameter)
-      builder.property(new TypeProperty(parseUnknownType(typedElement.getType())));
+      UnknownType type = parseUnknownType(typedElement.getType());
+      if (type.isInferred() && element instanceof CtVariable<?> variable) {
+        var inferredType = Options.fromNullable(variable.getDefaultExpression()).map(CtTypedElement::getType);
+        if (inferredType.isSome()) {
+          type = parseUnknownType(inferredType.getOrThrow());
+        }
+      }
+      builder.property(new TypeProperty(type));
     }
     if (element instanceof CtFormalTypeDeclarer formalTypeDeclarer && !formalTypeDeclarer.getFormalCtTypeParameters()
       .isEmpty()) {
@@ -181,11 +187,11 @@ public class PropertyCapture {
       : Options.fromNullable(typeDeclaration.getSuperclass())
         .map(Set::of)
         .getOrCompute(Collections::emptySet);
-    var supertypes = ListsX.map(ctSupertypes, PropertyCapture::parseUnknownType);
+    var supertypes = ListsX.map(ctSupertypes, PropertyCapture::parseType);
     Set<CtTypeReference<?>> ctRealizations = typeDeclaration.isInterface()
       ? Collections.emptySet()
       : typeDeclaration.getSuperInterfaces();
-    var realizations = ListsX.map(ctRealizations, PropertyCapture::parseUnknownType);
+    var realizations = ListsX.map(ctRealizations, PropertyCapture::parseType);
     var properties = commonPropertiesBuilder(typeDeclaration)
       .property(KindProperty.fromType(typeDeclaration))
       .property(visibility.toProperty())
@@ -204,7 +210,11 @@ public class PropertyCapture {
     return bound.fold(b -> TypeParameter.of(name, b), () -> TypeParameter.of(name));
   }
 
-  private Type parseUnknownType(CtTypeReference<?> typeReference) {
+  private Type parseType(CtTypeReference<?> typeReference) {
+    return parseUnknownType(typeReference);
+  }
+
+  private UnknownType parseUnknownType(CtTypeReference<?> typeReference) {
     var typeArguments = ListsX.map(typeReference.getActualTypeArguments(), PropertyCapture::parseTypeArgument);
     return UnknownType.of(typeReference.getQualifiedName(), typeArguments);
   }

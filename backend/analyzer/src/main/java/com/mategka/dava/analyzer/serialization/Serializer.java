@@ -64,7 +64,7 @@ public class Serializer {
         .setInitialMax(PROGRESS_STEPS)
         .setStyle(ProgressBarStyle.ASCII)
         .setTaskName("  Computing JSON")
-        .setConsumer(new ConsoleProgressBarConsumer(System.out, 97))
+        .setConsumer(new ConsoleProgressBarConsumer(System.out, 100))
         .build()
     ) {
       var benchmark = Benchmark.start();

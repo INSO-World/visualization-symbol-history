@@ -22,7 +22,9 @@ import spoon.reflect.declaration.*;
 import spoon.reflect.reference.CtTypeReference;
 import spoon.reflect.reference.CtWildcardReference;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.function.Function;
 
 @UtilityClass
@@ -91,13 +93,14 @@ public class PropertyCapture {
       builder.property(new TypeParametersProperty(typeParameters));
     }
     if (element instanceof CtExecutable<?> executable) {
-      // TODO: FIX: Does not seem to hold equality checks (i.e., equal bodies don't always result in equal hashes)
-      int bodyHash;
+      int bodyHash = 0;
       try {
-        bodyHash = Objects.hashCode(executable.getBody());
+        var body = executable.getBody();
+        if (body != null) {
+          bodyHash = body.toString().hashCode();
+        }
       } catch (Exception _ignored) {
         // If the function body can - for some reason - not be parsed, treat it as empty
-        bodyHash = 0;
       }
       builder.property(new BodyHashProperty(bodyHash));
     }

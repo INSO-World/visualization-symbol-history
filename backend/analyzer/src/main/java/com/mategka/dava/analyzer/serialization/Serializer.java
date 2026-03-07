@@ -26,6 +26,8 @@ import com.mategka.dava.analyzer.struct.symbol.Symbol;
 import com.mategka.dava.analyzer.struct.symbol.SymbolKey;
 import com.mategka.dava.analyzer.util.Benchmark;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -124,6 +126,7 @@ public class Serializer {
       progressBar.setExtraMessage("Writing JSON");
       try (FileOutputStream fos = new FileOutputStream(path)) {
         getObjectMapper().writeValue(fos, rootDto);
+        fos.write('\n');
       }
       progressBar.step();
 
@@ -293,7 +296,9 @@ public class Serializer {
   }
 
   private @NotNull ObjectMapper getObjectMapper() {
-    var mapper = new ObjectMapper();
+    var jsonFactory = new JsonFactory();
+    jsonFactory.disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);
+    var mapper = new ObjectMapper(jsonFactory);
     mapper.registerModule(new JavaTimeModule());
     var multimapSerializerModule = new SimpleModule();
     multimapSerializerModule.addSerializer(Multimap.class, new MultimapSerializer());

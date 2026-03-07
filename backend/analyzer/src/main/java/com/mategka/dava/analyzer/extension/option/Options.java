@@ -42,7 +42,7 @@ public class Options {
     return optional.map(Option::Some).orElseGet(Option::None);
   }
 
-  public <E, T extends Collection<E>> @NotNull Option<T> fromSized(@NotNull T value) {
+  public <T extends Collection<?>> @NotNull Option<T> fromSized(@NotNull T value) {
     return Options.when(!value.isEmpty(), () -> value);
   }
 

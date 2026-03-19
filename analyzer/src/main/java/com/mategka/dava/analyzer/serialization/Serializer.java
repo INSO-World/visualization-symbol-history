@@ -82,7 +82,8 @@ public class Serializer {
         .map(p -> CommitEntry.fromPair(p, authorIndex))
         .collect(CollectorsX.mapToKey(e -> e.commit().hash()));
       var dateBounds = IterablesX.minmax(commits.stream().map(CommitInfo::date).iterator());
-      ZonedDateTime createdAt = dateBounds.map(Pair::left).getOrCompute(ZonedDateTimes::nowWithSecondPrecision);
+      ZonedDateTime indexedAt = ZonedDateTimes.nowWithSecondPrecision();
+      ZonedDateTime createdAt = dateBounds.map(Pair::left).getOrElse(indexedAt);
       ZonedDateTime updatedAt = dateBounds.map(Pair::right).getOrElse(ZonedDateTimes.EPOCH);
       commits.clear();
 
@@ -105,7 +106,7 @@ public class Serializer {
         .name(history.getName())
         .createdAt(createdAt)
         .updatedAt(updatedAt)
-        .indexedAt(ZonedDateTime.now())
+        .indexedAt(indexedAt)
         .commitCount(commitDtos.size())
         .strandCount(strands.size())
         .strandSymbolCount(keysToIds.size())

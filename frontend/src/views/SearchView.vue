@@ -332,6 +332,10 @@ function getDisplayProperties(
   state: StateDto,
   rowIndex: number,
 ): Array<{ key: DisplayPropertyKey; name: string; values: Display[] }> {
+  if (state.cause === ChangeCause.SUCCEEDED_PURE) {
+    // In case of pure successions, there is no difference information
+    return []
+  }
   const symbolId = elements.value[rowIndex].result.id
   const priorState = analyzerStore.getPriorState(state, symbolId)
   const endState = state.cause === ChangeCause.ADDED || state.cause === ChangeCause.DELETED

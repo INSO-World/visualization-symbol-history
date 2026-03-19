@@ -1,6 +1,6 @@
 import type { Chip } from '@/models/Chip'
-import type { SymbolDto } from "@/models/analyzer"
-import type { Range } from "@/models/common"
+import type { SymbolDto } from '@/models/analyzer'
+import type { Range } from '@/models/common'
 
 export type NameEntry = {
   from: {

@@ -1,4 +1,4 @@
-import type { IFuseOptions } from "fuse.js"
+import type { IFuseOptions } from 'fuse.js'
 
 export function fuseOptions<T>(options: IFuseOptions<T>): IFuseOptions<T> {
   return {

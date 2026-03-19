@@ -1,4 +1,4 @@
 export interface ContributionDto {
-  author: number;
-  percent: number;
+  author: number
+  percent: number
 }

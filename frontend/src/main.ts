@@ -5,7 +5,7 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
-import { useAnalyzerStore } from "@/stores/analyzer"
+import { useAnalyzerStore } from '@/stores/analyzer'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -13,7 +13,8 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-useAnalyzerStore(pinia).init()
+useAnalyzerStore(pinia)
+  .init()
   .finally(() => {
     app.mount('#app')
   })

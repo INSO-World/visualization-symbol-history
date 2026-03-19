@@ -7,5 +7,5 @@ export enum EventCategory {
 }
 
 export function maxCategory(...categories: EventCategory[]): EventCategory {
-  return Math.max(...categories);
+  return Math.max(...categories)
 }

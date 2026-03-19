@@ -47,23 +47,29 @@ export function resultToElement(result: SearchResult, analyzerStore: AnalyzerSto
   headerText += ` in ${parentText}`
   const createdAt = new Date(result.symbol.keys[0].from)
   const deletedAt = result.symbol.deletedAt != null ? new Date(result.symbol.deletedAt) : undefined
-  const chips = result.symbol.contributions.map((contribution): Chip => ({
-    username: analyzerStore.getAuthorGitHubUsername(contribution.author),
-    percentage: contribution.percent,
-  }))
+  const chips = result.symbol.contributions.map(
+    (contribution): Chip => ({
+      username: analyzerStore.getAuthorGitHubUsername(contribution.author),
+      percentage: contribution.percent,
+    }),
+  )
 
   // TODO: Remove mock data insertion
   if (result.key.name === 'idCounter') {
-    chips.splice(0, 1, ...[
-      {
-        username: analyzerStore.mockUsernamePrimary,
-        percentage: 50,
-      },
-      {
-        username: analyzerStore.mockUsernameSecondary,
-        percentage: 50,
-      },
-    ])
+    chips.splice(
+      0,
+      1,
+      ...[
+        {
+          username: analyzerStore.mockUsernamePrimary,
+          percentage: 50,
+        },
+        {
+          username: analyzerStore.mockUsernameSecondary,
+          percentage: 50,
+        },
+      ],
+    )
   }
 
   return {

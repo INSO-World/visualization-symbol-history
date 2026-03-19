@@ -7,13 +7,13 @@ const router = createRouter({
     {
       path: '/search',
       name: 'search',
-      component: SearchView
+      component: SearchView,
     },
     {
       path: '/:pathMatch(.*)*',
-      redirect: '/search'
-    }
-  ]
+      redirect: '/search',
+    },
+  ],
 })
 
 export default router

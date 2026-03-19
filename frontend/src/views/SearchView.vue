@@ -242,7 +242,8 @@ function updateView() {
       const events = dateEvents.filter((ev) => ev.index === e)
       const element = elements.value[e]
       const createdAtTimestamp = normalizeDate(element.createdAt).valueOf()
-      const deletedAtTimestamp = (element.deletedAt != null) ? normalizeDate(element.deletedAt).valueOf() : Infinity
+      const deletedAtTimestamp =
+        element.deletedAt != null ? normalizeDate(element.deletedAt).valueOf() : Infinity
       if (events.length > 0) {
         events.sort((a, b) => +a.date - +b.date)
         const list: CellEvent[] = events.map((ev) => {

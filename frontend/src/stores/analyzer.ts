@@ -229,10 +229,11 @@ export const useAnalyzerStore = defineStore('analyzer', {
       const originCommit = state.origins[0].sourceCommit
       const yearMonths = Object.keys(symbol.states)
       yearMonths.sort()
-      return yearMonths
-        .flatMap((ym) => symbol.states[ym] as StateDto[])
-        .find((s) => s.commit === originCommit)
-        ?? null;
+      return (
+        yearMonths
+          .flatMap((ym) => symbol.states[ym] as StateDto[])
+          .find((s) => s.commit === originCommit) ?? null
+      )
     },
   },
   getters: {

@@ -1,4 +1,4 @@
-import type { StateDto } from "@/models/analyzer"
+import type { StateDto } from '@/models/analyzer'
 
 export type SymbolEvent = {
   state: StateDto

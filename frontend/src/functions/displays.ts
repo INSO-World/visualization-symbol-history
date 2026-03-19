@@ -37,7 +37,7 @@ function expression(expression: Expression): Display {
     }
   }
   return {
-    text: "(Longer expression)",
+    text: '(Longer expression)',
     abbr: short,
   }
 }
@@ -60,7 +60,7 @@ export function asDisplayArray(display: string | string[] | Display | Display[])
     return [display]
   }
   if (typeof display[0] === 'string') {
-    return (display as string[]).map(text => ({ text }))
+    return (display as string[]).map((text) => ({ text }))
   }
   return display as Display[]
 }
@@ -113,25 +113,31 @@ export const PROPERTY_DISPLAYS: DisplayMapping<string | string[] | Display | Dis
     if (path == null) {
       return '(Unknown)'
     }
-    const parts = path.split('#').slice(0, -1).flatMap(seg => {
-      const name = seg.indexOf('name=')
-      const sig = seg.indexOf('signature=')
-      if (name === -1 && sig === -1) {
-        return [] as string[]
-      }
-      if (name !== -1) {
-        const end = seg.indexOf(']')
-        return ['.' + seg.slice(name + 5, end)]
-      }
-      const paren = seg.indexOf('(')
-      return ['#' + seg.slice(sig + 10, paren)]
-    })
+    const parts = path
+      .split('#')
+      .slice(0, -1)
+      .flatMap((seg) => {
+        const name = seg.indexOf('name=')
+        const sig = seg.indexOf('signature=')
+        if (name === -1 && sig === -1) {
+          return [] as string[]
+        }
+        if (name !== -1) {
+          const end = seg.indexOf(']')
+          return ['.' + seg.slice(name + 5, end)]
+        }
+        const paren = seg.indexOf('(')
+        return ['#' + seg.slice(sig + 10, paren)]
+      })
     const fullPath = parts.join('').slice(1)
     if (parts.length <= 4) {
       return fullPath
     }
     return {
-      text: parts.slice(parts.length - 4, parts.length).join('').slice(1),
+      text: parts
+        .slice(parts.length - 4, parts.length)
+        .join('')
+        .slice(1),
       abbr: fullPath,
     }
   },
@@ -167,7 +173,7 @@ export const PROPERTY_DISPLAYS: DisplayMapping<string | string[] | Display | Dis
       return '(No longer a type or type member)'
     }
     if (visibility === Visibility.PACKAGE_PRIVATE) {
-      return "default (package private)"
+      return 'default (package private)'
     }
     return visibility.toLowerCase()
   },

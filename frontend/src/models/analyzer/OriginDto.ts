@@ -1,4 +1,4 @@
 export interface OriginDto {
-  parentIndex: number;
-  sourceCommit: number;
+  parentIndex: number
+  sourceCommit: number
 }

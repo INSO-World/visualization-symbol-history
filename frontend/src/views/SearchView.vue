@@ -367,7 +367,11 @@ function getDisplayProperties(
               return null
             }
 
-            newDisplayArray[0].text = `${oldText} → ${newText}`
+            if (key === 'body') {
+              newDisplayArray[0].text = newText
+            } else {
+              newDisplayArray[0].text = `${oldText} → ${newText}`
+            }
             if (newAbbr != null && oldAbbr != null) {
               newDisplayArray[0].abbr = `${oldAbbr}\n→\n${newAbbr}`
             }

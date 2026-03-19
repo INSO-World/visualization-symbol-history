@@ -76,7 +76,7 @@ export const PROPERTY_DISPLAYS: DisplayMapping<string | string[] | Display | Dis
     }))
   },
   body: (_hash) => {
-    return _hash == null ? '(Removed)' : 'Structure changed'
+    return _hash == null ? '(Removed)' : 'Body changed'
   },
   enumArguments(args) {
     return args == null ? '(Removed)' : args.map(expression)

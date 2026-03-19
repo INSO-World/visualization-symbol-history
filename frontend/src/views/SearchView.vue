@@ -348,17 +348,6 @@ function getDisplayProperties(
             const { text: oldText, abbr: oldAbbr } = oldDisplayArray[0]
             const { text: newText, abbr: newAbbr } = newDisplayArray[0]
 
-            // TODO: Remove hotfix for erroneous path change detection
-            if (
-              state.flags != null &&
-              !state.flags.includes(UpdateFlag.MOVED) &&
-              key === 'path' &&
-              oldText === newText &&
-              oldAbbr === newAbbr
-            ) {
-              return null
-            }
-
             if (key === 'body') {
               newDisplayArray[0].text = newText
             } else {

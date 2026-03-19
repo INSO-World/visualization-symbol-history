@@ -103,7 +103,7 @@ public class Repository implements AutoCloseable {
   public Set<String> readRelevantPaths(@NotNull Commit commit) {
     Set<String> result = new HashSet<>();
     try (var walk = newTreeWalk(commit)) {
-      // TODO: Fix for subtrees/submodules, which will make next() throw
+      // FUTURE: Add support for subtrees/submodules, which will currently make next() throw
       while (walk.next()) {
         var path = walk.getPathString();
         if (RelevantDiffs.isFileRelevant(path)) {

@@ -63,7 +63,7 @@ public class RelevantDiffs {
     var changeType = diff.getChangeType();
     return switch (changeType) {
       case ADD, MODIFY, DELETE -> FileChangeType.fromJGitChangeType(changeType);
-      // TODO: Treat copied files as copies instead of additions
+      // FUTURE: Treat copied files as copies instead of additions
       case COPY -> FileChangeType.ADDED;
       case RENAME -> {
         var oldPathIsRelevant = isFileRelevant(diff.getOldPath());

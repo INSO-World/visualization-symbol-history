@@ -40,7 +40,7 @@ public class SpoonPaths {
   }
 
   public @NotNull String getPath(@NotNull CtElement element, @NotNull IdentityHashMap<CtElement, String> memo) {
-    // TODO: Put into MemoContext or similar class
+    // FUTURE: Put memo into separate class
     if (memo.containsKey(element)) {
       return memo.get(element);
     }

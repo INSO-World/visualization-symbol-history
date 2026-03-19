@@ -57,7 +57,7 @@ public final class Launcher {
       }
       return units.getFirst();
     } catch (Exception e) {
-      // TODO: Incrementally upgrade parser until file compiles; only throw at LATEST level
+      // FUTURE: Incrementally upgrade parser until file compiles; only throw at LATEST level
       throw new CompilationException("Could not compile file: " + virtualFile.getName(), e);
     }
   }

@@ -24,7 +24,7 @@ public class PackageMapping {
   public void mapPackageSymbols(Array<SymbolWorkspace> parentWorkspaces,
                                 Array<ManyToManyMap<@NotNull Symbol, @NotNull Symbol, @Nullable Void>> symbolMaps,
                                 SymbolWorkspace targetWorkspace) {
-    // TODO: For now, packages are mapped 1:1 and moves/renames are not detected
+    // FUTURE: Add support for package moves/renames
     for (var parentWorkspaceTuple : parentWorkspaces.withIndex()) {
       var parentIndex = parentWorkspaceTuple.left();
       var symbolMap = symbolMaps.get(parentIndex);

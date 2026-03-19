@@ -184,7 +184,7 @@ public class TargetWorkspace {
       spoonUnit = Launcher.parse(virtualFile);
     } catch (CompilationException e) {
       e.printStackTrace();
-      // TODO: Figure out better last resort error handling than taking first valid parent's state
+      // FUTURE: Use a better last resort error handling approach than taking first valid parent's state
       var nonAdditionChangeSource = AnStream.from(sourceMappings)
         // Mapping cannot be static, otherwise the parent would be uncompilable, too
         .filter(m -> !m.isAddition() && !m.isStatic())

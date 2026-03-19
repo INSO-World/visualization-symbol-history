@@ -11,7 +11,6 @@ import com.mategka.dava.analyzer.extension.stream.AnStream;
 import com.mategka.dava.analyzer.extension.struct.Pair;
 import com.mategka.dava.analyzer.extension.struct.TreeOrder;
 import com.mategka.dava.analyzer.extension.traitlike.Using;
-import com.mategka.dava.analyzer.git.Hash;
 import com.mategka.dava.analyzer.struct.property.*;
 import com.mategka.dava.analyzer.struct.property.index.PropertyMap;
 import com.mategka.dava.analyzer.struct.property.value.Kind;
@@ -69,14 +68,12 @@ public class MappingProcessing {
           symbolId = consistentSymbolId;
           reusedIds.add(consistentSymbolId);
         }
+        // If the ID has already been reused, the symbol has diverged and needs a new ID
       }
       if (symbolId == -1) {
         symbolId = context.symbolIdCounter().getAndIncrement();
       }
-      Hash symbolCommit = parentContexts.size() == 1 && !context.hasStrandChange()
-        ? parentContexts.getFirst().commit()
-        : context.commit();
-      var symbolContext = new Context(new SymbolKey(symbolId, context.strandId()), symbolCommit);
+      var symbolContext = new Context(new SymbolKey(symbolId, context.strandId()), context.commit());
       targetSymbol.setContext(symbolContext);
 
       var collectingJoinPredecessors = context.hasStrandChange() && symbolIdIsConsistent;

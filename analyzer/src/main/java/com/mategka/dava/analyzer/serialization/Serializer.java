@@ -437,7 +437,7 @@ public class Serializer {
         properties.applyUpdate(update.getProperties());
       }
       var stateProperties = properties.clone();
-      var originDto = OriginDto.of(
+      var origins = OriginDto.listOf(
         update.getParentIndex(), wipResult.commitIndex().get(update.getSourceContext().commit()).index());
       var cause = hasSuccession ? ChangeCause.SUCCEEDED_CHANGED : ChangeCause.CHANGED;
       var flags = update.getFlags();
@@ -447,7 +447,7 @@ public class Serializer {
       var stateDto = StateDto.builder()
         .cause(cause)
         .commit(diffContext.commitId())
-        .origins(List.of(originDto))
+        .origins(origins)
         .symbolId(key.symbolId())
         .properties(stateProperties)
         .updated(updated)
@@ -473,7 +473,7 @@ public class Serializer {
       var stateDto = StateDto.builder()
         .cause(cause)
         .commit(diffContext.commitId())
-        .origins(List.of(OriginDto.of(parentIndex, wipResult.commitIndex().get(sourceCommitHash).index())))
+        .origins(OriginDto.listOf(parentIndex, wipResult.commitIndex().get(sourceCommitHash).index()))
         .symbolId(deletion.getKey().symbolId())
         .properties(stateProperties)
         .events(events)

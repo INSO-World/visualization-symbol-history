@@ -17,6 +17,7 @@
     "@algorithm.ts/lcs": "^4.0.5",
     "debounce": "^2.2.0",
     "fuse.js": "^7.1.0",
+    "github-username": "^9.0.0",
     "pinia": "^2.2.6",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",

@@ -14,7 +14,6 @@ import {
   maxCategory,
   type PropertyKey,
   type StateDto,
-  UpdateFlag,
 } from '@/models/analyzer'
 import { useAnalyzerStore } from '@/stores/analyzer'
 import HighlightedText from '@/components/HighlightedText.vue'
@@ -76,7 +75,7 @@ const debouncedSearch = debounce(async () => {
   }
   if (searchTerm.value === '') {
     searchResults.value = []
-    updateView()
+    await updateView()
     return
   }
   if (searchTerm.value.length < 3) {
@@ -84,11 +83,13 @@ const debouncedSearch = debounce(async () => {
   }
   startElementIndex.value = 0
   lastSearchTerm = searchTerm.value
-  searchResults.value = analyzerStore
-    .search(searchTerm.value)
-    .filter((s) => s.score >= 0.8)
-    .map((s) => resultToElement(s, analyzerStore))
-  updateView()
+  searchResults.value = await Promise.all(
+    analyzerStore
+      .search(searchTerm.value)
+      .filter((s) => s.score >= 0.8)
+      .map((s) => resultToElement(s, analyzerStore)),
+  )
+  await updateView()
 }, 500)
 
 function search() {
@@ -157,11 +158,7 @@ function elementTimes(date: Date) {
   }
 }
 
-function updateView() {
-  console.group('Update')
-  console.log(startDate.value)
-  console.log(elements.value)
-  console.groupEnd()
+async function updateView() {
   const symbolEvents: SymbolEvent[][] = []
   for (const element of elements.value) {
     const lastDate: Date | null =
@@ -172,38 +169,28 @@ function updateView() {
       if (ymEvents == null || ymEvents.length === 0) {
         continue
       }
-      events.push(
-        ...ymEvents.flatMap((state) => {
+      const events$: Promise<Array<SymbolEvent | null>> = Promise.all(
+        ymEvents.map(async (state): Promise<SymbolEvent | null> => {
           const { updated } = state
           if (updated != null && updated.length === 1 && updated[0] === 'spoonPath') {
-            return []
+            return null
           }
           const date = normalizeDate(analyzerStore.commitDate(state.commit))
-          const authors = element.result.contributions.map((contribution) =>
-            analyzerStore.getAuthorGitHubUsername(contribution.author),
+          const authors = await Promise.all(
+            element.result.contributions.map((contribution) =>
+              analyzerStore.getAuthorGitHubUsername(contribution.author),
+            ),
           )
 
-          // TODO: Remove mock data insertion
-          if (
-            state.updated != null &&
-            state.updated.includes('path') &&
-            date.getMonth() === 4 &&
-            date.getDate() === 15 &&
-            state.properties.simpleName === 'idCounter'
-          ) {
-            authors.splice(0, 1, analyzerStore.mockUsernameSecondary)
+          return {
+            state,
+            date,
+            authors,
+            last: lastDate != null && +lastDate === +date,
           }
-
-          return [
-            {
-              state,
-              date,
-              authors,
-              last: lastDate != null && +lastDate === +date,
-            },
-          ]
         }),
       )
+      events.push(...(await events$).filter((e) => e != null))
     }
     symbolEvents.push(events)
   }

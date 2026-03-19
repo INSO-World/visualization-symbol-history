@@ -406,7 +406,7 @@ public class Serializer {
       wipResult.lastSeenProperties().put(key, addition.getProperties());
       var stateProperties = addition.getProperties().clone();
       var cause = ChangeCause.ADDED;
-      var events = EventFlags.forState(cause, null, stateProperties.keySet());
+      var events = EventFlags.forState(cause, null, null);
       var mainEvent = EventFlags.getMainEvent(events);
       var stateDto = StateDto.builder()
         .cause(cause)

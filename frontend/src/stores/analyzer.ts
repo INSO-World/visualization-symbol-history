@@ -4,6 +4,7 @@ import {
   ChangeCause,
   type CommitDto,
   type KeyDto,
+  type OriginDto,
   type RootDto,
   type StateDto,
   type SymbolDto,
@@ -225,23 +226,13 @@ export const useAnalyzerStore = defineStore('analyzer', {
         return null
       }
       const symbol = this.root.symbols[symbolId]
+      const originCommit = state.origins[0].sourceCommit
       const yearMonths = Object.keys(symbol.states)
       yearMonths.sort()
-      const candidates = new Map(
-        yearMonths
-          .flatMap((ym) => symbol.states[ym] as StateDto[])
-          .filter((s) => s.commit < state.commit)
-          .map((s) => [s.commit, s]),
-      )
-      let commit = this.getCommit(state.commit)
-      while (commit.parents.length > 0) {
-        const parentIndex = commit.parents[0]
-        if (candidates.has(parentIndex)) {
-          return candidates.get(parentIndex)!
-        }
-        commit = this.getCommit(parentIndex)
-      }
-      return null
+      return yearMonths
+        .flatMap((ym) => symbol.states[ym] as StateDto[])
+        .find((s) => s.commit === originCommit)
+        ?? null;
     },
   },
   getters: {

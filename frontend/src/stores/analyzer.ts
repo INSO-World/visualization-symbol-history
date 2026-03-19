@@ -69,7 +69,6 @@ export const useAnalyzerStore = defineStore('analyzer', {
             rec.keys.push(key)
           }
         }
-        console.log(rawKeysToIds)
         const fuseObject = [...rawKeysToIds.entries()].flatMap((e) =>
           [...e[1].values()].map(
             (r) =>
@@ -79,7 +78,6 @@ export const useAnalyzerStore = defineStore('analyzer', {
               }) satisfies FuseRecord,
           ),
         )
-        console.log(fuseObject)
         this.globalFuse = new Fuse(
           fuseObject,
           fuseOptions({

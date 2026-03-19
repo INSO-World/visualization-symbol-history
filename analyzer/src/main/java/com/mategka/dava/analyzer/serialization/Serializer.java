@@ -331,12 +331,12 @@ public class Serializer {
           totalContributions++;
         }
       }
-      final int finalTotalContributions = totalContributions;
-      assert finalTotalContributions > 0;
-      var contributions = AnStream.from(authorContributions)
+      var contributions = PercentageSums.getPercentages(authorContributions, totalContributions)
+        .entrySet().stream()
         .map(e -> ContributionDto.builder()
           .author(e.getKey())
-          .percent(Math.floorDiv(e.getValue() * 100, finalTotalContributions)).build()
+          .percent(e.getValue())
+          .build()
         )
         .sorted((a, b) -> b.getPercent() - a.getPercent())
         .toList();

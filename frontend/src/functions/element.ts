@@ -8,10 +8,7 @@ import type { Chip } from '@/models/Chip'
 const TYPE_CHARACTER_LIMIT = 20
 const PATH_CHARACTER_LIMIT = 32
 
-export async function resultToElement(
-  result: SearchResult,
-  analyzerStore: AnalyzerStore,
-): Promise<SymbolElement> {
+export function resultToElement(result: SearchResult, analyzerStore: AnalyzerStore): SymbolElement {
   const kindInfo = KIND_MAPPING[result.key.kind]
   let headerText = kindInfo.text
   let iconName = kindInfo.icon
@@ -50,16 +47,14 @@ export async function resultToElement(
   headerText += ` in ${parentText}`
   const createdAt = new Date(result.symbol.keys[0].from)
   const deletedAt = result.symbol.deletedAt != null ? new Date(result.symbol.deletedAt) : undefined
-  const chips$ = Promise.all(
-    result.symbol.contributions.map(
-      async (contribution): Promise<Chip> => ({
-        username: await analyzerStore.getAuthorGitHubUsername(contribution.author),
-        percentage: contribution.percent,
-      }),
-    ),
+  const chips = result.symbol.contributions.map(
+    (contribution): Chip => ({
+      email: analyzerStore.getAuthor(contribution.author).email,
+      percentage: contribution.percent,
+    }),
   )
 
-  return chips$.then((chips) => ({
+  return {
     result: result.symbol,
     header: headerText,
     kind: {
@@ -75,5 +70,5 @@ export async function resultToElement(
     score: result.score,
     createdAt,
     deletedAt,
-  }))
+  }
 }

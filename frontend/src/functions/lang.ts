@@ -11,5 +11,5 @@ export function union<T>(sets: Array<Set<T>>): Set<T> {
 }
 
 export function setOf<T>(...arrays: Array<Array<T>>): T[] {
-  return [...new Set<T>(arrays.flatMap((a) => a))]
+  return [...new Set<T>(arrays.flat(1))]
 }

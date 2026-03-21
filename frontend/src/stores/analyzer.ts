@@ -35,8 +35,6 @@ export type SearchResult = {
 
 export type AnalyzerStore = ReturnType<typeof useAnalyzerStore>
 
-const MOCK_GITHUB_USERNAME_PRIMARY: string = 'octocat'
-
 export const useAnalyzerStore = defineStore('analyzer', {
   state: () => ({
     root: null as unknown as RootDto,
@@ -96,13 +94,6 @@ export const useAnalyzerStore = defineStore('analyzer', {
     },
     commitDate(index: number): Date {
       return new Date(this.root.commits[index].date)
-    },
-    async getAuthorGitHubUsername(authorId: number): Promise<string> {
-      // TODO: Remove mock username
-      return (
-        (await useGitHubStore().getUsername(this.getAuthor(authorId).email)) ||
-        MOCK_GITHUB_USERNAME_PRIMARY
-      )
     },
     getAuthor(authorId: number): AuthorDto {
       return this.root.authors[authorId]

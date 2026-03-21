@@ -36,8 +36,10 @@ import {
 } from '@/functions/displays'
 import ConditionalAbbr from '@/components/ConditionalAbbr.vue'
 import { lcs_myers_linear_space } from '@algorithm.ts/lcs'
+import { useGitHubStore } from '@/stores/github'
 
 const analyzerStore = useAnalyzerStore()
+const githubStore = useGitHubStore()
 
 const searchTerm = ref<string>('')
 
@@ -83,12 +85,10 @@ const debouncedSearch = debounce(async () => {
   }
   startElementIndex.value = 0
   lastSearchTerm = searchTerm.value
-  searchResults.value = await Promise.all(
-    analyzerStore
-      .search(searchTerm.value)
-      .filter((s) => s.score >= 0.8)
-      .map((s) => resultToElement(s, analyzerStore)),
-  )
+  searchResults.value = analyzerStore
+    .search(searchTerm.value)
+    .filter((s) => s.score >= 0.8)
+    .map((s) => resultToElement(s, analyzerStore))
   await updateView()
 }, 500)
 
@@ -159,6 +159,19 @@ function elementTimes(date: Date) {
 }
 
 async function updateView() {
+  // Populate usernames
+  const emails = setOf(elements.value.flatMap((element) => element.chips.map((c) => c.email)))
+  const usernameEntries$ = emails.map(
+    async (email) => [email, await githubStore.getUsername(email)] as const,
+  )
+  const usernameMapping = new Map(await Promise.all(usernameEntries$))
+  for (const element of elements.value) {
+    element.chips.forEach((chip) => {
+      chip.username = usernameMapping.get(chip.email)
+    })
+  }
+
+  // Collect events from rough date display range (YYYY-MM)
   const symbolEvents: SymbolEvent[][] = []
   for (const element of elements.value) {
     const lastDate: Date | null =
@@ -169,32 +182,32 @@ async function updateView() {
       if (ymEvents == null || ymEvents.length === 0) {
         continue
       }
-      const events$: Promise<Array<SymbolEvent | null>> = Promise.all(
-        ymEvents.map(async (state): Promise<SymbolEvent | null> => {
+      events.push(
+        ...ymEvents.flatMap((state) => {
           const { updated } = state
           if (updated != null && updated.length === 1 && updated[0] === 'spoonPath') {
-            return null
+            return []
           }
           const date = normalizeDate(analyzerStore.commitDate(state.commit))
-          const authors = await Promise.all(
-            element.result.contributions.map((contribution) =>
-              analyzerStore.getAuthorGitHubUsername(contribution.author),
-            ),
-          )
+          const authors = element.result.contributions
+            .map((contribution) => analyzerStore.getAuthor(contribution.author).email)
+            .map((email) => usernameMapping.get(email)!)
 
-          return {
-            state,
-            date,
-            authors,
-            last: lastDate != null && +lastDate === +date,
-          }
+          return [
+            {
+              state,
+              date,
+              authors,
+              last: lastDate != null && +lastDate === +date,
+            },
+          ]
         }),
       )
-      events.push(...(await events$).filter((e) => e != null))
     }
     symbolEvents.push(events)
   }
 
+  // Check whether each symbol exists at the start date
   const started: boolean[] = symbolEvents.map((_a, i) => {
     const element = elements.value[i]
     if (element.deletedAt != null && +element.deletedAt < +startDate.value) {
@@ -203,6 +216,7 @@ async function updateView() {
     return +element.createdAt < +startDate.value
   })
 
+  // Collect events, discarding those that fall outside the display date range
   const eventsToProcess = [
     ...Map.groupBy(
       symbolEvents.flatMap((a, i) => a.map((e) => ({ index: i, ...e }))),
@@ -217,6 +231,7 @@ async function updateView() {
   while (eventsToProcess.length > 0 && +eventsToProcess.at(-1)!.date > +displayedMaxDate) {
     eventsToProcess.pop()
   }
+
   const newCells: Cell[][] = []
   for (let i = 0; i < dateObjects.value.length; i++) {
     const column: Cell[] = []
@@ -631,7 +646,11 @@ function copyToClipboard(text: string): void {
                   'chip-very-low': chip.percentage < 20,
                 }"
               >
-                <img :src="`https://github.com/${chip.username}.png`" class="mr-1" />
+                <img
+                  v-if="chip.username != null"
+                  :src="`https://github.com/${chip.username}.png`"
+                  class="mr-1"
+                />
                 <span class="has-text-weight-semibold">{{ chip.percentage }}%</span>
               </div>
               <button

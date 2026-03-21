@@ -21,7 +21,7 @@ export const useGitHubStore = defineStore('github', {
         this.usernames = new Map<string, string | null>(array)
       }
     },
-    async getUsername(email: string): Promise<string | null> {
+    async getUsername(email: string): Promise<string> {
       if (this.usernames.has(email)) {
         return this.usernames.get(email)!
       }
@@ -30,15 +30,16 @@ export const useGitHubStore = defineStore('github', {
           if (username == null) {
             throw new Error('No username found')
           }
-          this.setMapping(email, username)
+          this._setMapping(email, username)
           return username
         })
         .catch(() => {
-          this.setMapping(email, null)
-          return null
+          this._setMapping(email, null)
+          // FUTURE: Add error handling for failing username retrieval
+          return MOCK_GITHUB_USERNAME_PRIMARY
         })
     },
-    setMapping(email: string, username: string | null): void {
+    _setMapping(email: string, username: string | null): void {
       const entries = [...this.usernames.entries()]
       localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
       this.usernames.set(email, username)

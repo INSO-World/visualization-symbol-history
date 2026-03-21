@@ -1,4 +1,5 @@
 export type Chip = {
-  username: string
+  email: string
+  username?: string
   percentage: number
 }

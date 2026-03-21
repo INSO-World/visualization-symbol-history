@@ -1,39 +1,21 @@
 services:
-  database:
-    build: "./database"
-    environment:
-      NEO4J_AUTH: "neo4j/davadava"
-    container_name: "dava-database"
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    networks:
-      - persistence
+  analyzer:
+    build: "./analyzer"
     volumes:
-      - "neo4j:/opt/data"
-  backend:
-    build: "./backend"
-    container_name: "dava-backend"
-    ports:
-      - "8080:8080"
-    networks:
-      - persistence
-      - application
-    depends_on:
-      - database
+      - "analyzer-out:/out"
+      - type: bind
+        source: ${VIS_REPOSITORY_PATH}
+        target: /repo/${VIS_REPOSITORY_NAME}
+        read_only: true
   frontend:
     build: "./frontend"
-    container_name: "dava-frontend"
     ports:
-      - "4040:5173"
-    networks:
-      - application
+      - "${VIS_PORT}:5173"
+    volumes:
+      - "analyzer-out:/out:ro"
     depends_on:
-      - backend
-
-networks:
-  persistence:
-  application:
+      analyzer:
+        condition: service_completed_successfully
 
 volumes:
-  neo4j:
+  analyzer-out:

@@ -4,6 +4,10 @@ This repository contains the source code for the software artifact associated wi
 
 ![Screenshot of the visualization](images/screenshot.png)
 
+## Citing this software
+
+This repository contains a [CITATION](CITATION.cff) file. You can use GitHub's ["Cite this repository" feature](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files) to create a corresponding BibTeX entry.
+
 ## Local deployment
 
 <details>

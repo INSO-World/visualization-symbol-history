@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+title: visualization-symbol-history
+message: Please cite this software using this metadata.
+type: software
+authors:
+  - given-names: André
+    family-names: Mategka
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.19183558
+    description: The DOI of version 1.1.0 of the software.
+repository-code: 'https://github.com/INSO-World/visualization-symbol-history'
+abstract: >-
+  This repository contains the source code for the software
+  artifact associated with André Mategka's 2026 diploma
+  thesis on "The Visualization of Symbol-Level Code Changes
+  Across Version Control History".
+license: MIT
+version: 1.1.0
+date-released: '2026-03-23'

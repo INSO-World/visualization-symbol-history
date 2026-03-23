@@ -1,5 +1,10 @@
 # Symbol History Visualization
 
+![Version 1.1.0](https://img.shields.io/badge/semver-1.1.0-blue)
+[![DOI 10.5281/zenodo.19183558](https://img.shields.io/badge/doi-10.5281/zenodo.19183558-blue)](https://zenodo.org/records/19183558)
+[![MIT license](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
+[![No Maintenance Intended](https://img.shields.io/badge/no%20maintenance%20intended-✕-red)](http://unmaintained.tech/)
+
 This repository contains the source code for the software artifact associated with André Mategka's 2026 diploma thesis on "The Visualization of Symbol-Level Code Changes Across Version Control History".
 
 ![Screenshot of the visualization](images/screenshot.png)
